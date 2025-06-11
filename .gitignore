@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+coverage
+logs
+temp
+
+
+dist 
+.DS_Store
+.tsbuildinfo

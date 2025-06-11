@@ -1,0 +1,24 @@
+export const SPAWN_CONSTANTS = {
+  // Spawn timing
+  INITIAL_SPAWN_INTERVAL: 1000, // milliseconds
+  MIN_SPAWN_INTERVAL: 500, // milliseconds
+  SPAWN_INTERVAL_DECREASE: 100, // milliseconds
+
+  // Spawn distances
+  MIN_SPAWN_DISTANCE: 300,
+  MAX_SPAWN_DISTANCE: 500,
+
+  // Enemy limits
+  MAX_ENEMIES: 500,
+  MIN_ENEMY_SPEED: 0.2,
+  MAX_ENEMY_SPEED: 2,
+  ENEMY_SPEED_INCREASE: 0.01,
+
+  // Wave settings
+  INITIAL_WAVE_DURATION: 3000, // 3 seconds
+  MIN_WAVE_DURATION: 3000, // 3 seconds
+  WAVE_DURATION_DECREASE: 1000, // milliseconds
+  INITIAL_ENEMIES_PER_WAVE: 10,
+  ENEMIES_PER_WAVE_INCREASE: 5,
+  WAVE_ENEMY_MULTIPLIER: 1.5,
+} as const;
