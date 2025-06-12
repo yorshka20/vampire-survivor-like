@@ -30,6 +30,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
 
     const [vx, vy, vw, vh] = viewport;
     const [cx, cy] = cameraOffset;
+    const dpr = window.devicePixelRatio || 1;
 
     // Calculate the visible area of the background
     const visibleX = Math.floor(vx - cx);
@@ -43,8 +44,8 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     const aspectRatio = tileWidth / tileHeight;
 
     // Calculate how many tiles we need to cover the viewport
-    const tilesX = Math.ceil(visibleWidth / tileWidth) + 1;
-    const tilesY = Math.ceil(visibleHeight / tileHeight) + 1;
+    const tilesX = Math.ceil(visibleWidth / tileWidth) + 2; // Add extra tiles to prevent gaps
+    const tilesY = Math.ceil(visibleHeight / tileHeight) + 2;
 
     // Calculate the starting position for the first tile
     const startX = Math.floor(visibleX / tileWidth) * tileWidth;
@@ -60,15 +61,15 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
         const drawX = tileX - visibleX;
         const drawY = tileY - visibleY;
 
-        // Draw the tile
+        // Draw the tile with pixel-perfect positioning
         this.ctx.drawImage(
           this.bgImage,
           0,
           0,
           tileWidth,
           tileHeight,
-          drawX,
-          drawY,
+          Math.round(drawX * dpr) / dpr, // Round to prevent sub-pixel rendering
+          Math.round(drawY * dpr) / dpr,
           tileWidth,
           tileHeight,
         );

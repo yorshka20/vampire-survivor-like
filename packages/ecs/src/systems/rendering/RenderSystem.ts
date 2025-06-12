@@ -31,15 +31,23 @@ export class RenderSystem extends System {
     // Create main canvas for game rendering
     this.mainCanvas = document.createElement('canvas');
     this.mainCanvas.id = 'main-game-canvas';
-    this.mainCanvas.width = window.innerWidth;
-    this.mainCanvas.height = window.innerHeight;
+
+    // Set canvas size based on device pixel ratio
+    const dpr = window.devicePixelRatio || 1;
+    this.mainCanvas.width = window.innerWidth * dpr;
+    this.mainCanvas.height = window.innerHeight * dpr;
+    this.mainCanvas.style.width = `${window.innerWidth}px`;
+    this.mainCanvas.style.height = `${window.innerHeight}px`;
+
     this.mainCanvas.style.position = 'absolute';
     this.mainCanvas.style.top = '0';
     this.mainCanvas.style.left = '0';
-    this.mainCanvas.style.width = '100%';
-    this.mainCanvas.style.height = '100%';
     this.mainCanvas.style.zIndex = '0';
     this.mainCtx = this.mainCanvas.getContext('2d')!;
+
+    // Scale context to match device pixel ratio
+    this.mainCtx.scale(dpr, dpr);
+
     this.rootElement.appendChild(this.mainCanvas);
 
     this.layers = [
@@ -62,8 +70,13 @@ export class RenderSystem extends System {
 
     // handle window resize
     window.addEventListener('resize', () => {
-      this.mainCanvas.width = window.innerWidth;
-      this.mainCanvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      this.mainCanvas.width = window.innerWidth * dpr;
+      this.mainCanvas.height = window.innerHeight * dpr;
+      this.mainCanvas.style.width = `${window.innerWidth}px`;
+      this.mainCanvas.style.height = `${window.innerHeight}px`;
+      this.mainCtx.scale(dpr, dpr);
+
       this.layers.forEach((layer) => {
         layer.onResize();
       });
