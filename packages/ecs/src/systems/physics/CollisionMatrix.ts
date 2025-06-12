@@ -1,10 +1,12 @@
+import { EntityType } from '@ecs/core/ecs/types';
+
 // Entity types that can participate in collisions
-export enum EntityType {
-  PLAYER = 'player',
-  ENEMY = 'enemy',
-  PROJECTILE = 'projectile',
-  PICKUP = 'pickup',
-  AREA_EFFECT = 'areaEffect',
+export enum EntityTypeEnum {
+  PLAYER = 0,
+  ENEMY = 1,
+  PROJECTILE = 2,
+  PICKUP = 3,
+  AREA_EFFECT = 4,
 }
 
 /**
@@ -12,7 +14,14 @@ export enum EntityType {
  * It provides a fast way to determine if two entity types should collide
  */
 export class CollisionMatrix {
-  private matrix: Map<string, Set<string>> = new Map();
+  static entityTypeMap: Partial<Record<EntityType, EntityTypeEnum>> = {
+    player: EntityTypeEnum.PLAYER,
+    enemy: EntityTypeEnum.ENEMY,
+    projectile: EntityTypeEnum.PROJECTILE,
+    pickup: EntityTypeEnum.PICKUP,
+    areaEffect: EntityTypeEnum.AREA_EFFECT,
+  };
+  private matrix: Map<number, Set<EntityTypeEnum>> = new Map();
 
   constructor() {
     this.initializeDefaultRules();
@@ -24,28 +33,28 @@ export class CollisionMatrix {
    */
   private initializeDefaultRules() {
     // Player collisions
-    this.setCollisionRule(EntityType.PLAYER, EntityType.ENEMY, true);
-    this.setCollisionRule(EntityType.PLAYER, EntityType.PICKUP, true);
-    this.setCollisionRule(EntityType.PLAYER, EntityType.PROJECTILE, false);
-    this.setCollisionRule(EntityType.PLAYER, EntityType.AREA_EFFECT, false);
+    this.setCollisionRule(EntityTypeEnum.PLAYER, EntityTypeEnum.ENEMY, true);
+    this.setCollisionRule(EntityTypeEnum.PLAYER, EntityTypeEnum.PICKUP, true);
+    this.setCollisionRule(EntityTypeEnum.PLAYER, EntityTypeEnum.PROJECTILE, false);
+    this.setCollisionRule(EntityTypeEnum.PLAYER, EntityTypeEnum.AREA_EFFECT, false);
 
     // Enemy collisions
-    this.setCollisionRule(EntityType.ENEMY, EntityType.ENEMY, true);
-    this.setCollisionRule(EntityType.ENEMY, EntityType.PROJECTILE, true);
-    this.setCollisionRule(EntityType.ENEMY, EntityType.AREA_EFFECT, true);
-    this.setCollisionRule(EntityType.ENEMY, EntityType.PICKUP, false);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.ENEMY, true);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.PROJECTILE, true);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.AREA_EFFECT, true);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.PICKUP, false);
 
     // Projectile collisions
-    this.setCollisionRule(EntityType.PROJECTILE, EntityType.PROJECTILE, false);
-    this.setCollisionRule(EntityType.PROJECTILE, EntityType.PICKUP, false);
-    this.setCollisionRule(EntityType.PROJECTILE, EntityType.AREA_EFFECT, false);
+    this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.PROJECTILE, false);
+    this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.PICKUP, false);
+    this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.AREA_EFFECT, false);
 
     // Pickup collisions
-    this.setCollisionRule(EntityType.PICKUP, EntityType.PICKUP, false);
-    this.setCollisionRule(EntityType.PICKUP, EntityType.AREA_EFFECT, false);
+    this.setCollisionRule(EntityTypeEnum.PICKUP, EntityTypeEnum.PICKUP, false);
+    this.setCollisionRule(EntityTypeEnum.PICKUP, EntityTypeEnum.AREA_EFFECT, false);
 
     // Area effect collisions
-    this.setCollisionRule(EntityType.AREA_EFFECT, EntityType.AREA_EFFECT, false);
+    this.setCollisionRule(EntityTypeEnum.AREA_EFFECT, EntityTypeEnum.AREA_EFFECT, false);
   }
 
   /**
@@ -54,7 +63,7 @@ export class CollisionMatrix {
    * @param type2 Second entity type
    * @param shouldCollide Whether these types should collide
    */
-  public setCollisionRule(type1: EntityType, type2: EntityType, shouldCollide: boolean) {
+  public setCollisionRule(type1: EntityTypeEnum, type2: EntityTypeEnum, shouldCollide: boolean) {
     const key = this.getTypePairKey(type1, type2);
     if (shouldCollide) {
       if (!this.matrix.has(key)) {
@@ -72,18 +81,19 @@ export class CollisionMatrix {
    * @param type2 Second entity type
    * @returns Whether these types should collide
    */
-  public shouldCollide(type1: EntityType, type2: EntityType): boolean {
+  public shouldCollide(type1: EntityTypeEnum, type2: EntityTypeEnum): boolean {
     const key = this.getTypePairKey(type1, type2);
     return this.matrix.has(key) && this.matrix.get(key)!.has(type2);
   }
 
   /**
-   * Get a consistent key for a pair of entity types
+   * Get a consistent numeric key for a pair of entity types
    * @param type1 First entity type
    * @param type2 Second entity type
-   * @returns A string key representing the type pair
+   * @returns A number key representing the type pair
    */
-  private getTypePairKey(type1: EntityType, type2: EntityType): string {
-    return type1 < type2 ? `${type1}-${type2}` : `${type2}-${type1}`;
+  private getTypePairKey(type1: EntityTypeEnum, type2: EntityTypeEnum): number {
+    // Use 4 bits for each type (supporting up to 16 types)
+    return type1 < type2 ? (type1 << 4) | type2 : (type2 << 4) | type1;
   }
 }

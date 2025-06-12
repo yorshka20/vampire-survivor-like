@@ -5,7 +5,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
-import { CollisionMatrix, EntityType } from './CollisionMatrix';
+import { CollisionMatrix } from './CollisionMatrix';
 
 interface CollisionResult {
   entity1: Entity;
@@ -140,14 +140,14 @@ export class CollisionSystem extends System {
       if (entity.toRemove || nearbyEntity.toRemove) continue;
 
       // Use numeric pair key for faster Set operations
-      const pairKey = this.getNumericPairKey(entity.id, nearbyId);
+      const pairKey = this.getNumericPairKey(entity.numericId, nearbyEntity.numericId);
       if (this.checkedPairs.has(pairKey)) continue;
 
       // Use collision matrix with type property directly
       if (
         !this.collisionMatrix.shouldCollide(
-          entity.type as EntityType,
-          nearbyEntity.type as EntityType,
+          CollisionMatrix.entityTypeMap[entity.type]!,
+          CollisionMatrix.entityTypeMap[nearbyEntity.type]!,
         )
       ) {
         continue;
@@ -196,17 +196,12 @@ export class CollisionSystem extends System {
   }
 
   /**
-   * Generate a numeric key for a pair of entities
+   * Generate a numeric key for a pair of entities using their numericId
    * This is much faster than string operations and Set lookups
    */
-  private getNumericPairKey(id1: string, id2: string): number {
-    // Extract numeric part from entity IDs (assuming format like "entity-123")
-    const num1 = parseInt(id1.split('-')[1] || '0', 10);
-    const num2 = parseInt(id2.split('-')[1] || '0', 10);
-
-    // Use bit shifting to combine the numbers
-    // This ensures unique keys for each pair while maintaining order independence
-    return num1 < num2 ? (num1 << 16) | num2 : (num2 << 16) | num1;
+  private getNumericPairKey(id1: number, id2: number): number {
+    // Ensure order independence
+    return id1 < id2 ? (id1 << 20) | id2 : (id2 << 20) | id1;
   }
 
   private checkCollision(entity1: Entity, entity2: Entity): CollisionResult | null {

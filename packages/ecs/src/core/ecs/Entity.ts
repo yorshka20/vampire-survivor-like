@@ -11,6 +11,9 @@ export class Entity implements IEntity {
     maxSize: 1000,
   };
 
+  static nextNumericId = 1;
+  public readonly numericId: number;
+
   active: boolean = true;
   toRemove: boolean = false;
   components: Map<string, Component> = new Map();
@@ -20,7 +23,9 @@ export class Entity implements IEntity {
   constructor(
     public readonly id: string,
     public readonly type: EntityType = 'other',
-  ) {}
+  ) {
+    this.numericId = Entity.nextNumericId++;
+  }
 
   addComponent(component: Component): void {
     if (this.components.has(component.name)) {
