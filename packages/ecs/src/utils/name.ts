@@ -1,5 +1,9 @@
 import { type EntityType } from '@ecs/core/ecs/types';
 
 export function generateEntityId(type: EntityType): string {
-  return `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // get the milliseconds from Date.now()
+  const milliseconds = Date.now().toString().slice(-4);
+  const random = Math.random().toString().slice(2, 9);
+  // merge two number
+  return `${type}-${milliseconds}${random}`;
 }

@@ -48,16 +48,30 @@ export class ColliderComponent extends Component {
     };
   }
 
-  getCollisionArea(position: Point): RectArea {
+  getCollisionArea(position: Point, out?: RectArea): RectArea {
     const [x, y] = position;
     const [width, height] = this.size;
     const [offsetX = 0, offsetY = 0] = this.offset || [0, 0];
 
     if (this.type === 'circle') {
       const radius = Math.max(width, height) / 2;
+      if (out) {
+        out[0] = x + offsetX - radius;
+        out[1] = y + offsetY - radius;
+        out[2] = radius * 2;
+        out[3] = radius * 2;
+        return out;
+      }
       return [x + offsetX - radius, y + offsetY - radius, radius * 2, radius * 2];
     }
 
+    if (out) {
+      out[0] = x + offsetX - width / 2;
+      out[1] = y + offsetY - height / 2;
+      out[2] = width;
+      out[3] = height;
+      return out;
+    }
     return [x + offsetX - width / 2, y + offsetY - height / 2, width, height];
   }
 

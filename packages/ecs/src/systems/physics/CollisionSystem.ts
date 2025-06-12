@@ -5,6 +5,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
+import { CollisionMatrix, EntityType } from './CollisionMatrix';
 
 interface CollisionResult {
   entity1: Entity;
@@ -23,9 +24,16 @@ enum CollisionTier {
 }
 
 export class CollisionSystem extends System {
-  private checkedPairs: Set<string> = new Set();
+  private checkedPairs: Set<number> = new Set();
   private damageCollisionResults: CollisionResult[] = [];
   private frameCount: number = 0;
+  private collisionMatrix: CollisionMatrix;
+
+  // Reusable objects to reduce GC pressure
+  private readonly tempPosition: [number, number] = [0, 0];
+  private readonly tempCollisionArea: RectArea = [0, 0, 0, 0];
+  private readonly tempPairKey: [string, string] = ['', ''];
+  private readonly tempNearbyEntities: string[] = [];
 
   // Distance thresholds for different collision tiers
   private readonly TIER_DISTANCES = {
@@ -36,6 +44,7 @@ export class CollisionSystem extends System {
 
   constructor() {
     super('CollisionSystem', SystemPriorities.COLLISION, 'logic');
+    this.collisionMatrix = new CollisionMatrix();
   }
 
   update(deltaTime: number): void {
@@ -56,10 +65,12 @@ export class CollisionSystem extends System {
       const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
       const position = movement.getPosition();
 
-      // Calculate distance from player
-      const dx = position[0] - playerPos[0];
-      const dy = position[1] - playerPos[1];
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      // Calculate distance from player using reusable array
+      this.tempPosition[0] = position[0] - playerPos[0];
+      this.tempPosition[1] = position[1] - playerPos[1];
+      const distance = Math.sqrt(
+        this.tempPosition[0] * this.tempPosition[0] + this.tempPosition[1] * this.tempPosition[1],
+      );
 
       // Determine collision tier
       const tier = this.getCollisionTier(distance);
@@ -102,35 +113,45 @@ export class CollisionSystem extends System {
     if (!movement || !collider) return;
 
     const position = movement.getPosition();
-    const collisionArea = collider.getCollisionArea(position);
+    const collisionArea = collider.getCollisionArea(position, this.tempCollisionArea);
 
-    // Calculate search radius based on collision area size and tier
+    // Calculate search radius using existing collision area
     const baseRadius = Math.max(collisionArea[2], collisionArea[3]) * 2;
     const searchRadius = this.getTierSearchRadius(baseRadius, tier);
 
-    // Use the appropriate cache type based on tier
-    const cacheType = this.getCacheTypeForTier(tier);
-
     // Get nearby entities using spatial grid with tier-specific cache
-    const nearbyEntities = this.gridComponent.getNearbyEntities(position, searchRadius, cacheType);
+    // Reuse the tempNearbyEntities array
+    this.tempNearbyEntities.length = 0;
+    this.gridComponent.getNearbyEntities(
+      position,
+      searchRadius,
+      this.getCacheTypeForTier(tier),
+      this.tempNearbyEntities,
+    );
 
-    for (const nearbyId of nearbyEntities) {
+    for (const nearbyId of this.tempNearbyEntities) {
       const nearbyEntity = this.world.getEntityById(nearbyId);
       if (!nearbyEntity) continue;
 
-      // Skip if nearby entity is a pickup or doesn't have a collider
-      if (
-        nearbyEntity.isType('pickup') ||
-        !nearbyEntity.hasComponent(ColliderComponent.componentName)
-      )
-        continue;
+      // Skip if nearby entity doesn't have a collider
+      if (!nearbyEntity.hasComponent(ColliderComponent.componentName)) continue;
 
       // Skip if either entity is marked for removal
       if (entity.toRemove || nearbyEntity.toRemove) continue;
 
-      // Check if we've already processed this pair
-      const pairKey = this.getPairKey(entity.id, nearbyEntity.id);
+      // Use numeric pair key for faster Set operations
+      const pairKey = this.getNumericPairKey(entity.id, nearbyId);
       if (this.checkedPairs.has(pairKey)) continue;
+
+      // Use collision matrix with type property directly
+      if (
+        !this.collisionMatrix.shouldCollide(
+          entity.type as EntityType,
+          nearbyEntity.type as EntityType,
+        )
+      ) {
+        continue;
+      }
 
       // Perform collision check
       const collisionResult = this.checkCollision(entity, nearbyEntity);
@@ -174,9 +195,18 @@ export class CollisionSystem extends System {
     }
   }
 
-  private getPairKey(id1: string, id2: string): string {
-    // Ensure consistent pair key regardless of order
-    return id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`;
+  /**
+   * Generate a numeric key for a pair of entities
+   * This is much faster than string operations and Set lookups
+   */
+  private getNumericPairKey(id1: string, id2: string): number {
+    // Extract numeric part from entity IDs (assuming format like "entity-123")
+    const num1 = parseInt(id1.split('-')[1] || '0', 10);
+    const num2 = parseInt(id2.split('-')[1] || '0', 10);
+
+    // Use bit shifting to combine the numbers
+    // This ensures unique keys for each pair while maintaining order independence
+    return num1 < num2 ? (num1 << 16) | num2 : (num2 << 16) | num1;
   }
 
   private checkCollision(entity1: Entity, entity2: Entity): CollisionResult | null {

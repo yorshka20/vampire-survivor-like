@@ -122,8 +122,8 @@ export class SpatialGridComponent extends Component {
     position: Point,
     radius: number,
     queryType: SpatialQueryType = 'collision',
-  ): Set<string> {
-    // clear expired cache entries
+    out?: string[],
+  ): string[] {
     if (
       this.frameCount - this.lastCacheCleanupFrame >
       SpatialGridComponent.CACHE_CLEANUP_INTERVAL
@@ -131,6 +131,7 @@ export class SpatialGridComponent extends Component {
       this.cleanExpiredCacheEntries();
       this.lastCacheCleanupFrame = this.frameCount;
     }
+
     const currentTime = Date.now();
     const cache = this.caches.get(queryType)!;
     const config = this.cacheConfigs.get(queryType)!;
@@ -143,39 +144,53 @@ export class SpatialGridComponent extends Component {
       if (!cachedEntry || currentTime - cachedEntry.timestamp > config.ttl) {
         // Calculate with adjusted radius based on query type
         const adjustedRadius = radius * config.radiusMultiplier;
-        const result = this.calculateNearbyEntities(position, adjustedRadius);
+        const result = this.calculateNearbyEntities(position, adjustedRadius, out);
 
         // Update cache
         cache.set(cellKey, {
-          entities: result,
+          entities: new Set(result),
           timestamp: currentTime,
         });
 
         return result;
       }
 
-      return cachedEntry.entities;
+      if (out) {
+        out.length = 0;
+        cachedEntry.entities.forEach((id) => out.push(id));
+        return out;
+      }
+      return Array.from(cachedEntry.entities);
     }
 
     // If not time to update, return cached result if available
     const cachedEntry = cache.get(cellKey);
     if (cachedEntry) {
-      return cachedEntry.entities;
+      if (out) {
+        out.length = 0;
+        cachedEntry.entities.forEach((id) => out.push(id));
+        return out;
+      }
+      return Array.from(cachedEntry.entities);
     }
 
     // If no cache available, calculate and cache
     const adjustedRadius = radius * config.radiusMultiplier;
-    const result = this.calculateNearbyEntities(position, adjustedRadius);
+    const result = this.calculateNearbyEntities(position, adjustedRadius, out);
     cache.set(cellKey, {
-      entities: result,
+      entities: new Set(result),
       timestamp: currentTime,
     });
 
     return result;
   }
 
-  private calculateNearbyEntities(position: Point, radius: number): Set<string> {
-    const nearbyEntities = new Set<string>();
+  private calculateNearbyEntities(position: Point, radius: number, out?: string[]): string[] {
+    const result = out || [];
+    if (out) {
+      result.length = 0;
+    }
+
     const cellX = Math.floor(position[0] / this.cellSize);
     const cellY = Math.floor(position[1] / this.cellSize);
     const cellRadius = Math.ceil(radius / this.cellSize);
@@ -185,12 +200,12 @@ export class SpatialGridComponent extends Component {
         const cellKey = `${x},${y}`;
         const cell = this.grid.get(cellKey);
         if (cell) {
-          cell.entities.forEach((entityId) => nearbyEntities.add(entityId));
+          cell.entities.forEach((entityId) => result.push(entityId));
         }
       }
     }
 
-    return nearbyEntities;
+    return result;
   }
 
   private updateCaches(): void {
