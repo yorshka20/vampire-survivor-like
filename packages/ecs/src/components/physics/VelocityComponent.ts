@@ -1,3 +1,4 @@
+import { SPEED_MULTIPLIERS, calculateSpeed } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
 
 interface VelocityProps {
@@ -5,6 +6,7 @@ interface VelocityProps {
   // keep for compatibility
   friction?: number;
   maxSpeed?: number;
+  entityType?: 'PLAYER' | 'ENEMY' | 'PROJECTILE';
 }
 
 export class VelocityComponent extends Component {
@@ -16,11 +18,13 @@ export class VelocityComponent extends Component {
   private readonly BLOCKED_DURATION: number = 500; // 500ms blocked duration
   private readonly COLLISION_DAMPING: number = 0.5; // Damping factor for collision response
   private friction: number;
+  private entityType: 'PLAYER' | 'ENEMY' | 'PROJECTILE';
 
   constructor(props: VelocityProps = {}) {
     super('Velocity');
     this.velocity = props.velocity ?? { x: 0, y: 0 };
-    this.maxSpeed = props.maxSpeed ?? 10;
+    this.entityType = props.entityType ?? 'PLAYER';
+    this.maxSpeed = props.maxSpeed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.friction = props.friction ?? 1;
   }
 
@@ -37,8 +41,9 @@ export class VelocityComponent extends Component {
 
     // Limit speed
     const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
-    if (speed > this.maxSpeed) {
-      const scale = this.maxSpeed / speed;
+    const maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
+    if (speed > maxSpeed) {
+      const scale = maxSpeed / speed;
       this.velocity.x *= scale;
       this.velocity.y *= scale;
     }
@@ -83,7 +88,7 @@ export class VelocityComponent extends Component {
 
   reset(): void {
     this.velocity = { x: 0, y: 0 };
-    this.maxSpeed = 10;
+    this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.isBlocked = false;
     this.blockedTimer = 0;
     this.friction = 1;

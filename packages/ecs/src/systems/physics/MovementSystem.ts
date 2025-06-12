@@ -41,9 +41,8 @@ export class MovementSystem extends System {
     velocity: VelocityComponent,
     stats: StatsComponent,
   ): void {
-    // Convert movement speed to a more reasonable velocity value
-    const baseSpeed = movement.speed * 0.1; // Scale down the base speed
-    const speed = baseSpeed * (stats?.moveSpeedMultiplier ?? 1);
+    // Use the speed directly from movement component, which already includes entity type multiplier
+    const speed = movement.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
     let vx = 0,
       vy = 0;
 
@@ -72,9 +71,8 @@ export class MovementSystem extends System {
     stats: StatsComponent,
     deltaTime: number,
   ): void {
-    // Direct movement for entities without velocity
-    const baseSpeed = movement.speed * 0.1; // Scale down the base speed
-    const speed = baseSpeed * (stats?.moveSpeedMultiplier ?? 1);
+    // Use the speed directly from movement component, which already includes entity type multiplier
+    const speed = movement.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
     let dx = 0,
       dy = 0;
 
@@ -90,6 +88,8 @@ export class MovementSystem extends System {
       dy = (dy / magnitude) * speed;
     }
 
-    movement.move(dx * deltaTime * 1000, dy * deltaTime * 1000);
+    // Since we're using fixed time step, we don't need to multiply by deltaTime
+    // The speed is already calibrated for one logic frame
+    movement.move(dx, dy);
   }
 }

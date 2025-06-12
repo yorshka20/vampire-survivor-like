@@ -1,9 +1,13 @@
+import { SPEED_MULTIPLIERS, calculateSpeed } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
 import { Point } from '@ecs/utils/types';
 
+type EntityType = 'PLAYER' | 'ENEMY' | 'PROJECTILE';
+
 interface MovementProps {
   position: { x: number; y: number };
-  speed: number;
+  speed?: number;
+  entityType?: EntityType;
 }
 
 export class MovementComponent extends Component {
@@ -12,12 +16,14 @@ export class MovementComponent extends Component {
   speed: number;
   private maxSpeed: number;
   private acceleration: number;
+  private entityType: EntityType;
 
   constructor(props: MovementProps) {
     super('Movement');
     this.position = props.position;
-    this.speed = props.speed;
-    this.maxSpeed = 10;
+    this.entityType = props.entityType ?? 'PLAYER';
+    this.speed = props.speed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
+    this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.acceleration = 0.5;
   }
 
@@ -34,7 +40,9 @@ export class MovementComponent extends Component {
   }
 
   setSpeed(speed: number): void {
-    this.speed = Math.min(speed, this.maxSpeed);
+    const minSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MIN);
+    const maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
+    this.speed = Math.min(Math.max(speed, minSpeed), maxSpeed);
   }
 
   getMaxSpeed(): number {
@@ -45,6 +53,10 @@ export class MovementComponent extends Component {
     return this.acceleration;
   }
 
+  getEntityType(): EntityType {
+    return this.entityType;
+  }
+
   move(dx: number, dy: number): void {
     this.position.x += dx;
     this.position.y += dy;
@@ -52,8 +64,8 @@ export class MovementComponent extends Component {
 
   reset(): void {
     this.position = { x: -9999, y: -9999 };
-    this.speed = 0;
-    this.maxSpeed = 10;
+    this.speed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
+    this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.acceleration = 0;
   }
 }
