@@ -9,6 +9,7 @@ import {
   AreaWeapon,
   MeleeWeapon,
   RangedWeapon,
+  SpiralWeapon,
   WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -218,6 +219,54 @@ export class WeaponSystem extends System {
     this.world.addEntity(projectile);
   }
 
+  private handleSpiral(
+    entity: Entity,
+    weapon: WeaponComponent,
+    currentWeapon: SpiralWeapon,
+    position: [number, number],
+    effectiveDamage: number,
+    currentTime: number,
+    weaponIndex: number,
+  ): void {
+    // Calculate positions around the player
+    const angleStep = (2 * Math.PI) / currentWeapon.projectileCount;
+
+    for (let i = 0; i < currentWeapon.projectileCount; i++) {
+      const angle = i * angleStep;
+      const spawnX = position[0] + Math.cos(angle) * currentWeapon.spiralRadius;
+      const spawnY = position[1] + Math.sin(angle) * currentWeapon.spiralRadius;
+
+      // Create projectile with spiral trajectory
+      const projectile = createProjectileEntity(this.world, {
+        position: {
+          x: spawnX,
+          y: spawnY,
+        },
+        velocity: {
+          x: 0,
+          y: 0,
+        },
+        damage: effectiveDamage,
+        source: entity.id,
+        size: currentWeapon.projectileSize,
+        color: currentWeapon.projectileColor,
+        weapon: currentWeapon,
+        spiralData: {
+          centerX: position[0],
+          centerY: position[1],
+          angle: angle,
+          radius: currentWeapon.spiralRadius,
+          speed: currentWeapon.spiralSpeed,
+          expansion: currentWeapon.spiralExpansion,
+        },
+      });
+
+      this.world.addEntity(projectile);
+    }
+
+    weapon.updateAttackTime(currentTime, weaponIndex);
+  }
+
   update(deltaTime: number): void {
     if (!this.spatialGrid || !this.gridComponent) return;
 
@@ -288,6 +337,17 @@ export class WeaponSystem extends System {
                 weaponEntity,
                 weapon,
                 currentWeapon as AreaWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.SPIRAL:
+              this.handleSpiral(
+                weaponEntity,
+                weapon,
+                currentWeapon as SpiralWeapon,
                 position,
                 effectiveDamage,
                 currentTime,

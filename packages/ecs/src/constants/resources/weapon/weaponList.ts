@@ -2,6 +2,7 @@ import {
   AreaWeapon,
   MeleeWeapon,
   RangedWeapon,
+  SpiralWeapon,
   Weapon,
   WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
@@ -73,7 +74,30 @@ const Melee: MeleeWeapon = {
   range: 400,
 };
 
-export const WeaponList: Weapon[] = [RapidFire, HeavyShot, PiercingShot, AutoAim, Aura, Melee];
+const SpiralShot: SpiralWeapon = {
+  name: 'Spiral Shot',
+  damage: 8,
+  attackSpeed: 1.5,
+  projectileSpeed: 1,
+  projectileSize: [6, 6],
+  projectileColor: { r: 255, g: 0, b: 255, a: 1 },
+  type: WeaponType.SPIRAL,
+  range: 400,
+  spiralSpeed: 10,
+  spiralRadius: 10,
+  spiralExpansion: 5,
+  projectileCount: 12,
+};
+
+export const WeaponList: Weapon[] = [
+  RapidFire,
+  HeavyShot,
+  PiercingShot,
+  AutoAim,
+  Aura,
+  Melee,
+  SpiralShot,
+];
 
 export const WeaponMap: Record<string, Weapon> = {
   RapidFire,
@@ -82,4 +106,5 @@ export const WeaponMap: Record<string, Weapon> = {
   AutoAim,
   Aura,
   Melee,
+  SpiralShot,
 };

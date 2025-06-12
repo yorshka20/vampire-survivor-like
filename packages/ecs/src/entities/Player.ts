@@ -74,7 +74,7 @@ export function createPlayerEntity(
 
   player.addComponent(
     world.createComponent(WeaponComponent, {
-      weapons: [WeaponMap.Melee, WeaponMap.Aura, WeaponMap.RapidFire],
+      weapons: [WeaponMap.Melee, WeaponMap.Aura, WeaponMap.RapidFire, WeaponMap.SpiralShot],
       currentWeaponIndex: 0,
     }),
   );

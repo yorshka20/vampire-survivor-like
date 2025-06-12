@@ -5,6 +5,7 @@ export enum WeaponType {
   RANGED_FIXED = 'RANGED_FIXED',
   MELEE = 'MELEE',
   AREA = 'AREA',
+  SPIRAL = 'SPIRAL',
 }
 
 interface BaseWeapon {
@@ -43,4 +44,15 @@ export interface AreaWeapon extends BaseWeapon {
   color: Color;
 }
 
-export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon;
+export interface SpiralWeapon extends BaseWeapon {
+  type: WeaponType.SPIRAL;
+  projectileSpeed: number;
+  projectileSize: [number, number];
+  projectileColor: Color;
+  spiralSpeed: number; // Rotation speed in radians per second
+  spiralRadius: number; // Initial radius of the spiral
+  spiralExpansion: number; // How fast the spiral expands outward
+  projectileCount: number; // Number of projectiles to spawn around the player
+}
+
+export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon | SpiralWeapon;

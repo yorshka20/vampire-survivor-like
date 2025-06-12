@@ -13,6 +13,7 @@ import {
   PickupComponent,
   RenderComponent,
   SoundEffectComponent,
+  SpiralMovementComponent,
   StatsComponent,
   VelocityComponent,
   WeaponComponent,
@@ -29,6 +30,8 @@ import { ComponentConstructor, ComponentProps, EntityType, ISystem, IWorld } fro
  * World class that manages all entities and systems
  */
 export class World implements IWorld {
+  static instance: World;
+
   entities: Set<Entity> = new Set();
   private entitiesByType: Map<EntityType, Entity[]> = new Map();
   private entitiesById: Map<string, Entity> = new Map();
@@ -42,6 +45,11 @@ export class World implements IWorld {
   private poolManager: PoolManager = PoolManager.getInstance();
 
   constructor() {
+    if (World.instance) {
+      console.warn('World already exists');
+      return;
+    }
+    World.instance = this;
     // Initialize entity pools for different types
     this.initializeEntityPools();
     // Initialize component pools
@@ -92,6 +100,7 @@ export class World implements IWorld {
       DeathMarkComponent,
       ChaseComponent,
       SoundEffectComponent,
+      SpiralMovementComponent,
     ];
 
     componentClasses.forEach((ComponentClass) => {
@@ -231,11 +240,11 @@ export class World implements IWorld {
     if (!system) return null;
 
     // Check if the requesting system has a lower priority (higher number)
-    if (requesterPriority <= system.priority) {
-      // console.warn(
-      //   `System ${systemName} cannot be accessed by a system with priority ${requesterPriority} ` +
-      //     `as it has priority ${system.priority}. Systems can only access systems with higher priority.`,
-      // );
+    if (requesterPriority < system.priority) {
+      console.warn(
+        `System ${systemName} cannot be accessed by a system with priority ${requesterPriority} ` +
+          `as it has priority ${system.priority}. Systems can only access systems with higher priority.`,
+      );
       return system as T;
     }
 
@@ -285,5 +294,18 @@ export class World implements IWorld {
   update(deltaTime: number): void {
     this.updateLogic(deltaTime);
     this.updateRender(deltaTime);
+  }
+
+  // Add direct event methods
+  on(event: string, handler: (...args: any[]) => void): void {
+    this.eventEmitter.on(event, handler);
+  }
+
+  off(event: string, handler: (...args: any[]) => void): void {
+    this.eventEmitter.off(event, handler);
+  }
+
+  emit(event: string, ...args: any): void {
+    this.eventEmitter.emit(event, args);
   }
 }
