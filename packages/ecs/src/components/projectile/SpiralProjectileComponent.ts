@@ -1,6 +1,7 @@
 import { Component } from '@ecs/core/ecs/Component';
 
 interface SpiralMovementProps {
+  followPlayer?: boolean;
   centerX: number;
   centerY: number;
   angle: number;
@@ -12,6 +13,7 @@ interface SpiralMovementProps {
 export class SpiralMovementComponent extends Component {
   static componentName = 'SpiralMovement';
 
+  private followPlayer: boolean;
   private centerX: number;
   private centerY: number;
   private angle: number;
@@ -21,6 +23,7 @@ export class SpiralMovementComponent extends Component {
 
   constructor(props: SpiralMovementProps) {
     super('SpiralMovement');
+    this.followPlayer = props.followPlayer ?? false;
     this.centerX = props.centerX;
     this.centerY = props.centerY;
     this.angle = props.angle;
@@ -30,11 +33,11 @@ export class SpiralMovementComponent extends Component {
   }
 
   update(deltaTime: number): void {
-    // Convert deltaTime to seconds
-    const dt = deltaTime / 1000;
+    // Convert deltaTime to seconds and scale it for better control
+    const dt = (deltaTime / 1000) * 60; // Scale to roughly match 60fps
 
-    // Update angle and radius
-    this.angle += this.speed * dt;
+    // Update angle and radius with scaled values
+    this.angle += (this.speed * dt) / 10; // Divide by 10 to make the speed more manageable
     this.radius += this.expansion * dt;
   }
 
@@ -50,5 +53,22 @@ export class SpiralMovementComponent extends Component {
       x: this.centerX,
       y: this.centerY,
     };
+  }
+
+  updateCenter(x: number, y: number): void {
+    this.centerX = x;
+    this.centerY = y;
+  }
+
+  getAngle(): number {
+    return this.angle;
+  }
+
+  getSpeed(): number {
+    return this.speed;
+  }
+
+  getFollowPlayer(): boolean {
+    return this.followPlayer;
   }
 }

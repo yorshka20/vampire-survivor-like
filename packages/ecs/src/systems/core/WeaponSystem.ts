@@ -242,16 +242,14 @@ export class WeaponSystem extends System {
           x: spawnX,
           y: spawnY,
         },
-        velocity: {
-          x: 0,
-          y: 0,
-        },
         damage: effectiveDamage,
         source: entity.id,
         size: currentWeapon.projectileSize,
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
+        lifetime: currentWeapon.projectileLifetime,
         spiralData: {
+          followPlayer: currentWeapon.followPlayer,
           centerX: position[0],
           centerY: position[1],
           angle: angle,

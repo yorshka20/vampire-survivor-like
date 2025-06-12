@@ -6,6 +6,7 @@ import {
   DeathSystem,
   Game,
   InputSystem,
+  LifecycleSystem,
   MovementSystem,
   PickupSystem,
   RenderSystem,
@@ -28,6 +29,7 @@ export function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Add all systems in the correct order
   world.addSystem(new SpatialGridSystem());
+  world.addSystem(new LifecycleSystem());
   world.addSystem(new VelocitySystem());
   world.addSystem(new MovementSystem());
   world.addSystem(new InputSystem());

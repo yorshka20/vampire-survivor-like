@@ -11,6 +11,7 @@ import { Weapon } from '@ecs/components/weapon/WeaponTypes';
 import { World } from '@ecs/core/ecs/World';
 
 interface SpiralData {
+  followPlayer?: boolean;
   centerX: number;
   centerY: number;
   angle: number;

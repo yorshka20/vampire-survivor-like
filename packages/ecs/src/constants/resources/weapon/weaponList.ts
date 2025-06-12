@@ -76,17 +76,19 @@ const Melee: MeleeWeapon = {
 
 const SpiralShot: SpiralWeapon = {
   name: 'Spiral Shot',
-  damage: 8,
-  attackSpeed: 1.5,
-  projectileSpeed: 1,
-  projectileSize: [6, 6],
+  damage: 5,
+  attackSpeed: 5,
+  projectileSpeed: 1.2,
+  projectileSize: [10, 10],
   projectileColor: { r: 255, g: 0, b: 255, a: 1 },
   type: WeaponType.SPIRAL,
   range: 400,
-  spiralSpeed: 10,
+  spiralSpeed: 1.2,
   spiralRadius: 10,
-  spiralExpansion: 5,
+  spiralExpansion: 1.2,
   projectileCount: 12,
+  projectileLifetime: 1000 * 5,
+  followPlayer: true,
 };
 
 export const WeaponList: Weapon[] = [

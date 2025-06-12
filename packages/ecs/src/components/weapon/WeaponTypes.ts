@@ -46,6 +46,7 @@ export interface AreaWeapon extends BaseWeapon {
 
 export interface SpiralWeapon extends BaseWeapon {
   type: WeaponType.SPIRAL;
+  followPlayer?: boolean;
   projectileSpeed: number;
   projectileSize: [number, number];
   projectileColor: Color;
@@ -53,6 +54,7 @@ export interface SpiralWeapon extends BaseWeapon {
   spiralRadius: number; // Initial radius of the spiral
   spiralExpansion: number; // How fast the spiral expands outward
   projectileCount: number; // Number of projectiles to spawn around the player
+  projectileLifetime: number; // Lifetime of the projectile in milliseconds
 }
 
 export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon | SpiralWeapon;
