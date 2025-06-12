@@ -6,6 +6,7 @@ import {
   RenderComponent,
   VelocityComponent,
 } from '@ecs/components';
+import { Weapon } from '@ecs/components/weapon/WeaponTypes';
 import { World } from '@ecs/core/ecs/World';
 
 interface ProjectileProps {
@@ -18,6 +19,7 @@ interface ProjectileProps {
   source?: string;
   lifetime?: number; // Lifetime in milliseconds
   maxDistance?: number; // Maximum distance the projectile can travel
+  weapon?: Weapon; // Reference to the weapon that created this projectile
 }
 
 /**
@@ -34,6 +36,7 @@ export function createProjectileEntity(
     color = { r: 255, g: 255, b: 0, a: 1 },
     lifetime = 2000, // Default lifetime of 2 seconds
     maxDistance = 1000, // Default maximum distance of 1000 units
+    weapon,
   }: ProjectileProps,
 ) {
   const projectile = world.createEntity('projectile');
@@ -59,6 +62,7 @@ export function createProjectileEntity(
       source,
       team: source === 'player' ? 'player' : 'enemy',
       penetration: 1,
+      weapon, // Pass weapon reference to DamageComponent
     }),
   );
 

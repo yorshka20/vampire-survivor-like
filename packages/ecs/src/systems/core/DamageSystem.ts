@@ -66,14 +66,15 @@ export class DamageSystem extends System {
       return;
     }
 
-    // Apply damage
-    const damage = damageComponent.damage;
+    // Apply damage with critical hit check
+    const { damage, isCritical } = damageComponent.getDamage();
     health.takeDamage(damage);
 
     // Create damage text
     const damageTextEntity = createDamageTextEntity(this.world, {
       damage,
       targetPos: position,
+      isCritical,
     });
     this.world.addEntity(damageTextEntity);
 
@@ -118,14 +119,15 @@ export class DamageSystem extends System {
       return;
     }
 
-    // Apply damage
-    const damage = damageComponent.damage;
+    // Apply damage with critical hit check
+    const { damage, isCritical } = damageComponent.getDamage();
     health.takeDamage(damage);
 
     // Create damage text
     const damageTextEntity = createDamageTextEntity(this.world, {
       damage,
       targetPos: position,
+      isCritical,
     });
     this.world.addEntity(damageTextEntity);
 

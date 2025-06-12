@@ -212,6 +212,7 @@ export class WeaponSystem extends System {
       source: entity.id,
       size: weapon.projectileSize,
       color: weapon.projectileColor,
+      weapon: weapon,
     });
 
     this.world.addEntity(projectile);

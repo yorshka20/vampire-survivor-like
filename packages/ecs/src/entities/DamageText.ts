@@ -5,16 +5,20 @@ import { World } from '@ecs/core/ecs/World';
 export interface DamageTextProps {
   damage: number;
   targetPos: [number, number];
+  isCritical?: boolean;
 }
 
-export function createDamageTextEntity(world: World, { damage, targetPos }: DamageTextProps) {
+export function createDamageTextEntity(
+  world: World,
+  { damage, targetPos, isCritical = false }: DamageTextProps,
+) {
   const dmgTextEntity = world.createEntity('effect');
 
   dmgTextEntity.addComponent(
     world.createComponent(DamageTextComponent, {
       text: `${Math.round(damage)}`,
       position: [targetPos[0], targetPos[1] - 20],
-      color: 'yellow',
+      isCritical,
       lifetime: 0.8,
     }),
   );

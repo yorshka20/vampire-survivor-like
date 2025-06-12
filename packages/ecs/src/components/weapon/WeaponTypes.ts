@@ -16,6 +16,8 @@ interface BaseWeapon {
   projectileSpeed?: number;
   projectileSize?: [number, number];
   projectileColor?: Color;
+  criticalChance?: number; // Chance of critical hit (0-1)
+  criticalMultiplier?: number; // Damage multiplier for critical hits
 }
 
 export interface RangedWeapon extends BaseWeapon {

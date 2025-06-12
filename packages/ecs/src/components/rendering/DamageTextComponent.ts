@@ -4,7 +4,7 @@ import { Point } from '@ecs/utils/types';
 export interface DamageTextComponentProps {
   text: string;
   position: Point;
-  color?: string;
+  isCritical?: boolean;
   lifetime?: number;
 }
 
@@ -16,15 +16,17 @@ export class DamageTextComponent extends Component {
   lifetime: number;
   elapsed: number;
   color: string;
+  isCritical: boolean;
 
-  constructor({ text, position, color = 'white', lifetime = 0.8 }: DamageTextComponentProps) {
+  constructor({ text, position, isCritical = false, lifetime = 0.8 }: DamageTextComponentProps) {
     super('DamageText');
     this.text = text;
     this.position = position;
     this.alpha = 1;
     this.lifetime = lifetime;
     this.elapsed = 0;
-    this.color = color;
+    this.isCritical = isCritical;
+    this.color = isCritical ? 'yellow' : 'white';
   }
 
   reset(): void {
@@ -33,6 +35,7 @@ export class DamageTextComponent extends Component {
     this.alpha = 1;
     this.lifetime = 0.8;
     this.elapsed = 0;
+    this.isCritical = false;
     this.color = 'white';
   }
 }
