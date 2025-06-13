@@ -16,6 +16,7 @@ interface GameState {
   nextWave: number;
   fps: number;
   gameTime: number; // Time elapsed in seconds
+  speedMultiplier: number; // Add speed multiplier
   player: {
     health: number;
     maxHealth: number;
@@ -44,6 +45,7 @@ function createGameStateStore() {
     nextWave: 0,
     fps: 0,
     gameTime: 0,
+    speedMultiplier: 4, // Initialize speed multiplier
     player: {
       health: 100,
       maxHealth: 100,
@@ -136,6 +138,15 @@ function createGameStateStore() {
       interval = setInterval(() => {
         updatePlayerState(player);
       }, 300);
+    },
+    setSpeedMultiplier: (multiplier: number) => {
+      update((state) => ({
+        ...state,
+        speedMultiplier: multiplier,
+      }));
+      if (gameInstance) {
+        gameInstance.setSpeedMultiplier(multiplier);
+      }
     },
     destroy: () => {
       clearInterval(fpsInterval);

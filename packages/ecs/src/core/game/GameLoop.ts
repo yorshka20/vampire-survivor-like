@@ -9,6 +9,7 @@ export class GameLoop {
   private lastTime: number = 0;
   private rafId: number = 0;
   private logicTimerId: NodeJS.Timeout | null = null;
+  private speedMultiplier: number = 4; // Add speed multiplier. 1x, 2x, 4x
 
   // FPS tracking
   private frameCount: number = 0;
@@ -22,7 +23,7 @@ export class GameLoop {
   private isInPerformanceMode: boolean = false;
 
   // Fixed time step for logic updates
-  private readonly fixedTimeStep: number = 1 / 60; // 60 updates per second
+  private fixedTimeStep: number = 1 / (15 * this.speedMultiplier); // 60 updates per second
   private accumulator: number = 0;
   private readonly maxAccumulator: number = 0.2; // Cap accumulator to prevent spiral of death
 
@@ -58,6 +59,17 @@ export class GameLoop {
     if (this.logicTimerId) {
       clearInterval(this.logicTimerId);
       this.logicTimerId = null;
+    }
+  }
+
+  setSpeedMultiplier(multiplier: number): void {
+    this.speedMultiplier = multiplier;
+    this.fixedTimeStep = 1 / (15 * this.speedMultiplier);
+    // Update logic timer interval based on new speed multiplier
+    if (this.logicTimerId) {
+      const newInterval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
+      clearInterval(this.logicTimerId);
+      this.logicTimerId = setInterval(() => this.updateLogic(), newInterval);
     }
   }
 

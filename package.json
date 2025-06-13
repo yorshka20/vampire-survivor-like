@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "A monorepo project using pnpm",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yorshka20/vampire-survivor-like"
+  },
   "scripts": {
     "dev": "pnpm --filter @brotov2/web-client dev",
     "build": "pnpm --filter @brotov2/web-client build",

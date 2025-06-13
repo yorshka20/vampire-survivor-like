@@ -100,6 +100,14 @@ export class Game {
     this.viewport = { ...this.viewport, ...viewport };
   }
 
+  /**
+   * Set the game speed multiplier
+   * @param multiplier The speed multiplier (1 = normal speed, 2 = double speed, 4 = quadruple speed)
+   */
+  setSpeedMultiplier(multiplier: number): void {
+    this.gameLoop.setSpeedMultiplier(multiplier);
+  }
+
   private async loadResources(): Promise<void> {
     const resourceManager = ResourceManager.getInstance();
 
