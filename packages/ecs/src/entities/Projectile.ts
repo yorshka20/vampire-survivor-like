@@ -84,7 +84,7 @@ export function createProjectileEntity(
       world.createComponent(SpiralMovementComponent, {
         followPlayer: spiralData.followPlayer,
         center: { x: position.x, y: position.y },
-        angle: 0,
+        angle: spiralData.initialAngle ?? 0,
         radius: spiralData.spiralRadius,
         speed: spiralData.spiralSpeed,
         expansion: spiralData.spiralExpansion,

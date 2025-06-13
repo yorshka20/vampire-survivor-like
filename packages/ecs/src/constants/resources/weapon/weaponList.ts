@@ -92,17 +92,17 @@ const Melee: MeleeWeapon = {
 const SpiralShot: SpiralWeapon = {
   name: 'Spiral Shot',
   damage: 5,
-  attackSpeed: 3,
-  attackCooldown: 100,
+  attackSpeed: 5,
+  attackCooldown: 50,
   maxProjectileCount: 600,
   projectileSpeed: 10,
   projectileSize: [10, 10],
   projectileColor: { r: 255, g: 0, b: 255, a: 1 },
   type: WeaponType.SPIRAL,
   range: 400,
-  spiralSpeed: 40, // degree/s
+  spiralSpeed: 80, // degree/s
   spiralRadius: 10,
-  spiralExpansion: 15,
+  spiralExpansion: 25,
   projectileCount: 6,
   projectileLifetime: 1000 * 5,
   followPlayer: true,
@@ -122,7 +122,7 @@ const SpiralOrb: SpinningWeapon = {
   type: WeaponType.SPINNING,
   range: 400,
   penetration: -1,
-  spinSpeed: 90, // degree/s
+  spinSpeed: 180, // degree/s
   spinRadius: 400,
   spinCount: 1,
   spinLifetime: 1000 * 5,

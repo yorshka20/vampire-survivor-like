@@ -366,6 +366,7 @@ export class WeaponSystem extends System {
           spiralRadius: currentWeapon.spiralRadius,
           spiralSpeed: currentWeapon.spiralSpeed,
           spiralExpansion: currentWeapon.spiralExpansion,
+          initialAngle: angle,
         },
       });
 
@@ -388,9 +389,11 @@ export class WeaponSystem extends System {
     const angleStep = (2 * Math.PI) / currentWeapon.spinCount;
 
     for (let i = 0; i < currentWeapon.spinCount; i++) {
-      const angle = i * angleStep;
+      const angle = i * angleStep * Math.random();
       const spawnX = position[0] + Math.cos(angle) * currentWeapon.spinRadius;
       const spawnY = position[1] + Math.sin(angle) * currentWeapon.spinRadius;
+
+      const spinRadius = Math.random() * (currentWeapon.spinRadius - 50) + 50;
 
       // Create projectile with spiral trajectory
       const projectile = createProjectileEntity(this.world, {
@@ -412,7 +415,7 @@ export class WeaponSystem extends System {
           projectileCount: currentWeapon.projectileCount,
           projectileLifetime: currentWeapon.projectileLifetime,
           followPlayer: currentWeapon.followPlayer,
-          spinRadius: Math.random() * currentWeapon.spinRadius,
+          spinRadius,
           spinSpeed: currentWeapon.spinSpeed,
           spinCount: currentWeapon.spinCount,
           spinLifetime: currentWeapon.spinLifetime,

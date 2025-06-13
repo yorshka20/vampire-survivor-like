@@ -56,6 +56,7 @@ export interface SpiralWeapon extends RangedWeapon {
   spiralSpeed: number; // Rotation speed in degree per second
   spiralRadius: number; // Initial radius of the spiral
   spiralExpansion: number; // How fast the spiral expands outward
+  initialAngle?: number; // Initial angle for spiral movement
 }
 
 export interface SpinningWeapon extends RangedWeapon {
