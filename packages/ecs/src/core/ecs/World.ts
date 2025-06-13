@@ -251,6 +251,7 @@ export class World implements IWorld {
     return system as T;
   }
 
+  // todo: use lru cache
   getEntitiesWithComponents(componentTypes: { componentName: string }[]): Entity[] {
     return Array.from(this.entities).filter((entity) =>
       componentTypes.every((ComponentType) => entity.hasComponent(ComponentType.componentName)),

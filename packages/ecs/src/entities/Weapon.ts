@@ -4,9 +4,18 @@ import {
   RenderComponent,
   WeaponComponent,
 } from '@ecs/components';
-import { Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
+import {
+  AreaWeapon,
+  MeleeWeapon,
+  RangedWeapon,
+  SpinningWeapon,
+  SpiralWeapon,
+  Weapon,
+  WeaponType,
+} from '@ecs/components/weapon/WeaponTypes';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { randomRgb } from './utils/rgb';
 
 export interface WeaponProps {
   position: { x: number; y: number };
@@ -17,18 +26,17 @@ export interface WeaponProps {
   damage: number;
   attackSpeed: number;
   range: number;
+  attackCooldown?: number;
   // Ranged weapon properties
-  projectileSpeed?: number;
-  projectileSize?: [number, number];
-  projectileColor?: { r: number; g: number; b: number; a: number };
-  fixedAngle?: number;
+  rangedWeapon?: RangedWeapon;
   // Melee weapon properties
-  swingAngle?: number;
-  swingDuration?: number;
+  meleeWeapon?: MeleeWeapon;
   // Area weapon properties
-  radius?: number;
-  duration?: number;
-  tickRate?: number;
+  areaWeapon?: AreaWeapon;
+  // Spiral weapon properties
+  spiralWeapon?: SpiralWeapon;
+  // Spinning weapon properties
+  spinningWeapon?: SpinningWeapon;
 }
 
 export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): Entity {
@@ -43,12 +51,15 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
     damage: 10,
     attackSpeed: 2,
     range: 400,
-    projectileSpeed: 8,
-    projectileSize: [8, 8],
-    projectileColor: { r: 255, g: 255, b: 0, a: 1 },
+    attackCooldown: 200,
   };
 
   const finalProps = { ...defaultProps, ...props };
+
+  const color = randomRgb(1);
+  const projectileSize: [number, number] = [8, 8];
+  const projectileSpeed = 10;
+  const projectileLifetime = 1000 * 3;
 
   // Create weapon based on type
   let weaponData = {} as Weapon;
@@ -61,9 +72,11 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         damage: finalProps.damage,
         attackSpeed: finalProps.attackSpeed,
         range: finalProps.range,
-        projectileSpeed: finalProps.projectileSpeed!,
-        projectileSize: finalProps.projectileSize!,
-        projectileColor: finalProps.projectileColor!,
+        projectileCount: finalProps.rangedWeapon?.projectileCount ?? 1,
+        projectileLifetime: finalProps.rangedWeapon?.projectileLifetime ?? projectileLifetime,
+        projectileSpeed: finalProps.rangedWeapon?.projectileSpeed ?? projectileSpeed,
+        projectileSize: finalProps.rangedWeapon?.projectileSize ?? projectileSize,
+        projectileColor: finalProps.rangedWeapon?.projectileColor ?? color,
       };
       break;
     case WeaponType.RANGED_FIXED:
@@ -73,10 +86,11 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         damage: finalProps.damage,
         attackSpeed: finalProps.attackSpeed,
         range: finalProps.range,
-        projectileSpeed: finalProps.projectileSpeed!,
-        projectileSize: finalProps.projectileSize!,
-        projectileColor: finalProps.projectileColor!,
-        fixedAngle: finalProps.fixedAngle ?? 0,
+        projectileSpeed: finalProps.rangedWeapon?.projectileSpeed ?? projectileSpeed,
+        projectileSize: finalProps.rangedWeapon?.projectileSize ?? projectileSize,
+        projectileColor: finalProps.rangedWeapon?.projectileColor ?? color,
+        projectileCount: finalProps.rangedWeapon?.projectileCount ?? 1,
+        projectileLifetime: finalProps.rangedWeapon?.projectileLifetime ?? projectileLifetime,
       };
       break;
     case WeaponType.MELEE:
@@ -86,8 +100,8 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         damage: finalProps.damage,
         attackSpeed: finalProps.attackSpeed,
         range: finalProps.range,
-        swingAngle: finalProps.swingAngle ?? 90,
-        swingDuration: finalProps.swingDuration ?? 300,
+        swingAngle: finalProps.meleeWeapon?.swingAngle ?? 90,
+        swingDuration: finalProps.meleeWeapon?.swingDuration ?? 300,
       };
       break;
     case WeaponType.AREA:
@@ -97,10 +111,27 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         damage: finalProps.damage,
         attackSpeed: finalProps.attackSpeed,
         range: finalProps.range,
-        radius: finalProps.radius ?? 100,
-        duration: finalProps.duration ?? 5000,
-        tickRate: finalProps.tickRate ?? 1000,
-        color: { r: 255, g: 255, b: 0, a: 1 },
+        radius: finalProps.areaWeapon?.radius ?? 100,
+        duration: finalProps.areaWeapon?.duration ?? 5000,
+        tickRate: finalProps.areaWeapon?.tickRate ?? 1000,
+        color: finalProps.areaWeapon?.color ?? color,
+      };
+      break;
+    case WeaponType.SPIRAL:
+      weaponData = {
+        name: 'Spiral Weapon',
+        type: WeaponType.SPIRAL,
+        damage: finalProps.damage,
+        attackSpeed: finalProps.attackSpeed,
+        range: finalProps.range,
+        spiralSpeed: finalProps.spiralWeapon?.spiralSpeed ?? 30,
+        spiralRadius: finalProps.spiralWeapon?.spiralRadius ?? 10,
+        spiralExpansion: finalProps.spiralWeapon?.spiralExpansion ?? 15,
+        projectileSpeed: finalProps.spiralWeapon?.projectileSpeed ?? projectileSpeed,
+        projectileSize: finalProps.spiralWeapon?.projectileSize ?? projectileSize,
+        projectileColor: finalProps.spiralWeapon?.projectileColor ?? color,
+        projectileCount: finalProps.spiralWeapon?.projectileCount ?? 1,
+        projectileLifetime: finalProps.spiralWeapon?.projectileLifetime ?? projectileLifetime,
       };
       break;
   }
@@ -131,6 +162,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
   weapon.addComponent(
     world.createComponent(WeaponComponent, {
       weapons: [weaponData],
+      attackCooldown: finalProps.attackCooldown,
     }),
   );
 

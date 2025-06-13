@@ -83,6 +83,7 @@ export function createPlayerEntity(
     world.createComponent(WeaponComponent, {
       weapons,
       currentWeaponIndex: 0,
+      attackCooldown: 200,
     }),
   );
 

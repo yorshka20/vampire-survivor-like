@@ -6,12 +6,14 @@ export enum WeaponType {
   MELEE = 'MELEE',
   AREA = 'AREA',
   SPIRAL = 'SPIRAL',
+  SPINNING = 'SPINNING',
 }
 
 export interface BaseWeapon {
   name: string;
   damage: number;
   attackSpeed: number;
+  attackCooldown?: number;
   type: WeaponType;
   range: number;
   penetration?: number;
@@ -20,10 +22,17 @@ export interface BaseWeapon {
 }
 
 export interface RangedWeapon extends BaseWeapon {
-  type: WeaponType.RANGED_AUTO_AIM | WeaponType.RANGED_FIXED | WeaponType.SPIRAL;
+  type:
+    | WeaponType.RANGED_AUTO_AIM
+    | WeaponType.RANGED_FIXED
+    | WeaponType.SPIRAL
+    | WeaponType.SPINNING;
+  maxProjectileCount?: number;
   projectileSpeed: number;
   projectileSize: [number, number];
   projectileColor: Color;
+  projectileCount: number;
+  projectileLifetime: number;
   fixedAngle?: number; // Angle in degrees for fixed direction weapons
 }
 
@@ -44,15 +53,18 @@ export interface AreaWeapon extends BaseWeapon {
 export interface SpiralWeapon extends RangedWeapon {
   type: WeaponType.SPIRAL;
   followPlayer?: boolean;
-  projectileSpeed: number;
-  projectileSize: [number, number];
-  projectileColor: Color;
-  penetration?: number;
   spiralSpeed: number; // Rotation speed in degree per second
   spiralRadius: number; // Initial radius of the spiral
   spiralExpansion: number; // How fast the spiral expands outward
-  projectileCount: number; // Number of projectiles to spawn around the player
-  projectileLifetime: number; // Lifetime of the projectile in milliseconds
 }
 
-export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon | SpiralWeapon;
+export interface SpinningWeapon extends RangedWeapon {
+  type: WeaponType.SPINNING;
+  spinSpeed: number; // Rotation speed in degree per second
+  spinRadius: number; // Initial radius of the spin
+  spinCount: number;
+  spinLifetime: number;
+  followPlayer?: boolean;
+}
+
+export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon | SpiralWeapon | SpinningWeapon;

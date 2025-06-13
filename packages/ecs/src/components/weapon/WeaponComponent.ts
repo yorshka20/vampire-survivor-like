@@ -1,9 +1,11 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { Weapon, WeaponType } from './WeaponTypes';
+import { TimeUtil } from '@ecs/utils/timeUtil';
+import { Weapon } from './WeaponTypes';
 
 interface WeaponProps {
   weapons: Weapon[];
   currentWeaponIndex?: number;
+  attackCooldown?: number;
 }
 
 export class WeaponComponent extends Component {
@@ -13,12 +15,13 @@ export class WeaponComponent extends Component {
   weapons: Weapon[];
   currentWeaponIndex: number;
   lastAttackTimes: number[] = [];
-  areaWeaponCooldown: number = 200; // 1 second cooldown for area weapons
+  attackCooldown: number = 200;
 
   constructor(props: WeaponProps) {
     super('Weapon');
     this.weapons = props.weapons;
     this.currentWeaponIndex = props.currentWeaponIndex ?? 0;
+    this.attackCooldown = props.attackCooldown ?? 0;
     this.weapons.forEach(() => this.lastAttackTimes.push(0));
   }
 
@@ -38,23 +41,23 @@ export class WeaponComponent extends Component {
     }
   }
 
-  private isAreaWeaponOnCooldown(currentTime: number, weaponIndex: number): boolean {
+  private isWeaponOnCooldown(currentTime: number, weaponIndex: number): boolean {
     const weapon = this.weapons[weaponIndex];
-    if (!weapon || weapon.type !== WeaponType.AREA) return false;
+    if (!weapon) return false;
 
-    return currentTime - this.lastAttackTimes[weaponIndex] < this.areaWeaponCooldown;
+    return currentTime - this.lastAttackTimes[weaponIndex] < this.attackCooldown;
   }
 
   canAttack(currentTime: number, weaponIndex: number): boolean {
     const weapon = this.weapons[weaponIndex];
     if (!weapon) return false;
 
-    // Check area weapon cooldown first
-    if (weapon.type === WeaponType.AREA && this.isAreaWeaponOnCooldown(currentTime, weaponIndex)) {
+    // Check cooldown first
+    if (this.isWeaponOnCooldown(currentTime, weaponIndex)) {
       return false;
     }
 
-    const attackInterval = 1000 / weapon.attackSpeed;
+    const attackInterval = TimeUtil.toMilliseconds(1) / weapon.attackSpeed;
     return currentTime - this.lastAttackTimes[weaponIndex] >= attackInterval;
   }
 

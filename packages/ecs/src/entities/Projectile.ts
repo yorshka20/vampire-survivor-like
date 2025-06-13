@@ -7,19 +7,16 @@ import {
   VelocityComponent,
 } from '@ecs/components';
 import { SpiralMovementComponent } from '@ecs/components/projectile/SpiralProjectileComponent';
-import { Weapon } from '@ecs/components/weapon/WeaponTypes';
+import {
+  BaseWeapon,
+  RangedWeapon,
+  SpinningWeapon,
+  SpiralWeapon,
+  Weapon,
+} from '@ecs/components/weapon/WeaponTypes';
 import { World } from '@ecs/core/ecs/World';
 
-interface SpiralData {
-  followPlayer?: boolean;
-  centerX: number;
-  centerY: number;
-  angle: number;
-  radius: number;
-  speed: number;
-  penetration?: number;
-  expansion: number;
-}
+type UniqueProperties<T, U> = Pick<T, Exclude<keyof T, keyof U>>;
 
 interface ProjectileProps {
   id?: string;
@@ -28,11 +25,17 @@ interface ProjectileProps {
   size?: [number, number];
   velocity?: { x: number; y: number };
   damage?: number;
+  penetration?: number;
   source?: string;
   lifetime?: number; // Lifetime in milliseconds
-  maxDistance?: number; // Maximum distance the projectile can travel
+  type?: 'spiral' | 'spinning' | 'linear';
   weapon?: Weapon; // Reference to the weapon that created this projectile
-  spiralData?: SpiralData; // Data for spiral projectile movement
+  // Ranged weapon properties
+  rangedWeapon?: UniqueProperties<RangedWeapon, BaseWeapon>;
+  // Spiral weapon properties
+  spiralData?: UniqueProperties<SpiralWeapon, BaseWeapon>;
+  // Spinning weapon properties
+  spinningData?: UniqueProperties<SpinningWeapon, BaseWeapon>;
 }
 
 /**
@@ -44,13 +47,16 @@ export function createProjectileEntity(
     position = { x: 0, y: 0 },
     velocity = { x: 0, y: 0 },
     damage = 10,
+    penetration = 1,
     source = 'player',
     size = [8, 8],
     color = { r: 255, g: 255, b: 0, a: 1 },
     lifetime = 2000, // Default lifetime of 2 seconds
-    maxDistance = 1000, // Default maximum distance of 1000 units
     weapon,
+    type = 'linear',
+    rangedWeapon,
     spiralData,
+    spinningData,
   }: ProjectileProps,
 ) {
   const projectile = world.createEntity('projectile');
@@ -73,8 +79,30 @@ export function createProjectileEntity(
   );
 
   // Add spiral movement if specified
-  if (spiralData) {
-    projectile.addComponent(world.createComponent(SpiralMovementComponent, spiralData));
+  if (type === 'spiral' && spiralData) {
+    projectile.addComponent(
+      world.createComponent(SpiralMovementComponent, {
+        followPlayer: spiralData.followPlayer,
+        center: { x: position.x, y: position.y },
+        angle: 0,
+        radius: spiralData.spiralRadius,
+        speed: spiralData.spiralSpeed,
+        expansion: spiralData.spiralExpansion,
+      }),
+    );
+  }
+
+  if (type === 'spinning' && spinningData) {
+    projectile.addComponent(
+      world.createComponent(SpiralMovementComponent, {
+        followPlayer: spinningData.followPlayer,
+        center: { x: position.x, y: position.y },
+        angle: 0,
+        radius: spinningData.spinRadius,
+        speed: spinningData.spinSpeed,
+        expansion: 0,
+      }),
+    );
   }
 
   projectile.addComponent(
@@ -82,7 +110,7 @@ export function createProjectileEntity(
       damage,
       source,
       team: source === 'player' ? 'player' : 'enemy',
-      penetration: spiralData?.penetration ?? weapon?.penetration ?? 1,
+      penetration: penetration,
       duration: lifetime ?? 2000,
       weapon,
     }),

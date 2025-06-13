@@ -9,6 +9,7 @@ import {
   AreaWeapon,
   MeleeWeapon,
   RangedWeapon,
+  SpinningWeapon,
   SpiralWeapon,
   WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
@@ -17,6 +18,7 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { Game } from '@ecs/core/game/Game';
 import { createAreaEffectEntity, createProjectileEntity } from '@ecs/entities';
+import { TimeUtil } from '@ecs/utils/timeUtil';
 
 export class WeaponSystem extends System {
   private maxAreaEffects = 10;
@@ -24,6 +26,110 @@ export class WeaponSystem extends System {
 
   constructor() {
     super('WeaponSystem', SystemPriorities.WEAPON, 'logic');
+  }
+
+  update(deltaTime: number): void {
+    const currentTime = TimeUtil.now();
+    const weaponEntities = this.world.getEntitiesWithComponents([
+      WeaponComponent,
+      MovementComponent,
+    ]);
+
+    for (const weaponEntity of weaponEntities) {
+      const weapon = weaponEntity.getComponent<WeaponComponent>(WeaponComponent.componentName);
+      if (!weapon.canAttack(currentTime, weapon.currentWeaponIndex)) continue;
+
+      const movement = weaponEntity.getComponent<MovementComponent>(
+        MovementComponent.componentName,
+      );
+      const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
+
+      // Process each weapon
+      for (let i = 0; i < weapon.weapons.length; i++) {
+        const currentWeapon = weapon.weapons[i];
+        if (!currentWeapon) continue;
+
+        // Check if we can attack with this weapon
+        const effectiveAttackSpeed =
+          currentWeapon.attackSpeed * (stats?.attackSpeedMultiplier ?? 1);
+        const attackInterval = TimeUtil.toMilliseconds(1) / effectiveAttackSpeed;
+        const lastAttackTime = weapon.lastAttackTimes[i] ?? 0;
+
+        if (currentTime - lastAttackTime >= attackInterval) {
+          const position = movement.getPosition();
+          const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
+
+          switch (currentWeapon.type) {
+            case WeaponType.RANGED_AUTO_AIM:
+              this.handleRangedAutoAim(
+                weaponEntity,
+                weapon,
+                currentWeapon as RangedWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.RANGED_FIXED:
+              this.handleRangedFixed(
+                weaponEntity,
+                weapon,
+                currentWeapon as RangedWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.MELEE:
+              this.handleMelee(
+                weaponEntity,
+                weapon,
+                currentWeapon as MeleeWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.AREA:
+              this.handleArea(
+                weaponEntity,
+                weapon,
+                currentWeapon as AreaWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.SPIRAL:
+              this.handleSpiral(
+                weaponEntity,
+                weapon,
+                currentWeapon as SpiralWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.SPINNING:
+              this.handleSpinning(
+                weaponEntity,
+                weapon,
+                currentWeapon as SpinningWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+          }
+        }
+      }
+    }
   }
 
   private handleRangedAutoAim(
@@ -43,9 +149,10 @@ export class WeaponSystem extends System {
     let nearestDistance = Infinity;
     let nearestEnemyPosition: [number, number] | null = null;
 
+    // todo: optimize finding the nearest enemy
     for (const enemyId of enemyIds) {
       const enemy = this.world.getEntityById(enemyId);
-      if (!enemy || !enemy.isType('enemy')) continue;
+      if (!enemy?.isType('enemy')) continue;
 
       const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
       const enemyPos = enemyMovement.getPosition();
@@ -245,16 +352,20 @@ export class WeaponSystem extends System {
         size: currentWeapon.projectileSize,
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
+        penetration: currentWeapon.penetration,
         lifetime: currentWeapon.projectileLifetime,
+        type: 'spiral',
         spiralData: {
+          maxProjectileCount: currentWeapon.maxProjectileCount,
+          projectileSpeed: currentWeapon.projectileSpeed,
+          projectileSize: currentWeapon.projectileSize,
+          projectileColor: currentWeapon.projectileColor,
+          projectileCount: currentWeapon.projectileCount,
+          projectileLifetime: currentWeapon.projectileLifetime,
           followPlayer: currentWeapon.followPlayer,
-          centerX: position[0],
-          centerY: position[1],
-          angle: angle,
-          radius: currentWeapon.spiralRadius,
-          speed: currentWeapon.spiralSpeed,
-          expansion: currentWeapon.spiralExpansion,
-          penetration: currentWeapon.penetration,
+          spiralRadius: currentWeapon.spiralRadius,
+          spiralSpeed: currentWeapon.spiralSpeed,
+          spiralExpansion: currentWeapon.spiralExpansion,
         },
       });
 
@@ -264,96 +375,53 @@ export class WeaponSystem extends System {
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
-  update(deltaTime: number): void {
-    if (!this.spatialGrid || !this.gridComponent) return;
+  private handleSpinning(
+    entity: Entity,
+    weapon: WeaponComponent,
+    currentWeapon: SpinningWeapon,
+    position: [number, number],
+    effectiveDamage: number,
+    currentTime: number,
+    weaponIndex: number,
+  ): void {
+    // Calculate positions around the player
+    const angleStep = (2 * Math.PI) / currentWeapon.spinCount;
 
-    const currentTime = Date.now();
-    const weaponEntities = this.world.getEntitiesWithComponents([
-      { componentName: WeaponComponent.componentName },
-      { componentName: MovementComponent.componentName },
-    ]);
+    for (let i = 0; i < currentWeapon.spinCount; i++) {
+      const angle = i * angleStep;
+      const spawnX = position[0] + Math.cos(angle) * currentWeapon.spinRadius;
+      const spawnY = position[1] + Math.sin(angle) * currentWeapon.spinRadius;
 
-    for (const weaponEntity of weaponEntities) {
-      const weapon = weaponEntity.getComponent<WeaponComponent>(WeaponComponent.componentName);
-      const movement = weaponEntity.getComponent<MovementComponent>(
-        MovementComponent.componentName,
-      );
-      const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
+      // Create projectile with spiral trajectory
+      const projectile = createProjectileEntity(this.world, {
+        position: {
+          x: spawnX,
+          y: spawnY,
+        },
+        size: currentWeapon.projectileSize,
+        damage: effectiveDamage,
+        source: entity.id,
+        penetration: currentWeapon.penetration,
+        lifetime: currentWeapon.spinLifetime,
+        type: 'spinning',
+        spinningData: {
+          maxProjectileCount: currentWeapon.maxProjectileCount,
+          projectileSpeed: currentWeapon.projectileSpeed,
+          projectileSize: currentWeapon.projectileSize,
+          projectileColor: currentWeapon.projectileColor,
+          projectileCount: currentWeapon.projectileCount,
+          projectileLifetime: currentWeapon.projectileLifetime,
+          followPlayer: currentWeapon.followPlayer,
+          spinRadius: Math.random() * currentWeapon.spinRadius,
+          spinSpeed: currentWeapon.spinSpeed,
+          spinCount: currentWeapon.spinCount,
+          spinLifetime: currentWeapon.spinLifetime,
+        },
+      });
 
-      // Process each weapon
-      for (let i = 0; i < weapon.weapons.length; i++) {
-        const currentWeapon = weapon.weapons[i];
-        if (!currentWeapon) continue;
-
-        // Check if we can attack with this weapon
-        const effectiveAttackSpeed =
-          currentWeapon.attackSpeed * (stats?.attackSpeedMultiplier ?? 1);
-        const attackInterval = 1000 / effectiveAttackSpeed;
-        const lastAttackTime = weapon.lastAttackTimes[i] ?? 0;
-
-        if (currentTime - lastAttackTime >= attackInterval) {
-          const position = movement.getPosition();
-          const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
-
-          switch (currentWeapon.type) {
-            case WeaponType.RANGED_AUTO_AIM:
-              this.handleRangedAutoAim(
-                weaponEntity,
-                weapon,
-                currentWeapon as RangedWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
-              break;
-            case WeaponType.RANGED_FIXED:
-              this.handleRangedFixed(
-                weaponEntity,
-                weapon,
-                currentWeapon as RangedWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
-              break;
-            case WeaponType.MELEE:
-              this.handleMelee(
-                weaponEntity,
-                weapon,
-                currentWeapon as MeleeWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
-              break;
-            case WeaponType.AREA:
-              this.handleArea(
-                weaponEntity,
-                weapon,
-                currentWeapon as AreaWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
-              break;
-            case WeaponType.SPIRAL:
-              this.handleSpiral(
-                weaponEntity,
-                weapon,
-                currentWeapon as SpiralWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
-              break;
-          }
-        }
-      }
+      this.world.addEntity(projectile);
     }
+
+    weapon.updateAttackTime(currentTime, weaponIndex);
   }
 }

@@ -2,8 +2,7 @@ import { Component } from '@ecs/core/ecs/Component';
 
 interface SpiralMovementProps {
   followPlayer?: boolean;
-  centerX: number;
-  centerY: number;
+  center: { x: number; y: number };
   angle: number;
   radius: number;
   speed: number;
@@ -14,8 +13,7 @@ export class SpiralMovementComponent extends Component {
   static componentName = 'SpiralMovement';
 
   private followPlayer: boolean;
-  private centerX: number;
-  private centerY: number;
+  private center: { x: number; y: number };
   private angle: number;
   private radius: number;
   private speed: number;
@@ -24,8 +22,7 @@ export class SpiralMovementComponent extends Component {
   constructor(props: SpiralMovementProps) {
     super('SpiralMovement');
     this.followPlayer = props.followPlayer ?? false;
-    this.centerX = props.centerX;
-    this.centerY = props.centerY;
+    this.center = props.center;
     this.angle = props.angle;
     this.radius = props.radius;
     this.speed = props.speed;
@@ -44,8 +41,8 @@ export class SpiralMovementComponent extends Component {
   // Get the current position in Cartesian coordinates
   getPosition(): { x: number; y: number } {
     return {
-      x: this.centerX + Math.cos(this.angle) * this.radius,
-      y: this.centerY + Math.sin(this.angle) * this.radius,
+      x: this.center.x + Math.cos(this.angle) * this.radius,
+      y: this.center.y + Math.sin(this.angle) * this.radius,
     };
   }
 
@@ -70,15 +67,12 @@ export class SpiralMovementComponent extends Component {
   }
 
   getCenter(): { x: number; y: number } {
-    return {
-      x: this.centerX,
-      y: this.centerY,
-    };
+    return this.center;
   }
 
   updateCenter(x: number, y: number): void {
-    this.centerX = x;
-    this.centerY = y;
+    this.center.x = x;
+    this.center.y = y;
   }
 
   getAngle(): number {

@@ -8,11 +8,9 @@ import {
   VelocityComponent,
   WeaponComponent,
 } from '@ecs/components';
-import { Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { IEntity } from '@ecs/core/ecs/types';
-import { generateRandomColor } from '@ecs/utils/color';
 
 export class PickupSystem extends System {
   invokeTimeGap = 50;
@@ -174,21 +172,8 @@ export class PickupSystem extends System {
       stats.applyMultiplier(randomBoost.stat, randomBoost.mult);
     }
 
-    // Add a new weapon every 5 levels
-    if (level % 5 === 0 && player.hasComponent(WeaponComponent.componentName)) {
-      const weapons = player.getComponent<WeaponComponent>(WeaponComponent.componentName);
-
-      const newWeapon: Weapon = {
-        name: `Level ${level} Weapon`,
-        damage: 10 + level,
-        attackSpeed: 2,
-        projectileSpeed: 8,
-        projectileSize: [8 + level, 8 + level],
-        projectileColor: generateRandomColor(),
-        range: 400,
-        type: WeaponType.RANGED_AUTO_AIM,
-      };
-      weapons.addWeapon(newWeapon);
+    if (level % 5 === 0) {
+      // todo: mode selection
     }
   }
 

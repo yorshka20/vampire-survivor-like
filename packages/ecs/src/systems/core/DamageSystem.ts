@@ -32,6 +32,8 @@ export class DamageSystem extends System {
   }
 
   getCollisionSystem(): CollisionSystem {
+    if (this.collisionSystem) return this.collisionSystem;
+
     if (!this.collisionSystem) {
       this.collisionSystem = this.world.getSystem<CollisionSystem>(
         'CollisionSystem',
@@ -87,12 +89,6 @@ export class DamageSystem extends System {
 
     // Record the hit
     damageComponent.recordHit(enemy.id);
-
-    // Ensure projectile's velocity is not blocked
-    // const velocity = projectile.getComponent<VelocityComponent>(VelocityComponent.componentName);
-    // if (velocity) {
-    //   velocity.setBlocked(false);
-    // }
   }
 
   private playHitSound(entity: Entity): void {
