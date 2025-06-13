@@ -15,6 +15,7 @@ export class AIComponent extends Component {
   targetEntityId: string | null;
   detectionRange: number;
   speed: number;
+  private paused: boolean = false;
 
   constructor(props: AIProps = {}) {
     super('AI');
@@ -36,10 +37,23 @@ export class AIComponent extends Component {
     this.behavior = behavior;
   }
 
+  pause(): void {
+    this.paused = true;
+  }
+
+  resume(): void {
+    this.paused = false;
+  }
+
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   reset(): void {
     this.behavior = 'chase';
     this.targetEntityId = null;
     this.detectionRange = 500;
     this.speed = 2;
+    this.paused = false;
   }
 }

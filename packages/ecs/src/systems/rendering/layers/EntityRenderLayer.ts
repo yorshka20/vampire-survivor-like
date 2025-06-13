@@ -1,4 +1,4 @@
-import { MovementComponent, RenderComponent } from '@ecs/components';
+import { MovementComponent, RenderComponent, StateComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -35,6 +35,9 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     movement: MovementComponent,
     cameraOffset: [number, number],
   ): void {
+    const entity = render.entity;
+    if (!entity) return;
+
     const position = movement.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
@@ -48,10 +51,25 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     this.ctx.rotate(rotation);
     this.ctx.scale(scale, scale);
 
-    if (patternImage && patternImage.complete) {
-      RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+    // Check if entity is in hit state
+    const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+    if (state?.isHit()) {
+      // Set white silhouette effect
+      this.ctx.filter = 'brightness(0) invert(1)';
+
+      // First draw the normal shape/image
+      if (patternImage && patternImage.complete) {
+        RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+      } else {
+        RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      }
     } else {
-      RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      // Normal rendering
+      if (patternImage && patternImage.complete) {
+        RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+      } else {
+        RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      }
     }
 
     this.ctx.restore();

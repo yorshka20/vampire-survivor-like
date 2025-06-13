@@ -107,7 +107,7 @@ export class SpawnSystem extends System {
 
   private spawnEnemy(x: number, y: number, playerId: string): void {
     // Random enemy stats based on wave
-    const health = 5 + this.waveNumber * 5;
+    const health = 100 + this.waveNumber * 5;
     const speed = Math.max(
       SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
       SPAWN_CONSTANTS.MAX_ENEMY_SPEED,

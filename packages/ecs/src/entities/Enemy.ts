@@ -5,6 +5,7 @@ import {
   MovementComponent,
   RenderComponent,
   SoundEffectComponent,
+  StateComponent,
   VelocityComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
@@ -79,6 +80,16 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
     world.createComponent(SoundEffectComponent, {
       hitSound: 'hit',
       deathSound: 'death',
+    }),
+  );
+
+  // Add state component
+  enemy.addComponent(
+    world.createComponent(StateComponent, {
+      isDazed: false,
+      dazeEndTime: 0,
+      isHit: false,
+      hitEndTime: 0,
     }),
   );
 

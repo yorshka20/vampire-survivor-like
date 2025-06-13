@@ -14,6 +14,7 @@ import {
   RenderComponent,
   SoundEffectComponent,
   SpiralMovementComponent,
+  StateComponent,
   StatsComponent,
   VelocityComponent,
   WeaponComponent,
@@ -101,6 +102,7 @@ export class World implements IWorld {
       ChaseComponent,
       SoundEffectComponent,
       SpiralMovementComponent,
+      StateComponent,
     ];
 
     componentClasses.forEach((ComponentClass) => {

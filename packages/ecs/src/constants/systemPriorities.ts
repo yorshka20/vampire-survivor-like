@@ -17,6 +17,7 @@ export enum SystemPriorities {
   DAMAGE = 900, // Process damage
   PICKUP = 1000, // Handle pickups
   DEATH = 1100, // Process death
+  STATE_EFFECT = 1200, // Process state effects
 
   // Rendering systems (must be last)
   DAMAGE_TEXT = 8000, // Render damage text

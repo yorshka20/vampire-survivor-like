@@ -13,6 +13,7 @@ import {
   ResourceManager,
   SpatialGridSystem,
   SpawnSystem,
+  StateEffectSystem,
   VelocitySystem,
   WeaponSystem,
   createPlayerEntity,
@@ -41,6 +42,7 @@ export function createVampireSurvivorsGame(rootElement: HTMLElement) {
   world.addSystem(new DeathSystem());
   world.addSystem(new ChaseSystem());
   world.addSystem(new CollisionSystem());
+  world.addSystem(new StateEffectSystem());
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement, viewport);

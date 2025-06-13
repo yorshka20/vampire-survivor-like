@@ -5,6 +5,7 @@ import {
   InputComponent,
   MovementComponent,
   RenderComponent,
+  StateComponent,
   StatsComponent,
   VelocityComponent,
   WeaponComponent,
@@ -96,6 +97,15 @@ export function createPlayerEntity(
   );
 
   player.addComponent(world.createComponent(StatsComponent, {}));
+
+  player.addComponent(
+    world.createComponent(StateComponent, {
+      isHit: false,
+      hitRemainingFrames: 0,
+      isDazed: false,
+      dazeRemainingFrames: 0,
+    }),
+  );
 
   player.addComponent(
     world.createComponent(ColliderComponent, {

@@ -5,6 +5,7 @@ import {
   HealthComponent,
   MovementComponent,
   SoundEffectComponent,
+  StateComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -71,6 +72,13 @@ export class DamageSystem extends System {
     const { damage, isCritical } = damageComponent.getDamage();
     health.takeDamage(damage);
 
+    // Set hit and daze states
+    const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
+    if (stateComponent) {
+      stateComponent.setHit(3); // 3 frames hit effect
+      stateComponent.setDazed(3); // 3 frames daze effect
+    }
+
     // Create damage text
     const damageTextEntity = createDamageTextEntity(this.world, {
       damage,
@@ -117,6 +125,13 @@ export class DamageSystem extends System {
     // Apply damage with critical hit check
     const { damage, isCritical } = damageComponent.getDamage();
     health.takeDamage(damage);
+
+    // Set hit and daze states
+    const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
+    if (stateComponent) {
+      stateComponent.setHit(1); // 1 frame hit effect
+      stateComponent.setDazed(2); // 2 frames daze effect
+    }
 
     // Create damage text
     const damageTextEntity = createDamageTextEntity(this.world, {
