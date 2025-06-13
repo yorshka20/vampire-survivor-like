@@ -9,6 +9,8 @@ export type ComponentConstructor<T extends Component> = new (...args: any[]) => 
 // define component props type extraction
 export type ComponentProps<T> = T extends new (props: infer P) => any ? P : never;
 
+export type ComponentFactory<T extends Component> = (props?: ComponentProps<T>) => T;
+
 /**
  * Entity interface
  */

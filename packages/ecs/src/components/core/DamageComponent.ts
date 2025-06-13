@@ -52,7 +52,7 @@ export class DamageComponent extends Component {
   }
 
   isExpired(): boolean {
-    if (!this.duration) return false;
+    if (!this.duration || this.duration === -1) return false;
     return Date.now() - this.startTime >= this.duration;
   }
 

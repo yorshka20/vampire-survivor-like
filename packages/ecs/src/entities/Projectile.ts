@@ -17,6 +17,7 @@ interface SpiralData {
   angle: number;
   radius: number;
   speed: number;
+  penetration?: number;
   expansion: number;
 }
 
@@ -81,8 +82,9 @@ export function createProjectileEntity(
       damage,
       source,
       team: source === 'player' ? 'player' : 'enemy',
-      penetration: 1,
-      weapon, // Pass weapon reference to DamageComponent
+      penetration: spiralData?.penetration ?? weapon?.penetration ?? 1,
+      duration: lifetime ?? 2000,
+      weapon,
     }),
   );
 

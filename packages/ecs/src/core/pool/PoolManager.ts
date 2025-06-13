@@ -1,9 +1,7 @@
 import { Component } from '../ecs/Component';
 import { Entity } from '../ecs/Entity';
-import { ComponentConstructor, ComponentProps } from '../ecs/types';
+import { ComponentConstructor, ComponentFactory, ComponentProps } from '../ecs/types';
 import { ObjectPool } from './ObjectPool';
-
-export type ComponentFactory<T extends Component> = (props: ComponentProps<T>) => T;
 
 export class PoolManager {
   private static instance: PoolManager;

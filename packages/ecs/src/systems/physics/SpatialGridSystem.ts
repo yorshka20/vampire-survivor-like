@@ -75,13 +75,13 @@ export class SpatialGridSystem extends System {
     position: [number, number],
     radius: number,
     queryType: SpatialQueryType = 'collision',
-  ): Set<string> {
-    if (!this.spatialGridEntity) return new Set();
+  ): string[] {
+    if (!this.spatialGridEntity) return [];
 
     const gridComponent = this.spatialGridEntity.getComponent<SpatialGridComponent>(
       SpatialGridComponent.componentName,
     );
-    if (!gridComponent) return new Set();
+    if (!gridComponent) return [];
 
     return gridComponent.getNearbyEntities(position, radius, queryType);
   }

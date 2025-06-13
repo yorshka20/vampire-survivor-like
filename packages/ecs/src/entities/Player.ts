@@ -72,9 +72,16 @@ export function createPlayerEntity(
     }),
   );
 
+  const weapons = [
+    WeaponMap.SpiralOrb,
+    // WeaponMap.Aura,
+    // WeaponMap.RapidFire,
+    WeaponMap.SpiralShot,
+  ];
+
   player.addComponent(
     world.createComponent(WeaponComponent, {
-      weapons: [WeaponMap.Melee, WeaponMap.Aura, WeaponMap.RapidFire, WeaponMap.SpiralShot],
+      weapons,
       currentWeaponIndex: 0,
     }),
   );

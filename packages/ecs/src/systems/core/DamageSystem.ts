@@ -5,7 +5,6 @@ import {
   HealthComponent,
   MovementComponent,
   SoundEffectComponent,
-  VelocityComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -90,10 +89,10 @@ export class DamageSystem extends System {
     damageComponent.recordHit(enemy.id);
 
     // Ensure projectile's velocity is not blocked
-    const velocity = projectile.getComponent<VelocityComponent>(VelocityComponent.componentName);
-    if (velocity) {
-      velocity.setBlocked(false);
-    }
+    // const velocity = projectile.getComponent<VelocityComponent>(VelocityComponent.componentName);
+    // if (velocity) {
+    //   velocity.setBlocked(false);
+    // }
   }
 
   private playHitSound(entity: Entity): void {
@@ -147,7 +146,7 @@ export class DamageSystem extends System {
     this.checkPerformance();
 
     const collisionResults = this.getCollisionSystem().getCollisionResults();
-    const entitiesToRemove = new Set<Entity>();
+    const entitiesToRemove: Entity[] = [];
 
     // Process collisions based on performance mode
     for (const result of collisionResults) {
@@ -164,16 +163,6 @@ export class DamageSystem extends System {
         !entity1.hasComponent(ColliderComponent.componentName) ||
         !entity2.hasComponent(ColliderComponent.componentName)
       ) {
-        // this.log(
-        //   'skipping collision',
-        //   entity1.type,
-        //   entity1.toRemove,
-        //   entity1.components.size,
-        //   '|',
-        //   entity2.type,
-        //   entity2.toRemove,
-        //   entity2.components.size,
-        // );
         continue;
       }
 
@@ -227,7 +216,7 @@ export class DamageSystem extends System {
 
       // Handle projectile removal
       if (!damageComponent.canHitMore() || damageComponent.isExpired()) {
-        entitiesToRemove.add(damageSource);
+        entitiesToRemove.push(damageSource);
       }
     }
 

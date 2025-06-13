@@ -71,4 +71,8 @@ export class SpiralMovementComponent extends Component {
   getFollowPlayer(): boolean {
     return this.followPlayer;
   }
+
+  getRadius(): number {
+    return this.radius;
+  }
 }

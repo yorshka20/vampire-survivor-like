@@ -4,12 +4,7 @@ import {
   RenderComponent,
   WeaponComponent,
 } from '@ecs/components';
-import {
-  AreaWeapon,
-  MeleeWeapon,
-  RangedWeapon,
-  WeaponType,
-} from '@ecs/components/weapon/WeaponTypes';
+import { Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 
@@ -56,7 +51,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
   const finalProps = { ...defaultProps, ...props };
 
   // Create weapon based on type
-  let weaponData: RangedWeapon | MeleeWeapon | AreaWeapon;
+  let weaponData = {} as Weapon;
 
   switch (finalProps.weaponType) {
     case WeaponType.RANGED_AUTO_AIM:
@@ -105,6 +100,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         radius: finalProps.radius ?? 100,
         duration: finalProps.duration ?? 5000,
         tickRate: finalProps.tickRate ?? 1000,
+        color: { r: 255, g: 255, b: 0, a: 1 },
       };
       break;
   }

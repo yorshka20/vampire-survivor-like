@@ -12,6 +12,7 @@ export class LifecycleComponent extends Component {
   }
 
   isExpired(): boolean {
+    if (this.lifetime === -1) return false;
     return Date.now() - this.createdAt >= this.lifetime;
   }
 

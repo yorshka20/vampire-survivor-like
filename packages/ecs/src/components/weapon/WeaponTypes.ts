@@ -8,25 +8,22 @@ export enum WeaponType {
   SPIRAL = 'SPIRAL',
 }
 
-interface BaseWeapon {
+export interface BaseWeapon {
   name: string;
-  type: WeaponType;
   damage: number;
-  attackSpeed: number; // attacks per second
+  attackSpeed: number;
+  type: WeaponType;
   range: number;
-  projectileSpeed?: number;
-  projectileSize?: [number, number];
-  projectileColor?: Color;
-  criticalChance?: number; // Chance of critical hit (0-1)
-  criticalMultiplier?: number; // Damage multiplier for critical hits
+  penetration?: number;
+  criticalChance?: number;
+  criticalMultiplier?: number;
 }
 
 export interface RangedWeapon extends BaseWeapon {
-  type: WeaponType.RANGED_AUTO_AIM | WeaponType.RANGED_FIXED;
+  type: WeaponType.RANGED_AUTO_AIM | WeaponType.RANGED_FIXED | WeaponType.SPIRAL;
   projectileSpeed: number;
   projectileSize: [number, number];
   projectileColor: Color;
-  penetration?: number;
   fixedAngle?: number; // Angle in degrees for fixed direction weapons
 }
 
@@ -44,12 +41,13 @@ export interface AreaWeapon extends BaseWeapon {
   color: Color;
 }
 
-export interface SpiralWeapon extends BaseWeapon {
+export interface SpiralWeapon extends RangedWeapon {
   type: WeaponType.SPIRAL;
   followPlayer?: boolean;
   projectileSpeed: number;
   projectileSize: [number, number];
   projectileColor: Color;
+  penetration?: number;
   spiralSpeed: number; // Rotation speed in radians per second
   spiralRadius: number; // Initial radius of the spiral
   spiralExpansion: number; // How fast the spiral expands outward
