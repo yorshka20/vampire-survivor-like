@@ -33,18 +33,39 @@ export class SpiralMovementComponent extends Component {
   }
 
   update(deltaTime: number): void {
-    // Convert deltaTime to seconds and scale it for better control
-    const dt = (deltaTime / 1000) * 60; // Scale to roughly match 60fps
-
-    // Update angle and radius with scaled values
-    this.angle += (this.speed * dt) / 10; // Divide by 10 to make the speed more manageable
-    this.radius += this.expansion * dt;
+    // deltaTime is in seconds!
+    const angleDelta = this.speed * (Math.PI / 180) * deltaTime;
+    this.angle += angleDelta;
+    if (this.expansion !== 0) {
+      this.radius += this.expansion * deltaTime;
+    }
   }
 
-  getOffset(): { x: number; y: number } {
+  // Get the current position in Cartesian coordinates
+  getPosition(): { x: number; y: number } {
     return {
-      x: Math.cos(this.angle) * this.radius,
-      y: Math.sin(this.angle) * this.radius,
+      x: this.centerX + Math.cos(this.angle) * this.radius,
+      y: this.centerY + Math.sin(this.angle) * this.radius,
+    };
+  }
+
+  // Get the velocity vector in Cartesian coordinates
+  getVelocity(): { x: number; y: number } {
+    // Angular velocity in radians per second
+    const angularVelocity = this.speed * (Math.PI / 180);
+    // Tangential velocity (perpendicular to radius)
+    const tangentialX = -Math.sin(this.angle) * this.radius * angularVelocity;
+    const tangentialY = Math.cos(this.angle) * this.radius * angularVelocity;
+    // Radial velocity (if expansion is non-zero)
+    let radialX = 0;
+    let radialY = 0;
+    if (this.expansion !== 0) {
+      radialX = Math.cos(this.angle) * this.expansion;
+      radialY = Math.sin(this.angle) * this.expansion;
+    }
+    return {
+      x: tangentialX + radialX,
+      y: tangentialY + radialY,
     };
   }
 

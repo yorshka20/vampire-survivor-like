@@ -48,7 +48,7 @@ export interface SpiralWeapon extends RangedWeapon {
   projectileSize: [number, number];
   projectileColor: Color;
   penetration?: number;
-  spiralSpeed: number; // Rotation speed in radians per second
+  spiralSpeed: number; // Rotation speed in degree per second
   spiralRadius: number; // Initial radius of the spiral
   spiralExpansion: number; // How fast the spiral expands outward
   projectileCount: number; // Number of projectiles to spawn around the player

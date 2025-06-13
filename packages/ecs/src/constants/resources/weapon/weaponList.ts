@@ -83,7 +83,7 @@ const SpiralShot: SpiralWeapon = {
   projectileColor: { r: 255, g: 0, b: 255, a: 1 },
   type: WeaponType.SPIRAL,
   range: 400,
-  spiralSpeed: 2,
+  spiralSpeed: 30, // degree/s
   spiralRadius: 10,
   spiralExpansion: 3,
   projectileCount: 6,
@@ -95,17 +95,17 @@ const SpiralOrb: SpiralWeapon = {
   name: 'Spiral Orb',
   damage: 50,
   attackSpeed: 2,
-  projectileSpeed: 2,
+  projectileSpeed: 20,
   projectileSize: [24, 24],
   projectileColor: { r: 255, g: 255, b: 255, a: 1 },
   type: WeaponType.SPIRAL,
   range: 400,
   penetration: -1,
-  spiralSpeed: 2,
+  spiralSpeed: 45, // degree/s
   spiralRadius: 40,
   spiralExpansion: 0,
   projectileCount: 1,
-  projectileLifetime: -1,
+  projectileLifetime: 1000 * 5,
   followPlayer: true,
 };
 

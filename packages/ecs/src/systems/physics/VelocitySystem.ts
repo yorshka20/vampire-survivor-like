@@ -29,39 +29,7 @@ export class VelocitySystem extends System {
     const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
     const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
 
-    // Update spiral movement
-    spiralMovement.update(deltaTime);
-
-    // get the center point (player position)
-    const center = spiralMovement.getCenter();
-    const position = movement.getPosition();
-
-    // calculate the vector from the center to the trajectory
-    const dx = position[0] - center.x;
-    const dy = position[1] - center.y;
-
-    // calculate the direction perpendicular to the vector (rotate 90 degrees)
-    const perpendicularX = -dy;
-    const perpendicularY = dx;
-
-    // normalize the direction vector
-    const length = Math.sqrt(perpendicularX * perpendicularX + perpendicularY * perpendicularY);
-    const normalizedX = perpendicularX / length;
-    const normalizedY = perpendicularY / length;
-
-    // set velocity
-    const speed = spiralMovement.getSpeed();
-    velocity.setVelocity({
-      x: normalizedX * speed,
-      y: normalizedY * speed,
-    });
-
-    // Update position based on velocity
-    const newX = position[0] + velocity.getVelocity().x * (deltaTime * 1000);
-    const newY = position[1] + velocity.getVelocity().y * (deltaTime * 1000);
-    movement.setPosition([newX, newY]);
-
-    // Update spiral center to follow the player
+    // Update spiral center to follow the player if needed
     const player = this.world.getEntitiesByType('player')[0];
     if (player && spiralMovement.getFollowPlayer()) {
       const playerMovement = player.getComponent<MovementComponent>(
@@ -72,12 +40,28 @@ export class VelocitySystem extends System {
         spiralMovement.updateCenter(playerPos[0], playerPos[1]);
       }
     }
+
+    // Update spiral movement (this updates the angle and radius)
+    spiralMovement.update(deltaTime);
+
+    // Set the position directly to the spiral position
+    const spiralPos = spiralMovement.getPosition();
+    movement.setPosition([spiralPos.x, spiralPos.y]);
+
+    // Set the velocity for collision and other systems that need it
+    const spiralVelocity = spiralMovement.getVelocity();
+    velocity.setVelocity({
+      x: spiralVelocity.x,
+      y: spiralVelocity.y,
+    });
   }
 
   private updateLinearVelocity(entity: Entity, deltaTime: number): void {
     const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
     const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
+
     velocity.update(deltaTime);
+
     const position = movement.getPosition();
     let newX = position[0] + velocity.getVelocity().x * (deltaTime * 1000);
     let newY = position[1] + velocity.getVelocity().y * (deltaTime * 1000);
