@@ -422,6 +422,26 @@ export class WeaponSystem extends System {
         },
       });
 
+      // todo: better child weapon handling
+      // Add WeaponComponent and StatsComponent to the projectile if it has a child weapon
+      if (currentWeapon.childWeapon) {
+        // Add StatsComponent first
+        projectile.addComponent(
+          this.world.createComponent(StatsComponent, {
+            damageMultiplier: 1,
+            attackSpeedMultiplier: 1,
+          }),
+        );
+
+        // Then add WeaponComponent
+        projectile.addComponent(
+          this.world.createComponent(WeaponComponent, {
+            weapons: [currentWeapon.childWeapon],
+            attackCooldown: currentWeapon.childWeaponAttackCooldown,
+          }),
+        );
+      }
+
       this.world.addEntity(projectile);
     }
 

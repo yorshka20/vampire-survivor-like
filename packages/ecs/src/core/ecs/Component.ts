@@ -13,7 +13,7 @@ export abstract class Component implements IComponent {
   static componentName: string;
   static poolConfig: IPoolableConfig = {
     initialSize: 0,
-    maxSize: 1000,
+    maxSize: 3000,
   };
 
   readonly name: string;

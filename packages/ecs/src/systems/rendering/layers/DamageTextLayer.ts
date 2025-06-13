@@ -27,8 +27,8 @@ export class DamageTextLayer extends DomRenderLayer {
         element.style.transition = 'opacity 0.016s linear';
         element.style.transform = this.OFFSCREEN_POSITION;
         element.style.fontFamily = 'Courier New, monospace';
-        element.style.fontSize = '14px';
-        element.style.fontWeight = '500';
+        element.style.fontSize = '18px';
+        element.style.fontWeight = '600';
         element.style.opacity = '0';
         element.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.5)';
         element.style.pointerEvents = 'none';

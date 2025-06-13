@@ -102,7 +102,7 @@ const SpiralShot: SpiralWeapon = {
   range: 400,
   spiralSpeed: 80, // degree/s
   spiralRadius: 10,
-  spiralExpansion: 25,
+  spiralExpansion: 80,
   projectileCount: 6,
   projectileLifetime: 1000 * 5,
   followPlayer: true,
@@ -127,6 +127,23 @@ const SpiralOrb: SpinningWeapon = {
   spinCount: 1,
   spinLifetime: 1000 * 5,
   followPlayer: true,
+  childWeapon: {
+    name: 'Orb Spiral Shot',
+    damage: 5,
+    attackSpeed: 2,
+    projectileSpeed: 12,
+    projectileSize: [6, 6],
+    projectileColor: { r: 255, g: 255, b: 255, a: 1 },
+    type: WeaponType.SPIRAL,
+    range: 200,
+    spiralSpeed: 120,
+    spiralRadius: 5,
+    spiralExpansion: 100,
+    projectileCount: 4,
+    projectileLifetime: 1000 * 4,
+    followPlayer: false,
+  },
+  childWeaponAttackCooldown: 1000,
 };
 
 export const WeaponList: Weapon[] = [

@@ -8,7 +8,7 @@ import { EntityType, IEntity } from './types';
 export class Entity implements IEntity {
   static poolConfig: IPoolableConfig = {
     initialSize: 0,
-    maxSize: 1000,
+    maxSize: 3000,
   };
 
   static nextNumericId = 1;

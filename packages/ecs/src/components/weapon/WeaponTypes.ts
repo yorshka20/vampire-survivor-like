@@ -19,6 +19,9 @@ export interface BaseWeapon {
   penetration?: number;
   criticalChance?: number;
   criticalMultiplier?: number;
+  // Child weapon properties
+  childWeapon?: Weapon;
+  childWeaponAttackCooldown?: number;
 }
 
 export interface RangedWeapon extends BaseWeapon {
