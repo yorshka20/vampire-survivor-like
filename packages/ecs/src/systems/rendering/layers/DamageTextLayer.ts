@@ -23,22 +23,17 @@ export class DamageTextLayer extends DomRenderLayer {
       () => {
         const element = document.createElement('div');
         element.style.position = 'absolute';
-        element.style.textAlign = 'center';
         element.style.transition = 'opacity 0.016s linear';
         element.style.transform = this.OFFSCREEN_POSITION;
         element.style.fontFamily = 'Courier New, monospace';
         element.style.fontSize = '18px';
         element.style.fontWeight = '600';
         element.style.opacity = '0';
-        element.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.5)';
-        element.style.pointerEvents = 'none';
-        element.style.userSelect = 'none';
-        element.style.whiteSpace = 'nowrap';
-        this.rootElement.appendChild(element);
+        this.container.appendChild(element);
         return element;
       },
-      10, // Initial pool size - start with some pre-allocated elements
-      100, // Max pool size
+      0, // Initial pool size - start with some pre-allocated elements
+      400, // Max pool size
     );
   }
 
@@ -86,7 +81,7 @@ export class DamageTextLayer extends DomRenderLayer {
   }
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    return entity.hasComponent(DamageTextComponent.componentName);
+    return entity.type === 'damageText';
   }
 
   onDestroy(): void {

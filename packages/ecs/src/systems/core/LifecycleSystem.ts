@@ -19,6 +19,8 @@ export class LifecycleSystem extends System {
 
     for (const entity of entities) {
       const lifecycle = entity.getComponent<LifecycleComponent>(LifecycleComponent.componentName);
+      // accumulate frame count
+      lifecycle.update(deltaTime);
       if (lifecycle.isExpired()) {
         // Instead of removing immediately, mark for removal
         entity.markForRemoval();

@@ -231,6 +231,10 @@ export class GameLoop {
     return this.currentFps;
   }
 
+  getFixedTimeStep(): number {
+    return this.fixedTimeStep;
+  }
+
   isPerformanceMode(): boolean {
     return this.isInPerformanceMode;
   }

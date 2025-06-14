@@ -10,12 +10,10 @@ export class PoolableDomElement implements IPoolable {
 
   reset(): void {
     this.element.style.transform = DomElementPool.OFFSCREEN_POSITION;
-    this.element.style.opacity = '0';
-    this.element.textContent = '';
   }
 
-  recreate(props: { element: HTMLElement }): void {
-    this.element = props.element;
+  recreate(props?: { element: HTMLElement }): void {
+    this.element = props?.element ?? this.element;
   }
 }
 

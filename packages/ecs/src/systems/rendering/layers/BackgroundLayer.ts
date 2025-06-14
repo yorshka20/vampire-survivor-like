@@ -108,9 +108,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   }
 
   private renderEffects(viewport: RectArea, cameraOffset: [number, number]): void {
-    const effects = this.getWorld().getEntitiesByCondition(
-      (entity) => entity.isType('effect') && entity.hasComponent(MovementComponent.componentName),
-    );
+    const effects = this.getWorld().getEntitiesByType('effect');
     const areaEffects = this.getWorld().getEntitiesByType('areaEffect');
     if (!effects && !areaEffects) return;
 

@@ -12,7 +12,7 @@ export function createDamageTextEntity(
   world: World,
   { damage, targetPos, isCritical = false }: DamageTextProps,
 ) {
-  const dmgTextEntity = world.createEntity('effect');
+  const dmgTextEntity = world.createEntity('damageText');
 
   dmgTextEntity.addComponent(
     world.createComponent(DamageTextComponent, {

@@ -146,8 +146,6 @@ export class World implements IWorld {
   removeEntity(entity: Entity): void {
     // Notify all subscribers that the entity is being removed
     entity.notifyRemoved();
-    // Reset entity
-    entity.reset();
 
     // Return all components to their pools
     entity.getComponents().forEach((component) => {
@@ -157,6 +155,9 @@ export class World implements IWorld {
         component,
       );
     });
+
+    // Reset entity
+    entity.reset();
 
     this.entities.delete(entity);
     this.entitiesById.delete(entity.id);
@@ -173,7 +174,6 @@ export class World implements IWorld {
   createEntity(type: EntityType): Entity {
     const entity = this.poolManager.getEntityFromPool(type);
     if (entity) {
-      this.addEntity(entity);
       return entity;
     }
     // Fallback to creating new entity if pool is empty

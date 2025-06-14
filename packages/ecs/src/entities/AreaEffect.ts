@@ -3,6 +3,7 @@ import {
   DamageComponent,
   MovementComponent,
   RenderComponent,
+  Weapon,
 } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -18,6 +19,7 @@ export interface AreaEffectProps {
   damage: number;
   source: string;
   color?: Color;
+  weapon: Weapon;
 }
 
 export function createAreaEffectEntity(world: World, props: AreaEffectProps): Entity {
@@ -55,6 +57,7 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
       penetration: -1, // Infinite penetration for area effects
       tickRate: props.tickRate,
       duration: props.duration,
+      weapon: props.weapon,
     }),
   );
 

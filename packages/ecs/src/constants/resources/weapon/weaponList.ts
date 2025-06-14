@@ -150,17 +150,17 @@ const SpiralOrb: SpinningWeapon = {
 const Bomb: BombWeapon = {
   name: 'Bomb',
   damage: 30,
-  attackSpeed: 1,
+  attackSpeed: 3,
   attackCooldown: 1000,
-  projectileSpeed: 1,
+  projectileSpeed: 2,
   projectileSize: [24, 24],
   projectileColor: { r: 255, g: 0, b: 0, a: 1 },
   type: WeaponType.BOMB,
   range: 400,
-  projectileCount: 1,
+  projectileCount: 4,
   projectileLifetime: 1000 * 5,
   explosionRadius: 100,
-  explosionDuration: 500,
+  explosionDuration: 200,
   explosionColor: { r: 255, g: 100, b: 0, a: 0.8 },
 };
 

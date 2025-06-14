@@ -87,9 +87,9 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   enemy.addComponent(
     world.createComponent(StateComponent, {
       isDazed: false,
-      dazeEndTime: 0,
+      dazeRemainingFrames: 0,
       isHit: false,
-      hitEndTime: 0,
+      hitRemainingFrames: 0,
     }),
   );
 

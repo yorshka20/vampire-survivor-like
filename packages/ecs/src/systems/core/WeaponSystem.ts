@@ -293,6 +293,7 @@ export class WeaponSystem extends System {
       tickRate: currentWeapon.tickRate,
       damage: effectiveDamage,
       source: entity.id,
+      weapon: currentWeapon,
     });
 
     this.world.addEntity(areaEffect);
@@ -539,6 +540,7 @@ export class WeaponSystem extends System {
           color: currentWeapon.explosionColor,
         });
 
+        console.log('explosion', explosion);
         this.world.addEntity(explosion);
       });
 
