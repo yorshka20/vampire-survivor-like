@@ -5,17 +5,38 @@ import { createVampireSurvivorsGame } from './vampireSurvivorsGame';
 
 import './style.css';
 
-const { game, player } = createVampireSurvivorsGame(document.body);
+async function initGame() {
+  try {
+    console.log('Starting game initialization...');
+    const { game, player } = await createVampireSurvivorsGame(document.body);
+    console.log('Game instance created');
 
-// set game instance in gameState store
-gameState.setGame(game);
-gameState.setPlayer(player);
+    // Set game instance in store
+    gameState.setGame(game);
+    console.log('Game state set');
 
-// create ui
-mount(GameUI, {
-  target: document.body,
-});
+    // Set player in store
+    gameState.setPlayer(player);
+    console.log('Player set in store');
 
-// expose game instance to window
-(window as any).game = game;
-(window as any).player = player;
+    // Mount UI
+    mount(GameUI, {
+      target: document.body,
+    });
+    console.log('UI mounted');
+
+    // Start the game
+    gameState.start();
+    console.log('Game started');
+  } catch (error) {
+    console.error('Failed to initialize game:', error);
+    document.body.innerHTML = `
+      <div style="color: red; padding: 20px;">
+        Failed to initialize game: ${error instanceof Error ? error.message : String(error)}
+      </div>
+    `;
+  }
+}
+
+// Start the game
+initGame();

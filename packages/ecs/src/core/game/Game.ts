@@ -1,5 +1,5 @@
-import { ResourceManager } from '@ecs';
 import { World } from '@ecs/core/ecs/World';
+import { initPatternAssets } from '@ecs/core/resources/initPatternAssets';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { GameLoop } from './GameLoop';
 
@@ -23,6 +23,8 @@ export class Game {
     width: 800,
     height: 600,
   };
+  private initialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private static instance: Game;
 
@@ -44,7 +46,12 @@ export class Game {
     this.store.getStateKey$('state').subscribe((state) => {
       switch (state) {
         case 'running':
-          this.gameLoop.start();
+          if (this.initialized) {
+            this.gameLoop.start();
+          } else {
+            console.warn('Game not initialized. Call initialize() first.');
+            this.store.pause();
+          }
           break;
         case 'paused':
           this.gameLoop.stop();
@@ -56,65 +63,114 @@ export class Game {
     });
   }
 
+  /**
+   * Initialize the game
+   * This should be called before starting the game
+   */
+  async initialize(): Promise<void> {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = (async () => {
+      try {
+        console.log('Initializing game...');
+        // Initialize pattern assets
+        await initPatternAssets();
+        console.log('Pattern assets initialized');
+
+        // Add other initialization steps here
+        // For example:
+        // await initAudioAssets();
+        // await initPhysics();
+        // etc.
+
+        this.initialized = true;
+        console.log('Game initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize game:', error);
+        this.initialized = false;
+        throw error;
+      }
+    })();
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Check if the game is initialized
+   */
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Start the game
+   */
   start(): void {
+    if (!this.initialized) {
+      console.warn('Game not initialized. Call initialize() first.');
+      return;
+    }
     this.store.start();
   }
 
-  pause(): void {
-    this.store.pause();
-  }
-
-  stop(): void {
-    this.store.stop();
-  }
-
-  destroy(): void {
-    this.store.destroy();
-  }
-
+  /**
+   * Get the game world
+   */
   getWorld(): World {
     return this.world;
   }
 
   /**
-   * Get the current FPS of the game
-   * @returns The current frames per second
+   * Get the game loop
    */
-  getFPS(): number {
-    return this.gameLoop.getFPS();
+  getGameLoop(): GameLoop {
+    return this.gameLoop;
   }
 
   /**
-   * Get the current viewport
-   * @returns The current viewport
+   * Get the game store
+   */
+  getStore(): GameStore {
+    return this.store;
+  }
+
+  /**
+   * Get the game viewport
    */
   getViewport(): Viewport {
     return this.viewport;
   }
 
   /**
-   * Update the viewport
-   * @param viewport The new viewport
+   * Set the game viewport
    */
-  setViewport(viewport: Partial<Viewport>): void {
-    this.viewport = { ...this.viewport, ...viewport };
+  setViewport(viewport: Viewport): void {
+    this.viewport = viewport;
+  }
+
+  /**
+   * Get the current FPS
+   */
+  getFPS(): number {
+    return this.gameLoop.getFPS();
   }
 
   /**
    * Set the game speed multiplier
-   * @param multiplier The speed multiplier (1 = normal speed, 2 = double speed, 4 = quadruple speed)
    */
   setSpeedMultiplier(multiplier: number): void {
     this.gameLoop.setSpeedMultiplier(multiplier);
   }
 
-  private async loadResources(): Promise<void> {
-    const resourceManager = ResourceManager.getInstance();
-
-    // Load sound effects
-    await resourceManager.loadAudio('enemy_hit', '/assets/sounds/enemy_hit.mp3');
-    await resourceManager.loadAudio('enemy_death', '/assets/sounds/enemy_death.mp3');
-
-    // ... existing resource loading code ...
+  /**
+   * Destroy the game instance
+   */
+  destroy(): void {
+    this.gameLoop.stop();
+    this.world.destroy();
+    this.initialized = false;
+    this.initializationPromise = null;
   }
 }

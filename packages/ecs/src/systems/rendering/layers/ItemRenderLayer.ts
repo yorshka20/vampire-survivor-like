@@ -39,7 +39,7 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     const color = render.getColor();
     const rotation = render.getRotation();
     const scale = render.getScale();
-    const patternImage = render.getPatternImage();
+    const patternImage = render.getPatternImageForState();
 
     this.ctx.save();
     this.ctx.translate(cameraOffset[0], cameraOffset[1]);

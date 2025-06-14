@@ -17,6 +17,7 @@ interface GameState {
   fps: number;
   gameTime: number; // Time elapsed in seconds
   speedMultiplier: number; // Add speed multiplier
+  isInitialized: boolean;
   player: {
     health: number;
     maxHealth: number;
@@ -45,7 +46,8 @@ function createGameStateStore() {
     nextWave: 0,
     fps: 0,
     gameTime: 0,
-    speedMultiplier: 4, // Initialize speed multiplier
+    speedMultiplier: 4,
+    isInitialized: false,
     player: {
       health: 100,
       maxHealth: 100,
@@ -131,22 +133,46 @@ function createGameStateStore() {
 
   return {
     subscribe,
+    set,
+    update,
+    initialize: async () => {
+      if (!gameInstance) {
+        throw new Error('Game instance not set. Call setGame() first.');
+      }
+      try {
+        await gameInstance.initialize();
+        update((state) => ({ ...state, isInitialized: true }));
+      } catch (error) {
+        console.error('Failed to initialize game:', error);
+        throw error;
+      }
+    },
     setGame: (game: Game) => {
       gameInstance = game;
+    },
+    start: () => {
+      if (!gameInstance?.isInitialized()) {
+        console.warn('Game not initialized. Call initialize() first.');
+        return;
+      }
+      gameStore.start();
+    },
+    pause: () => {
+      gameStore.pause();
+    },
+    stop: () => {
+      gameStore.stop();
+    },
+    setSpeedMultiplier: (multiplier: number) => {
+      if (gameInstance) {
+        gameInstance.setSpeedMultiplier(multiplier);
+        update((state) => ({ ...state, speedMultiplier: multiplier }));
+      }
     },
     setPlayer: (player: Entity) => {
       interval = setInterval(() => {
         updatePlayerState(player);
       }, 300);
-    },
-    setSpeedMultiplier: (multiplier: number) => {
-      update((state) => ({
-        ...state,
-        speedMultiplier: multiplier,
-      }));
-      if (gameInstance) {
-        gameInstance.setSpeedMultiplier(multiplier);
-      }
     },
     destroy: () => {
       clearInterval(fpsInterval);

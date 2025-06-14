@@ -22,7 +22,7 @@ import { RectArea } from '@ecs/utils/types';
 
 import bgImage from '../assets/texture.png';
 
-export function createVampireSurvivorsGame(rootElement: HTMLElement) {
+export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance
   const game = new Game();
   const world = game.getWorld();
@@ -56,15 +56,17 @@ export function createVampireSurvivorsGame(rootElement: HTMLElement) {
       renderSystem.setBackgroundImage(bgImage);
     }
   });
-  resourceManager.loadAudio('hit', '/assets/audio/hit.mp3');
-  resourceManager.loadAudio('death', '/assets/audio/death.mp3');
+  await resourceManager.loadAudio('hit', '/assets/audio/hit.mp3');
+  await resourceManager.loadAudio('death', '/assets/audio/death.mp3');
+
+  // Initialize game and pattern assets
+  await game.initialize();
 
   // Create player entity at center of screen
   const player = createPlayerEntity(world, {
     position: { x: viewport[2] / 2, y: viewport[3] / 2 },
     speed: 5,
     size: [30, 30],
-    color: { r: 0, g: 150, b: 255, a: 1 },
   });
 
   // Make camera follow player
@@ -72,9 +74,6 @@ export function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Add player to world
   world.addEntity(player);
-
-  // Start the game
-  game.start();
 
   return { game, player };
 }

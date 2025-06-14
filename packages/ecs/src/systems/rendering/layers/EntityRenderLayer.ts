@@ -2,6 +2,7 @@ import { MovementComponent, RenderComponent, StateComponent } from '@ecs/compone
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
+import { PatternState } from '../../../core/resources/PatternAssetManager';
 import { CanvasRenderLayer } from '../base';
 import { RenderUtils } from '../utils/RenderUtils';
 
@@ -43,7 +44,6 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const [sizeX, sizeY] = render.getSize();
     const rotation = render.getRotation();
     const scale = render.getScale();
-    const patternImage = render.getPatternImage();
 
     this.ctx.save();
     this.ctx.translate(cameraOffset[0], cameraOffset[1]);
@@ -51,25 +51,23 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     this.ctx.rotate(rotation);
     this.ctx.scale(scale, scale);
 
-    // Check if entity is in hit state
-    const state = entity.getComponent<StateComponent>(StateComponent.componentName);
-    if (state?.isHit()) {
-      // Set white silhouette effect
-      this.ctx.filter = 'brightness(0) invert(1)';
+    // Get pattern image based on entity state
+    let patternImage = null;
 
-      // First draw the normal shape/image
-      if (patternImage && patternImage.complete) {
-        RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
-      } else {
-        RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
-      }
+    // Only apply white silhouette effect for entities with StateComponent
+    if (entity.hasComponent(StateComponent.componentName)) {
+      const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+      const stateType: PatternState = state.isHit() ? 'hit' : 'normal';
+      patternImage = render.getPatternImageForState(stateType, 'whiteSilhouette');
     } else {
-      // Normal rendering
-      if (patternImage && patternImage.complete) {
-        RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
-      } else {
-        RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
-      }
+      patternImage = render.getPatternImageForState();
+    }
+
+    // Render the pattern or shape
+    if (patternImage && patternImage.complete) {
+      RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+    } else {
+      RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
     }
 
     this.ctx.restore();

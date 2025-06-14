@@ -311,4 +311,18 @@ export class World implements IWorld {
   emit(event: string, ...args: any): void {
     this.eventEmitter.emit(event, args);
   }
+
+  /**
+   * Destroy the world instance
+   */
+  destroy(): void {
+    // Clear all entities
+    this.entities.clear();
+
+    // Clear all systems
+    this.systems.clear();
+
+    // Clear the singleton instance
+    World.instance = null as any;
+  }
 }

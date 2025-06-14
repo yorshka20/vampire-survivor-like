@@ -1,6 +1,6 @@
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Component } from '@ecs/core/ecs/Component';
-import { getEmojiBase64 } from '@ecs/utils/emojiToBase64';
+import { PatternAssetManager, PatternEffect, PatternState } from '@ecs/core/resources';
 import { Color, Point, Size } from '@ecs/utils/types';
 
 export type ShapeType = 'circle' | 'rect' | 'triangle' | 'pattern';
@@ -35,6 +35,7 @@ export class RenderComponent extends Component {
   static componentName = 'Render';
   private properties: RenderProperties;
   private patternImage: HTMLImageElement | null = null;
+  private patternManager: PatternAssetManager;
 
   constructor(properties: RenderProperties) {
     super('Render');
@@ -47,9 +48,33 @@ export class RenderComponent extends Component {
       layer: properties.layer ?? RenderLayerIdentifier.ENTITY,
     };
 
+    this.patternManager = PatternAssetManager.getInstance();
+
     if (properties.patternType) {
       this.loadPatternImage(properties.patternType);
     }
+  }
+
+  private loadPatternImage(patternType: RenderPatternType): void {
+    this.patternImage = this.patternManager.getPattern(patternType);
+  }
+
+  /**
+   * Gets the pattern image for the current state
+   * @param state The current state of the entity
+   * @returns The pattern image to use
+   */
+  getPatternImageForState(
+    state: PatternState = 'normal',
+    effect: PatternEffect = 'whiteSilhouette',
+  ): HTMLImageElement | null {
+    if (!this.properties.patternType) return null;
+
+    if (state === 'normal') {
+      return this.patternImage;
+    }
+
+    return this.patternManager.getPatternWithState(this.properties.patternType, state, effect);
   }
 
   recreate(properties: RenderProperties): void {
@@ -61,19 +86,6 @@ export class RenderComponent extends Component {
     if (properties.patternType) {
       this.loadPatternImage(properties.patternType);
     }
-  }
-
-  private loadPatternImage(patternType: RenderPatternType): void {
-    const emoji = getRenderPattern(patternType);
-    if (emoji) {
-      const base64 = getEmojiBase64(emoji);
-      this.patternImage = new Image();
-      this.patternImage.src = base64;
-    }
-  }
-
-  getPatternImage(): HTMLImageElement | null {
-    return this.patternImage;
   }
 
   getProperties(): RenderProperties {
@@ -139,28 +151,5 @@ export class RenderComponent extends Component {
       offset: [0, 0],
       layer: RenderLayerIdentifier.ENTITY,
     };
-  }
-}
-
-function getRenderPattern(patternType: string) {
-  switch (patternType) {
-    case 'player':
-      return '😮';
-    case 'enemy':
-      return '👹';
-    case 'heart':
-      return '💖';
-    case 'star':
-      return '⭐';
-    case 'diamond':
-      return '💎';
-    case 'exp':
-      return '📙';
-    case 'magnet':
-      return '🧲';
-    case 'projectile':
-      return '💣';
-    default:
-      return '';
   }
 }
