@@ -22,7 +22,7 @@ export class StateEffectSystem extends System {
       state.update();
 
       // Handle movement and AI effects
-      if (state.isDazed()) {
+      if (state.getIsDazed()) {
         if (entity.hasComponent(VelocityComponent.componentName)) {
           const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
           velocity.setVelocity({ x: 0, y: 0 });

@@ -160,7 +160,7 @@ const Bomb: BombWeapon = {
   projectileCount: 4,
   projectileLifetime: 1000 * 5,
   explosionRadius: 100,
-  explosionDuration: 200,
+  explosionDuration: 500,
   explosionColor: { r: 255, g: 100, b: 0, a: 0.8 },
 };
 

@@ -147,7 +147,7 @@ export class World implements IWorld {
     // Notify all subscribers that the entity is being removed
     entity.notifyRemoved();
 
-    // Return all components to their pools
+    // Clean up components when the entity is actually removed
     entity.getComponents().forEach((component) => {
       component.reset();
       this.poolManager.returnComponentToPool(

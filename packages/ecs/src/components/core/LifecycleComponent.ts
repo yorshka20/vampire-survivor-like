@@ -1,33 +1,35 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { Game } from '@ecs/core/game/Game';
 
 export class LifecycleComponent extends Component {
   static componentName = 'Lifecycle';
   private createdAt: number;
   private lifetime: number;
-  private lifeTimeFrameRemaining: number;
+  private remainingTime: number;
 
   constructor(lifetime: number) {
     super(LifecycleComponent.componentName);
     this.createdAt = Date.now();
     this.lifetime = lifetime;
-
-    const frameTimeStep = Game.getInstance().getGameLoop().getFixedTimeStep() * 1000;
-    this.lifeTimeFrameRemaining = Math.floor(lifetime / frameTimeStep);
+    this.remainingTime = lifetime;
   }
 
   update(deltaTime: number): void {
-    this.lifeTimeFrameRemaining -= 1;
+    this.remainingTime -= deltaTime * 1000; // Convert deltaTime to milliseconds
   }
 
   isExpired(): boolean {
     if (this.lifetime === -1) return false;
-    return this.lifeTimeFrameRemaining <= 0;
+    return this.remainingTime <= 0;
   }
 
   reset(): void {
-    this.createdAt = Date.now();
     this.lifetime = 0;
-    this.lifeTimeFrameRemaining = 0;
+    this.remainingTime = 0;
+  }
+
+  recreate(props: { lifetime: number }): void {
+    this.createdAt = Date.now();
+    this.lifetime = props.lifetime;
+    this.remainingTime = props.lifetime;
   }
 }

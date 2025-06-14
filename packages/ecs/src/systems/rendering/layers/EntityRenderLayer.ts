@@ -57,7 +57,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     // Only apply white silhouette effect for entities with StateComponent
     if (entity.hasComponent(StateComponent.componentName)) {
       const state = entity.getComponent<StateComponent>(StateComponent.componentName);
-      const stateType: PatternState = state.isHit() ? 'hit' : 'normal';
+      const stateType: PatternState = state.getIsHit() ? 'hit' : 'normal';
       patternImage = render.getPatternImageForState(stateType, 'whiteSilhouette');
     } else {
       patternImage = render.getPatternImageForState();

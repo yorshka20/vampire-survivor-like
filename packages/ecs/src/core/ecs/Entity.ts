@@ -66,13 +66,6 @@ export class Entity implements IEntity {
 
   markForRemoval(): void {
     this.toRemove = true;
-
-    // if marked for removal, detach all components and stop its behavior.
-    this.components.forEach((component) => component.onDetach());
-    this.components.clear();
-
-    // remove callbacks
-    this.onRemovedCallbacks.length = 0;
   }
 
   onRemoved(cb: (id: string) => void): void {

@@ -25,11 +25,11 @@ export class StateComponent extends Component {
     };
   }
 
-  isDazed(): boolean {
+  getIsDazed(): boolean {
     return this.state.isDazed;
   }
 
-  isHit(): boolean {
+  getIsHit(): boolean {
     return this.state.isHit;
   }
 
