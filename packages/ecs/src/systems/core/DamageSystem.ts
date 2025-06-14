@@ -1,4 +1,5 @@
 import {
+  BombWeapon,
   ColliderComponent,
   DamageComponent,
   DeathMarkComponent,
@@ -153,6 +154,63 @@ export class DamageSystem extends System {
     damageComponent.updateTickTime();
   }
 
+  private processAoeDamage(areaEffect: Entity, damageComponent: DamageComponent): void {
+    const { damage, isCritical } = damageComponent.getDamage();
+    const position = areaEffect
+      .getComponent<MovementComponent>(MovementComponent.componentName)
+      .getPosition();
+
+    const enemies = this.gridComponent?.getNearbyEntities(
+      position,
+      (damageComponent.weapon as BombWeapon).explosionRadius ?? 0,
+    );
+    if (!enemies?.length) return;
+
+    const aoeEnemies: Entity[] = [];
+    for (const enemyId of enemies) {
+      const enemy = this.world.getEntityById(enemyId);
+      if (
+        !enemy?.hasComponent(HealthComponent.componentName) ||
+        enemy.toRemove ||
+        enemy.hasComponent(DeathMarkComponent.componentName)
+      ) {
+        continue;
+      }
+      aoeEnemies.push(enemy);
+    }
+
+    for (const enemy of aoeEnemies) {
+      const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
+      health.takeDamage(damage);
+      damageComponent.recordHit(enemy.id);
+
+      const enemyPosition = enemy
+        .getComponent<MovementComponent>(MovementComponent.componentName)
+        .getPosition();
+      // Set hit and daze states
+      const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
+      if (stateComponent) {
+        stateComponent.setHit(1); // 1 frame hit effect
+        stateComponent.setDazed(2); // 2 frames daze effect
+      }
+      // Create damage text
+      const damageTextEntity = createDamageTextEntity(this.world, {
+        damage,
+        targetPos: enemyPosition,
+        isCritical,
+      });
+      this.world.addEntity(damageTextEntity);
+
+      // Play hit sound
+      this.playHitSound(enemy);
+
+      // Check for death
+      if (health.currentHealth <= 0) {
+        enemy.addComponent(this.world.createComponent(DeathMarkComponent, {}));
+      }
+    }
+  }
+
   update(deltaTime: number): void {
     this.checkPerformance();
 
@@ -193,8 +251,13 @@ export class DamageSystem extends System {
       const enemy = isProjectile1 || isAreaEffect1 ? entity2 : entity1;
 
       if (
+        // invalid enemy
         !enemy.hasComponent(HealthComponent.componentName) ||
         !enemy.hasComponent(MovementComponent.componentName) ||
+        // already dead
+        enemy.toRemove ||
+        enemy.hasComponent(DeathMarkComponent.componentName) ||
+        // invalid damage source
         !damageSource.hasComponent(DamageComponent.componentName)
       ) {
         continue;
@@ -220,7 +283,11 @@ export class DamageSystem extends System {
         const projectileCollider = isProjectile1
           ? entity1.getComponent<ColliderComponent>(ColliderComponent.componentName)
           : entity2.getComponent<ColliderComponent>(ColliderComponent.componentName);
-        if (!projectileCollider?.isTriggerOnly()) {
+        if (projectileCollider?.isTriggerOnly()) continue;
+
+        if (damageComponent.isAoe() && damageComponent.canExplode()) {
+          this.processAoeDamage(damageSource, damageComponent);
+        } else {
           this.processDamage(damageSource, enemy, damageComponent, health, position);
         }
       }

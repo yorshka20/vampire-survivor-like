@@ -70,6 +70,9 @@ export class Entity implements IEntity {
     // if marked for removal, detach all components and stop its behavior.
     this.components.forEach((component) => component.onDetach());
     this.components.clear();
+
+    // remove callbacks
+    this.onRemovedCallbacks.length = 0;
   }
 
   onRemoved(cb: (id: string) => void): void {
@@ -78,7 +81,7 @@ export class Entity implements IEntity {
 
   notifyRemoved(): void {
     this.onRemovedCallbacks.forEach((cb) => cb(this.id));
-    this.onRemovedCallbacks = [];
+    this.onRemovedCallbacks.length = 0;
   }
 
   // Implement IPoolable interface
@@ -86,7 +89,7 @@ export class Entity implements IEntity {
     this.active = true;
     this.toRemove = false;
     this.components.clear();
-    this.onRemovedCallbacks = [];
+    this.onRemovedCallbacks.length = 0;
   }
 
   recreate(props: any): void {}

@@ -7,6 +7,7 @@ export enum WeaponType {
   AREA = 'AREA',
   SPIRAL = 'SPIRAL',
   SPINNING = 'SPINNING',
+  BOMB = 'BOMB',
 }
 
 export interface BaseWeapon {
@@ -29,7 +30,8 @@ export interface RangedWeapon extends BaseWeapon {
     | WeaponType.RANGED_AUTO_AIM
     | WeaponType.RANGED_FIXED
     | WeaponType.SPIRAL
-    | WeaponType.SPINNING;
+    | WeaponType.SPINNING
+    | WeaponType.BOMB;
   maxProjectileCount?: number;
   projectileSpeed: number;
   projectileSize: [number, number];
@@ -71,4 +73,17 @@ export interface SpinningWeapon extends RangedWeapon {
   followPlayer?: boolean;
 }
 
-export type Weapon = RangedWeapon | MeleeWeapon | AreaWeapon | SpiralWeapon | SpinningWeapon;
+export interface BombWeapon extends RangedWeapon {
+  type: WeaponType.BOMB;
+  explosionRadius: number; // Radius of the explosion effect
+  explosionDuration: number; // Duration of the explosion effect in milliseconds
+  explosionColor: Color; // Color of the explosion effect
+}
+
+export type Weapon =
+  | RangedWeapon
+  | MeleeWeapon
+  | AreaWeapon
+  | SpiralWeapon
+  | SpinningWeapon
+  | BombWeapon;

@@ -1,4 +1,5 @@
-import { MovementComponent, RenderComponent } from '@ecs/components';
+import { LifecycleComponent, MovementComponent, RenderComponent } from '@ecs/components';
+import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 
@@ -37,8 +38,11 @@ export function createEffectEntity(world: World, props?: Partial<EffectProps>): 
       color: finalProps.color,
       size: finalProps.size,
       shape: 'circle',
+      layer: RenderLayerIdentifier.BACKGROUND,
     }),
   );
+
+  effect.addComponent(world.createComponent(LifecycleComponent, finalProps.duration));
 
   return effect;
 }

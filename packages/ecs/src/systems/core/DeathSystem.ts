@@ -19,15 +19,15 @@ export class DeathSystem extends System {
     this.dropItemsMap = [
       {
         rate: ItemDropRate.HEALTH,
-        create: (position) => this.createHealthPickup(position[0] + 20, position[1], 20),
+        create: (position) => this.createHealthPickup(position[0], position[1], 20),
       },
       {
         rate: ItemDropRate.WEAPON,
-        create: (position) => this.createWeaponPickup(position[0] - 20, position[1]),
+        create: (position) => this.createWeaponPickup(position[0], position[1]),
       },
       {
         rate: ItemDropRate.POWERUP,
-        create: (position) => this.createPowerupPickup(position[0], position[1] + 20),
+        create: (position) => this.createPowerupPickup(position[0], position[1]),
       },
       {
         rate: ItemDropRate.MAGNET,

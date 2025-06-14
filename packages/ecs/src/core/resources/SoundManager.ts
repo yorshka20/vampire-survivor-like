@@ -9,7 +9,7 @@ interface SoundPool {
 export class SoundManager {
   private static instance: SoundManager;
   private pools: Map<string, SoundPool> = new Map();
-  private volume: number = 0.5;
+  private volume: number = 0.2;
   private readonly POOL_SIZE = 5; // Number of audio instances per sound
 
   private lastPlayTimes: Map<string, number> = new Map(); // Track last play time for each sound

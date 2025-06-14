@@ -30,19 +30,13 @@ export class LifecycleSystem extends System {
   private removeEntities(): void {
     if (this.entitiesToRemove.size === 0) return;
 
-    // Process removal in batches to avoid performance spikes
-    const batchSize = 100;
-    const entities = Array.from(this.entitiesToRemove);
-    const batch = entities.slice(0, batchSize);
-
-    batch.forEach((entityId) => {
+    for (const entityId of this.entitiesToRemove) {
       const entity = this.world.getEntityById(entityId);
       if (entity) {
         this.world.removeEntity(entity);
       }
-    });
+    }
 
-    // Keep remaining entities for next update
-    this.entitiesToRemove = new Set(entities.slice(batchSize));
+    this.entitiesToRemove.clear();
   }
 }

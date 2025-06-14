@@ -34,7 +34,7 @@ export class ObjectPool<T extends IPoolable> {
   }
 
   clear(): void {
-    this.pool = [];
+    this.pool.length = 0;
   }
 
   getSize(): number {

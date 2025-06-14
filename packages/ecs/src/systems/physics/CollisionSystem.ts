@@ -51,7 +51,7 @@ export class CollisionSystem extends System {
   update(deltaTime: number): void {
     this.frameCount++;
     this.checkedPairs.clear();
-    this.damageCollisionResults = [];
+    this.damageCollisionResults.length = 0;
 
     // Get all entities with colliders
     const entities = this.world.getEntitiesWithComponents([ColliderComponent]);
@@ -372,7 +372,7 @@ export class CollisionSystem extends System {
 
   destroy(): void {
     this.checkedPairs.clear();
-    this.damageCollisionResults = [];
+    this.damageCollisionResults.length = 0;
   }
 
   /**

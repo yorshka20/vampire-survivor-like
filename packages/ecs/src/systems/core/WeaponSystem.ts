@@ -7,6 +7,7 @@ import {
 } from '@ecs/components';
 import {
   AreaWeapon,
+  BombWeapon,
   MeleeWeapon,
   RangedWeapon,
   SpinningWeapon,
@@ -17,7 +18,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { Game } from '@ecs/core/game/Game';
-import { createAreaEffectEntity, createProjectileEntity } from '@ecs/entities';
+import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
 
 export class WeaponSystem extends System {
@@ -120,6 +121,17 @@ export class WeaponSystem extends System {
                 weaponEntity,
                 weapon,
                 currentWeapon as SpinningWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
+              break;
+            case WeaponType.BOMB:
+              this.handleBomb(
+                weaponEntity,
+                weapon,
+                currentWeapon as BombWeapon,
                 position,
                 effectiveDamage,
                 currentTime,
@@ -407,6 +419,7 @@ export class WeaponSystem extends System {
         penetration: currentWeapon.penetration,
         lifetime: currentWeapon.spinLifetime,
         type: 'spinning',
+        weapon: currentWeapon,
         spinningData: {
           maxProjectileCount: currentWeapon.maxProjectileCount,
           projectileSpeed: currentWeapon.projectileSpeed,
@@ -446,5 +459,91 @@ export class WeaponSystem extends System {
     }
 
     weapon.updateAttackTime(currentTime, weaponIndex);
+  }
+
+  private handleBomb(
+    entity: Entity,
+    weapon: WeaponComponent,
+    currentWeapon: BombWeapon,
+    position: [number, number],
+    effectiveDamage: number,
+    currentTime: number,
+    weaponIndex: number,
+  ): void {
+    // Find nearest enemy
+    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range) ?? [];
+    if (enemyIds.length === 0) return;
+
+    let nearestEnemy: Entity | null = null;
+    let nearestDistance = Infinity;
+    let nearestEnemyPosition: [number, number] | null = null;
+
+    for (const enemyId of enemyIds) {
+      const enemy = this.world.getEntityById(enemyId);
+      if (!enemy?.isType('enemy')) continue;
+
+      const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
+      const enemyPos = enemyMovement.getPosition();
+      const distance = Math.sqrt(
+        (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
+      );
+
+      if (distance < nearestDistance && distance <= currentWeapon.range) {
+        nearestDistance = distance;
+        nearestEnemy = enemy;
+        nearestEnemyPosition = enemyPos;
+      }
+    }
+
+    if (nearestEnemy && nearestEnemyPosition) {
+      // Calculate direction
+      const dx = nearestEnemyPosition[0] - position[0];
+      const dy = nearestEnemyPosition[1] - position[1];
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const dirX = dx / distance;
+      const dirY = dy / distance;
+
+      // Create bomb projectile
+      const projectile = createProjectileEntity(this.world, {
+        position: {
+          x: position[0],
+          y: position[1],
+        },
+        velocity: {
+          x: dirX * currentWeapon.projectileSpeed,
+          y: dirY * currentWeapon.projectileSpeed,
+        },
+        damage: effectiveDamage,
+        source: entity.id,
+        size: currentWeapon.projectileSize,
+        color: currentWeapon.projectileColor,
+        weapon: currentWeapon,
+        type: 'bomb',
+        lifetime: currentWeapon.projectileLifetime,
+      });
+
+      // Add onRemoved handler to create explosion when projectile is removed
+      projectile.onRemoved(() => {
+        const projectilePos = projectile
+          .getComponent<MovementComponent>(MovementComponent.componentName)
+          .getPosition();
+        // Create a visual-only explosion effect
+        const explosion = createEffectEntity(this.world, {
+          position: {
+            x: projectilePos[0],
+            y: projectilePos[1],
+          },
+          size: [currentWeapon.explosionRadius, currentWeapon.explosionRadius],
+          type: 'explosion',
+          duration: currentWeapon.explosionDuration,
+          color: currentWeapon.explosionColor,
+        });
+
+        this.world.addEntity(explosion);
+      });
+
+      this.world.addEntity(projectile);
+      weapon.updateAttackTime(currentTime, weaponIndex);
+    }
   }
 }

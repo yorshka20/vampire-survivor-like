@@ -1,4 +1,4 @@
-import { Weapon } from '@ecs/components/weapon/WeaponTypes';
+import { BombWeapon, Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { Component } from '@ecs/core/ecs/Component';
 
 export interface DamageProps {
@@ -8,7 +8,7 @@ export interface DamageProps {
   penetration?: number;
   tickRate?: number; // Time between damage ticks in milliseconds
   duration?: number; // Total duration of the damage effect in milliseconds
-  weapon?: Weapon; // Reference to the weapon that caused this damage
+  weapon: Weapon; // Reference to the weapon that caused this damage
 }
 
 export class DamageComponent extends Component {
@@ -23,7 +23,7 @@ export class DamageComponent extends Component {
   lastTickTime: number;
   startTime: number;
   hitEntities: Set<string>;
-  weapon?: Weapon;
+  weapon: Weapon;
 
   constructor(props: DamageProps) {
     super('Damage');
@@ -59,6 +59,14 @@ export class DamageComponent extends Component {
   canTick(): boolean {
     if (!this.tickRate) return false;
     return Date.now() - this.lastTickTime >= this.tickRate;
+  }
+
+  isAoe(): boolean {
+    return this.weapon?.type === WeaponType.AREA || this.weapon?.type === WeaponType.BOMB;
+  }
+
+  canExplode(): this is { weapon: BombWeapon } {
+    return this.weapon?.type === WeaponType.BOMB;
   }
 
   updateTickTime(): void {

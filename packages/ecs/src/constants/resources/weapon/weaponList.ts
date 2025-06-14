@@ -1,5 +1,6 @@
 import {
   AreaWeapon,
+  BombWeapon,
   MeleeWeapon,
   RangedWeapon,
   SpinningWeapon,
@@ -146,6 +147,23 @@ const SpiralOrb: SpinningWeapon = {
   childWeaponAttackCooldown: 1000,
 };
 
+const Bomb: BombWeapon = {
+  name: 'Bomb',
+  damage: 30,
+  attackSpeed: 1,
+  attackCooldown: 1000,
+  projectileSpeed: 1,
+  projectileSize: [24, 24],
+  projectileColor: { r: 255, g: 0, b: 0, a: 1 },
+  type: WeaponType.BOMB,
+  range: 400,
+  projectileCount: 1,
+  projectileLifetime: 1000 * 5,
+  explosionRadius: 100,
+  explosionDuration: 500,
+  explosionColor: { r: 255, g: 100, b: 0, a: 0.8 },
+};
+
 export const WeaponList: Weapon[] = [
   RapidFire,
   HeavyShot,
@@ -155,6 +173,7 @@ export const WeaponList: Weapon[] = [
   Melee,
   SpiralShot,
   SpiralOrb,
+  Bomb,
 ];
 
 export const WeaponMap = {
@@ -166,4 +185,5 @@ export const WeaponMap = {
   Melee: Melee,
   SpiralShot: SpiralShot,
   SpiralOrb: SpiralOrb,
+  Bomb: Bomb,
 } as const;

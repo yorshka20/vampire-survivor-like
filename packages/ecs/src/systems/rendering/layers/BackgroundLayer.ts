@@ -22,7 +22,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     this.renderBackground(viewport, cameraOffset);
     this.renderPickupRange(viewport, cameraOffset);
-    this.renderAreaEffect(viewport, cameraOffset);
+    this.renderEffects(viewport, cameraOffset);
   }
 
   private renderBackground(viewport: RectArea, cameraOffset: [number, number]): void {
@@ -107,18 +107,21 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     this.ctx.restore();
   }
 
-  private renderAreaEffect(viewport: RectArea, cameraOffset: [number, number]): void {
+  private renderEffects(viewport: RectArea, cameraOffset: [number, number]): void {
+    const effects = this.getWorld().getEntitiesByCondition(
+      (entity) => entity.isType('effect') && entity.hasComponent(MovementComponent.componentName),
+    );
     const areaEffects = this.getWorld().getEntitiesByType('areaEffect');
-    if (!areaEffects) return;
+    if (!effects && !areaEffects) return;
 
-    for (const areaEffect of areaEffects) {
-      const render = areaEffect.getComponent<RenderComponent>(RenderComponent.componentName);
+    for (const effect of [...effects, ...areaEffects]) {
+      const render = effect.getComponent<RenderComponent>(RenderComponent.componentName);
       if (!render) continue;
 
-      const position = areaEffect.getComponent<MovementComponent>(MovementComponent.componentName);
+      const position = effect.getComponent<MovementComponent>(MovementComponent.componentName);
       if (!position) continue;
 
-      if (!this.isInViewport(areaEffect, viewport)) continue;
+      if (!this.isInViewport(effect, viewport)) continue;
 
       const pos = position.getPosition();
       const size = render.getSize();

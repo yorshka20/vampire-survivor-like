@@ -160,7 +160,7 @@ export class RenderSystem extends System {
     for (const layer of this.layers) {
       layer.onDestroy();
     }
-    this.layers = [];
+    this.layers.length = 0;
     this.rootElement.removeChild(this.mainCanvas);
   }
 }

@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { TimeUtil } from '@ecs/utils/timeUtil';
-import { Weapon } from './WeaponTypes';
+import { Weapon, WeaponType } from './WeaponTypes';
 
 interface WeaponProps {
   weapons: Weapon[];
@@ -61,6 +61,12 @@ export class WeaponComponent extends Component {
     return currentTime - this.lastAttackTimes[weaponIndex] >= attackInterval;
   }
 
+  isAoe(weaponIndex: number): boolean {
+    const weapon = this.weapons[weaponIndex];
+    if (!weapon) return false;
+    return weapon.type === WeaponType.AREA || weapon.type === WeaponType.BOMB;
+  }
+
   updateAttackTime(currentTime: number, weaponIndex: number): void {
     if (weaponIndex >= 0 && weaponIndex < this.lastAttackTimes.length) {
       this.lastAttackTimes[weaponIndex] = currentTime;
@@ -68,8 +74,8 @@ export class WeaponComponent extends Component {
   }
 
   reset(): void {
-    this.weapons = [];
+    this.weapons.length = 0;
     this.currentWeaponIndex = 0;
-    this.lastAttackTimes = [];
+    this.lastAttackTimes.length = 0;
   }
 }

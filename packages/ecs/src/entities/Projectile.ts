@@ -28,14 +28,16 @@ interface ProjectileProps {
   penetration?: number;
   source?: string;
   lifetime?: number; // Lifetime in milliseconds
-  type?: 'spiral' | 'spinning' | 'linear';
-  weapon?: Weapon; // Reference to the weapon that created this projectile
+  type?: 'spiral' | 'spinning' | 'linear' | 'bomb';
+  weapon: Weapon; // Reference to the weapon that created this projectile
   // Ranged weapon properties
   rangedWeapon?: UniqueProperties<RangedWeapon, BaseWeapon>;
   // Spiral weapon properties
   spiralData?: UniqueProperties<SpiralWeapon, BaseWeapon>;
   // Spinning weapon properties
   spinningData?: UniqueProperties<SpinningWeapon, BaseWeapon>;
+  // Bomb weapon properties
+  onDestroy?: () => void;
 }
 
 /**
@@ -57,6 +59,7 @@ export function createProjectileEntity(
     rangedWeapon,
     spiralData,
     spinningData,
+    onDestroy,
   }: ProjectileProps,
 ) {
   const projectile = world.createEntity('projectile');
@@ -136,5 +139,9 @@ export function createProjectileEntity(
   // Add lifecycle component with adjusted lifetime
   projectile.addComponent(world.createComponent(LifecycleComponent, lifetime));
 
+  // Add onRemoved callback for bomb projectiles
+  if (onDestroy) {
+    projectile.onRemoved(onDestroy);
+  }
   return projectile;
 }
