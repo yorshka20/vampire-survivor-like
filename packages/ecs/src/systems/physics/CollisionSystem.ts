@@ -29,10 +29,11 @@ export class CollisionSystem extends System {
   private frameCount: number = 0;
   private collisionMatrix: CollisionMatrix;
 
-  // Reusable objects to reduce GC pressure
-  private readonly tempPosition: [number, number] = [0, 0];
-  private readonly tempCollisionArea: RectArea = [0, 0, 0, 0];
-  private readonly tempPairKey: [string, string] = ['', ''];
+  // Reusable arrays to reduce GC pressure
+  private readonly tempPosition: Float64Array = new Float64Array(2);
+  private readonly tempCollisionArea1: RectArea = [0, 0, 0, 0];
+  private readonly tempCollisionArea2: RectArea = [0, 0, 0, 0];
+  private readonly tempPairKey: Uint32Array = new Uint32Array(2);
   private readonly tempNearbyEntities: string[] = [];
 
   // Distance thresholds for different collision tiers
@@ -113,14 +114,18 @@ export class CollisionSystem extends System {
     if (!movement || !collider) return;
 
     const position = movement.getPosition();
-    const collisionArea = collider.getCollisionArea(position, this.tempCollisionArea);
+    // Convert position to Float64Array for internal calculations
+    this.tempPosition[0] = position[0];
+    this.tempPosition[1] = position[1];
+
+    // Get collision area using original component method
+    const collisionArea = collider.getCollisionArea(position, this.tempCollisionArea1);
 
     // Calculate search radius using existing collision area
     const baseRadius = Math.max(collisionArea[2], collisionArea[3]) * 2;
     const searchRadius = this.getTierSearchRadius(baseRadius, tier);
 
     // Get nearby entities using spatial grid with tier-specific cache
-    // Reuse the tempNearbyEntities array
     this.tempNearbyEntities.length = 0;
     this.gridComponent.getNearbyEntities(
       position,
@@ -195,15 +200,6 @@ export class CollisionSystem extends System {
     }
   }
 
-  /**
-   * Generate a numeric key for a pair of entities using their numericId
-   * This is much faster than string operations and Set lookups
-   */
-  private getNumericPairKey(id1: number, id2: number): number {
-    // Ensure order independence
-    return id1 < id2 ? (id1 << 20) | id2 : (id2 << 20) | id1;
-  }
-
   private checkCollision(entity1: Entity, entity2: Entity): CollisionResult | null {
     const movement1 = entity1.getComponent<MovementComponent>(MovementComponent.componentName);
     const movement2 = entity2.getComponent<MovementComponent>(MovementComponent.componentName);
@@ -214,8 +210,10 @@ export class CollisionSystem extends System {
 
     const pos1 = movement1.getPosition();
     const pos2 = movement2.getPosition();
-    const area1 = collider1.getCollisionArea(pos1);
-    const area2 = collider2.getCollisionArea(pos2);
+
+    // Get collision areas using original component methods
+    const area1 = collider1.getCollisionArea(pos1, this.tempCollisionArea1);
+    const area2 = collider2.getCollisionArea(pos2, this.tempCollisionArea2);
 
     // Simple AABB collision check
     const isColliding =
@@ -267,15 +265,19 @@ export class CollisionSystem extends System {
     const pos1 = movement1.getPosition();
     const pos2 = movement2.getPosition();
 
-    // Calculate collision response
-    const dx = pos2[0] - pos1[0];
-    const dy = pos2[1] - pos1[1];
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance === 0) return; // Avoid division by zero
+    // Convert to TypedArray for internal calculations
+    this.tempPosition[0] = pos2[0] - pos1[0];
+    this.tempPosition[1] = pos2[1] - pos1[1];
 
-    // Normalize direction
-    const nx = dx / distance;
-    const ny = dy / distance;
+    const distance = Math.sqrt(
+      this.tempPosition[0] * this.tempPosition[0] + this.tempPosition[1] * this.tempPosition[1],
+    );
+
+    if (distance === 0) return;
+
+    // Normalize direction using TypedArray
+    const nx = this.tempPosition[0] / distance;
+    const ny = this.tempPosition[1] / distance;
 
     // Calculate overlap
     const overlap = Math.min(collisionResult.overlapX, collisionResult.overlapY);
@@ -371,5 +373,25 @@ export class CollisionSystem extends System {
   destroy(): void {
     this.checkedPairs.clear();
     this.damageCollisionResults = [];
+  }
+
+  /**
+   * Generate a numeric key for a pair of entities using their numericId
+   * This is much faster than string operations and Set lookups
+   */
+  private getNumericPairKey(id1: number, id2: number): number {
+    // Use tempPairKey to store the IDs
+    this.tempPairKey[0] = id1;
+    this.tempPairKey[1] = id2;
+
+    // Ensure order independence by sorting
+    if (this.tempPairKey[0] > this.tempPairKey[1]) {
+      const temp = this.tempPairKey[0];
+      this.tempPairKey[0] = this.tempPairKey[1];
+      this.tempPairKey[1] = temp;
+    }
+
+    // Combine the IDs into a single number using bit shifting
+    return (this.tempPairKey[0] << 20) | this.tempPairKey[1];
   }
 }
