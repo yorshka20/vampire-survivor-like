@@ -1,4 +1,4 @@
-import { BombWeapon, Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
+import { AreaWeapon, BombWeapon, Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { Component } from '@ecs/core/ecs/Component';
 
 export interface DamageProps {
@@ -63,6 +63,13 @@ export class DamageComponent extends Component {
 
   isAoe(): boolean {
     return this.weapon?.type === WeaponType.AREA || this.weapon?.type === WeaponType.BOMB;
+  }
+
+  getAoeRadius(): number {
+    if (this.weapon?.type === WeaponType.AREA) {
+      return (this.weapon as AreaWeapon).radius;
+    }
+    return (this.weapon as BombWeapon).explosionRadius;
   }
 
   canExplode(): this is { weapon: BombWeapon } {

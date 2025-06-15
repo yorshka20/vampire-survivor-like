@@ -38,8 +38,6 @@ export class WeaponSystem extends System {
 
     for (const weaponEntity of weaponEntities) {
       const weapon = weaponEntity.getComponent<WeaponComponent>(WeaponComponent.componentName);
-      if (!weapon.canAttack(currentTime, weapon.currentWeaponIndex)) continue;
-
       const movement = weaponEntity.getComponent<MovementComponent>(
         MovementComponent.componentName,
       );
@@ -47,6 +45,8 @@ export class WeaponSystem extends System {
 
       // Process each weapon
       for (let i = 0; i < weapon.weapons.length; i++) {
+        if (!weapon.canAttack(currentTime, i)) continue;
+
         const currentWeapon = weapon.weapons[i];
         if (!currentWeapon) continue;
 
@@ -472,7 +472,7 @@ export class WeaponSystem extends System {
     currentTime: number,
     weaponIndex: number,
   ): void {
-    // Find nearest enemy
+    // Find nearest enemy to aim
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) return;
 
@@ -524,8 +524,9 @@ export class WeaponSystem extends System {
         lifetime: currentWeapon.projectileLifetime,
       });
 
-      // Add onRemoved handler to create explosion when projectile is removed
-      projectile.onRemoved(() => {
+      // Add onDestroyed handler to create explosion when projectile is destroyed
+      // destroyed is different from removed.
+      projectile.onDestroyed(() => {
         const projectilePos = projectile
           .getComponent<MovementComponent>(MovementComponent.componentName)
           .getPosition();

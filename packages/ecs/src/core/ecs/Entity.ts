@@ -18,7 +18,10 @@ export class Entity implements IEntity {
   toRemove: boolean = false;
   components: Map<string, Component> = new Map();
 
+  // onRemove will be called when the entity is removed from the world
   private onRemovedCallbacks: ((id: string) => void)[] = [];
+  // onDestroyed will be called when the entity is removed except by lifecycleSystem
+  private onDestroyedCallbacks: ((id: string) => void)[] = [];
 
   constructor(
     public readonly id: string,
@@ -68,13 +71,32 @@ export class Entity implements IEntity {
     this.toRemove = true;
   }
 
+  /**
+   * will be called when the entity is removed from the world
+   * @description Register a callback to be called when the entity is removed from the world
+   * @param cb - The callback to be called
+   */
   onRemoved(cb: (id: string) => void): void {
     this.onRemovedCallbacks.push(cb);
+  }
+
+  /**
+   * will be called when the entity is removed from the world except by lifecycleSystem
+   * @description Register a callback to be called when the entity is removed from the world
+   * @param cb - The callback to be called
+   */
+  onDestroyed(cb: (id: string) => void): void {
+    this.onDestroyedCallbacks.push(cb);
   }
 
   notifyRemoved(): void {
     this.onRemovedCallbacks.forEach((cb) => cb(this.id));
     this.onRemovedCallbacks.length = 0;
+  }
+
+  notifyDestroyed(): void {
+    this.onDestroyedCallbacks.forEach((cb) => cb(this.id));
+    this.onDestroyedCallbacks.length = 0;
   }
 
   // Implement IPoolable interface
@@ -83,6 +105,7 @@ export class Entity implements IEntity {
     this.toRemove = false;
     this.components.clear();
     this.onRemovedCallbacks.length = 0;
+    this.onDestroyedCallbacks.length = 0;
   }
 
   recreate(props: any): void {}

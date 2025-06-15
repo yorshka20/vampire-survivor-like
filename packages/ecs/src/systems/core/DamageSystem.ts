@@ -1,5 +1,4 @@
 import {
-  BombWeapon,
   ColliderComponent,
   DamageComponent,
   DeathMarkComponent,
@@ -142,15 +141,15 @@ export class DamageSystem extends System {
     damageComponent.updateTickTime();
   }
 
-  private processAoeDamage(areaEffect: Entity, damageComponent: DamageComponent): void {
+  private processAoeDamage(damageSource: Entity, damageComponent: DamageComponent): void {
     const { damage, isCritical } = damageComponent.getDamage();
-    const position = areaEffect
+    const position = damageSource
       .getComponent<MovementComponent>(MovementComponent.componentName)
       .getPosition();
 
     const enemies = this.gridComponent?.getNearbyEntities(
       position,
-      (damageComponent.weapon as BombWeapon).explosionRadius ?? 0,
+      damageComponent.getAoeRadius(),
       'damage',
     );
     if (!enemies?.length) return;
@@ -179,8 +178,8 @@ export class DamageSystem extends System {
       // Set hit and daze states
       const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
       if (stateComponent) {
-        stateComponent.setHit(1); // 1 frame hit effect
-        stateComponent.setDazed(2); // 2 frames daze effect
+        stateComponent.setHit(12); // 12 frames hit effect
+        stateComponent.setDazed(12); // 12 frames daze effect
       }
       // Create damage text
       const damageTextEntity = createDamageTextEntity(this.world, {
@@ -284,6 +283,11 @@ export class DamageSystem extends System {
       // Handle projectile removal
       if (!damageComponent.canHitMore() || damageComponent.isExpired()) {
         entitiesToRemove.push(damageSource);
+
+        // trigger onDestroyed callback if the damageSource is removed by damageSystem
+        if (!damageComponent.canHitMore()) {
+          damageSource.notifyDestroyed();
+        }
       }
     }
 
