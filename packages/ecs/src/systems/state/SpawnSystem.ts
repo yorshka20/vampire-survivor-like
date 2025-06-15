@@ -112,7 +112,7 @@ export class SpawnSystem extends System {
       SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
       SPAWN_CONSTANTS.MAX_ENEMY_SPEED,
     );
-    const size: [number, number] = [20 + Math.random() * 20, 20 + Math.random() * 20];
+    const size: [number, number] = [40 + Math.random() * 20, 40 + Math.random() * 20];
 
     const enemy = createEnemyEntity(this.world, {
       position: { x, y },

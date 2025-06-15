@@ -64,17 +64,29 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       const frameWidth = spriteSheet.frameWidth;
       const frameHeight = spriteSheet.frameHeight;
 
+      // Check if entity is hit and has hurt animation
+      if (entity.hasComponent(StateComponent.componentName)) {
+        const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+        if (state.getIsHit() && spriteSheet.animations.has('hurt')) {
+          // Force play hurt animation when hit
+          animation.setAnimation('hurt', true);
+        } else if (!state.getIsHit() && animation.getCurrentAnimation() === 'hurt') {
+          // Return to idle animation when not hit
+          animation.setAnimation('idle', true);
+        }
+      }
+
       // Draw the current animation frame
       this.ctx.drawImage(
         spriteSheet.image,
-        currentFrame * frameWidth,
-        0, // Source x, y
-        frameWidth,
-        frameHeight, // Source width, height
-        -sizeX / 2,
-        -sizeY / 2, // Destination x, y
-        sizeX,
-        sizeY, // Destination width, height
+        currentFrame * frameWidth, // Source x: multiply frame index by frame width
+        0, // Source y: always 0 since frames are horizontal
+        frameWidth, // Source width: frame width
+        frameHeight, // Source height: frame height
+        -sizeX / 2, // Destination x: center the sprite
+        -sizeY / 2, // Destination y: center the sprite
+        sizeX, // Destination width: entity size
+        sizeY, // Destination height: entity size
       );
     } else {
       // Fallback to pattern or shape rendering

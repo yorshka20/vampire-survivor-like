@@ -11,7 +11,6 @@ import {
   MovementSystem,
   PickupSystem,
   RenderSystem,
-  ResourceManager,
   SpatialGridSystem,
   SpawnSystem,
   StateEffectSystem,
@@ -20,6 +19,7 @@ import {
   createPlayerEntity,
 } from '@ecs';
 import { RectArea } from '@ecs/utils/types';
+import { loadGameResources } from './stores/game';
 
 export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance
@@ -49,23 +49,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   world.addSystem(renderSystem);
 
   try {
-    // Load background image
-    const resourceManager = ResourceManager.getInstance();
-    resourceManager.loadImage('bg', '/assets/texture.png').then(() => {
-      const bgImage = resourceManager.getImage('bg');
-      if (bgImage) {
-        renderSystem.setBackgroundImage(bgImage);
-      }
-    });
-    await resourceManager.loadAudio('bgm', '/assets/music/time_for_adventure.mp3');
-    await resourceManager.loadAudio('coin', '/assets/sounds/coin.wav');
-    await resourceManager.loadAudio('death', '/assets/sounds/death.mp3');
-    await resourceManager.loadAudio('explosion', '/assets/sounds/explosion.wav');
-    await resourceManager.loadAudio('hit', '/assets/sounds/hit.mp3');
-    await resourceManager.loadAudio('hurt', '/assets/sounds/hurt.wav');
-    await resourceManager.loadAudio('jump', '/assets/sounds/jump.wav');
-    await resourceManager.loadAudio('power_up', '/assets/sounds/power_up.wav');
-    await resourceManager.loadAudio('tap', '/assets/sounds/tap.wav');
+    await loadGameResources(renderSystem);
   } catch (error) {
     console.error('Failed to load resources:', error);
   }
@@ -74,10 +58,10 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   await game.initialize();
 
   // Create player entity at center of screen
-  const player = await createPlayerEntity(world, {
+  const player = createPlayerEntity(world, {
     position: { x: viewport[2] / 2, y: viewport[3] / 2 },
     speed: 5,
-    size: [30, 30],
+    size: [64, 64],
   });
 
   // Make camera follow player

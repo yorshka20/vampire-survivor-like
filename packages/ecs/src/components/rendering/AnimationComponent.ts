@@ -24,12 +24,14 @@ export class AnimationComponent extends Component {
     this.frameTime += deltaTime;
     if (this.frameTime >= animation.frameDuration) {
       this.frameTime = 0;
-      this.currentFrame = (this.currentFrame + 1) % animation.frames.length;
 
-      // If animation is not looping and we've reached the end
+      // For non-looping animations, stay on the last frame
       if (!animation.loop && this.currentFrame === animation.frames.length - 1) {
         this.isPlaying = false;
+        return;
       }
+
+      this.currentFrame = (this.currentFrame + 1) % animation.frames.length;
     }
   }
 

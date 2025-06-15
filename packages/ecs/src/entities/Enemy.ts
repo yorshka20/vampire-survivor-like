@@ -1,5 +1,6 @@
 import {
   AIComponent,
+  AnimationComponent,
   ColliderComponent,
   HealthComponent,
   MovementComponent,
@@ -11,6 +12,7 @@ import {
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
 import { Color } from '@ecs/utils/types';
 import { randomRgb } from './utils/rgb';
 
@@ -25,6 +27,13 @@ export interface EnemyProps {
 
 export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   const enemy = world.createEntity('enemy');
+
+  // Get sprite sheet from loader
+  const spriteLoader = SpriteSheetLoader.getInstance();
+  const spriteSheet = spriteLoader.getSpriteSheet('slime_green');
+  if (!spriteSheet) {
+    throw new Error('Slime sprite sheet not loaded');
+  }
 
   // Add components
   enemy.addComponent(
@@ -51,6 +60,9 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
       layer: RenderLayerIdentifier.ENTITY,
     }),
   );
+
+  // Add animation component
+  enemy.addComponent(world.createComponent(AnimationComponent, spriteSheet));
 
   enemy.addComponent(
     world.createComponent(HealthComponent, {

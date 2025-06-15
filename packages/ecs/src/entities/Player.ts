@@ -50,7 +50,7 @@ const playerAnimations = new Map<string, AnimationData>([
 /**
  * Factory function to create a Player entity
  */
-export async function createPlayerEntity(
+export function createPlayerEntity(
   world: World,
   {
     id = 'player',
@@ -64,13 +64,10 @@ export async function createPlayerEntity(
 
   // Load sprite sheet
   const loader = SpriteSheetLoader.getInstance();
-  const spriteSheet = await loader.loadSpriteSheet(
-    'knight',
-    '/assets/sprites/knight.png',
-    32, // frameWidth
-    32, // frameHeight
-    playerAnimations,
-  );
+  const spriteSheet = loader.getSpriteSheet('knight');
+  if (!spriteSheet) {
+    throw new Error('Knight sprite sheet not loaded');
+  }
 
   // Basic components
   player.addComponent(world.createComponent(InputComponent, {}));

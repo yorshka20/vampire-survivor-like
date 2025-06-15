@@ -12,4 +12,4 @@ export interface SpriteSheetData {
   animations: Map<string, AnimationData>;
 }
 
-export type AnimationState = 'idle' | 'walk' | 'attack' | 'hit' | 'death';
+export type AnimationState = 'idle' | 'walk' | 'attack' | 'hurt' | 'death' | 'jump';
