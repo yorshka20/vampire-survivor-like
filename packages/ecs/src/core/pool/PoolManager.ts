@@ -46,25 +46,28 @@ export class PoolManager {
     this.componentPools.set(ComponentClass, new ObjectPool<T>(factory, initialSize, maxSize));
   }
 
-  getEntityPool(name: string): ObjectPool<Entity> | undefined {
-    return this.entityPools.get(name);
-  }
-
-  getComponentPool<T extends Component>(
-    ComponentClass: ComponentConstructor<T>,
-  ): ObjectPool<T> | undefined {
-    return this.componentPools.get(ComponentClass) as ObjectPool<T> | undefined;
-  }
-
+  /**
+   * Get an entity from the pool
+   * entity will not be recreated.
+   * @param name - The name of the entity pool
+   * @returns
+   */
   getEntityFromPool(name: string): Entity | undefined {
     const pool = this.entityPools.get(name);
     if (!pool) {
       console.warn(`Entity pool ${name} does not exist`);
       return undefined;
     }
-    return pool.get({} as never);
+    return pool.get();
   }
 
+  /**
+   * Get a component from the pool
+   * component will be recreated with the props
+   * @param ComponentClass - The class of the component
+   * @param props - The props to recreate the component with
+   * @returns
+   */
   getComponentFromPool<T extends Component, C extends ComponentConstructor<T>>(
     ComponentClass: C,
     props: ComponentProps<C>,
@@ -75,6 +78,7 @@ export class PoolManager {
       return undefined;
     }
     const component = pool.get(props);
+    component.recreate(props);
     return component as T;
   }
 
@@ -98,16 +102,12 @@ export class PoolManager {
 
   clearEntityPool(name: string): void {
     const pool = this.entityPools.get(name);
-    if (pool) {
-      pool.clear();
-    }
+    pool?.clear();
   }
 
   clearComponentPool(ComponentClass: ComponentConstructor<any>): void {
     const pool = this.componentPools.get(ComponentClass);
-    if (pool) {
-      pool.clear();
-    }
+    pool?.clear();
   }
 
   clearAllPools(): void {

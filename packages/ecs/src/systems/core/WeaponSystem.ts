@@ -540,7 +540,6 @@ export class WeaponSystem extends System {
           color: currentWeapon.explosionColor,
         });
 
-        console.log('explosion', explosion);
         this.world.addEntity(explosion);
       });
 

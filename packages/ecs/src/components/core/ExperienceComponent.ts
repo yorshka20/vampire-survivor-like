@@ -48,4 +48,11 @@ export class ExperienceComponent extends Component {
     this.expToNextLevel = 100;
     this.expMultiplier = 1.5;
   }
+
+  recreate(props: ExperienceProps): void {
+    this.level = props.level ?? 1;
+    this.currentExp = props.currentExp ?? 0;
+    this.expToNextLevel = props.expToNextLevel ?? 100;
+    this.expMultiplier = props.expMultiplier ?? 1.5;
+  }
 }

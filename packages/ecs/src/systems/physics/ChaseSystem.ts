@@ -15,7 +15,7 @@ export class ChaseSystem extends System {
     ]);
 
     // Convert deltaTime to seconds for smoother acceleration
-    const dt = deltaTime / 1000;
+    const dt = deltaTime;
 
     for (const chaser of chasers) {
       const chase = chaser.getComponent<ChaseComponent>(ChaseComponent.componentName);

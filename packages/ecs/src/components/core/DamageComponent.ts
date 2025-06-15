@@ -96,4 +96,13 @@ export class DamageComponent extends Component {
     this.lastTickTime = Date.now();
     this.startTime = Date.now();
   }
+
+  recreate(props: DamageProps): void {
+    this.damage = props.damage;
+    this.source = props.source;
+    this.team = props.team ?? 'player';
+    this.penetration = props.penetration ?? 1;
+    this.tickRate = props.tickRate;
+    this.duration = props.duration;
+  }
 }

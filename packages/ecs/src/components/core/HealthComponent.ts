@@ -40,4 +40,10 @@ export class HealthComponent extends Component {
     this.currentHealth = 100;
     this.isDead = false;
   }
+
+  recreate(props: HealthProps): void {
+    this.maxHealth = props.maxHealth;
+    this.currentHealth = props.currentHealth ?? props.maxHealth;
+    this.isDead = false;
+  }
 }

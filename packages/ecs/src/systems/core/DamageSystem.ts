@@ -76,8 +76,8 @@ export class DamageSystem extends System {
     // Set hit and daze states
     const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
     if (stateComponent) {
-      stateComponent.setHit(3); // 3 frames hit effect
-      stateComponent.setDazed(3); // 3 frames daze effect
+      stateComponent.setHit(13); // 3 frames hit effect
+      stateComponent.setDazed(13); // 3 frames daze effect
     }
 
     // Create damage text
@@ -93,7 +93,7 @@ export class DamageSystem extends System {
 
     // Check for death
     if (health.currentHealth <= 0) {
-      enemy.addComponent(this.world.createComponent(DeathMarkComponent, {}));
+      enemy.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
     }
 
     // Record the hit
@@ -147,7 +147,7 @@ export class DamageSystem extends System {
 
     // Check for death
     if (health.currentHealth <= 0) {
-      enemy.addComponent(this.world.createComponent(DeathMarkComponent, {}));
+      enemy.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
     }
 
     // Update tick time
@@ -206,7 +206,7 @@ export class DamageSystem extends System {
 
       // Check for death
       if (health.currentHealth <= 0) {
-        enemy.addComponent(this.world.createComponent(DeathMarkComponent, {}));
+        enemy.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
       }
     }
   }
