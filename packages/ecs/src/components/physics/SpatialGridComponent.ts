@@ -1,13 +1,22 @@
 import { Component } from '@ecs/core/ecs/Component';
+import { EntityType } from '@ecs/core/ecs/types';
 import { Point } from '@ecs/utils/types';
 
 interface GridCell {
   entities: Set<string>;
-  entityTypes: Map<string, string>; // Add entity type mapping
+  entityTypes: Map<string, EntityType>; // Add entity type mapping
 }
 
-// Cache types for different spatial queries
-export type SpatialQueryType = 'collision' | 'damage' | 'weapon' | 'pickup';
+/**
+ * Cache types for different spatial queries
+ *
+ * queryType does not equal to the entity type.
+ * - collision: only collect collidable entities
+ * - damage: only collect entities that can deal damage
+ * - collision-distant: only collect collidable entities that are further away
+ * - pickup: only collect entities that are pickable
+ */
+export type SpatialQueryType = 'collision' | 'damage' | 'collision-distant' | 'pickup';
 
 interface CacheEntry {
   entities: Set<string>;
@@ -61,11 +70,11 @@ export class SpatialGridComponent extends Component {
       updateFrequency: 2, // Update every 2 frames
     });
 
-    // Initialize weapon cache (least frequent updates, largest radius)
-    this.caches.set('weapon', new Map());
-    this.cacheConfigs.set('weapon', {
+    // Initialize collision-distant cache (least frequent updates, largest radius)
+    this.caches.set('collision-distant', new Map());
+    this.cacheConfigs.set('collision-distant', {
       ttl: 200, // 200ms TTL
-      radiusMultiplier: 2.0, // Largest radius for weapon targeting
+      radiusMultiplier: 2.0, // Largest radius for collision-distant detection
       updateFrequency: 4, // Update every 4 frames
     });
 
@@ -94,7 +103,7 @@ export class SpatialGridComponent extends Component {
     };
   }
 
-  insert(entityId: string, position: Point, entityType: string): void {
+  insert(entityId: string, position: Point, entityType: EntityType): void {
     const cellKey = this.getCellKey(position[0], position[1]);
     if (!this.grid.has(cellKey)) {
       this.grid.set(cellKey, { entities: new Set(), entityTypes: new Map() });
@@ -150,10 +159,12 @@ export class SpatialGridComponent extends Component {
         const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
 
         // Update cache
-        cache.set(cellKey, {
-          entities: new Set(result),
-          timestamp: currentTime,
-        });
+        if (result.length > 0) {
+          cache.set(cellKey, {
+            entities: new Set(result),
+            timestamp: currentTime,
+          });
+        }
 
         return result;
       }
@@ -163,17 +174,19 @@ export class SpatialGridComponent extends Component {
 
     // If not time to update, return cached result if available
     const cachedEntry = cache.get(cellKey);
-    if (cachedEntry) {
+    if (cachedEntry && cachedEntry.entities.size > 0) {
       return Array.from(cachedEntry.entities);
     }
 
     // If no cache available, calculate and cache
     const adjustedRadius = radius * config.radiusMultiplier;
     const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
-    cache.set(cellKey, {
-      entities: new Set(result),
-      timestamp: currentTime,
-    });
+    if (result.length > 0) {
+      cache.set(cellKey, {
+        entities: new Set(result),
+        timestamp: currentTime,
+      });
+    }
 
     return result;
   }
@@ -193,13 +206,38 @@ export class SpatialGridComponent extends Component {
       for (let y = cellY - cellRadius; y <= cellY + cellRadius; y++) {
         const cellKey = `${x},${y}`;
         const cell = this.grid.get(cellKey);
-        if (cell) {
-          cell.entities.forEach((entityId) => {
-            if (cell.entityTypes.get(entityId) === queryType) {
-              result.push(entityId);
-            }
-          });
+        if (!cell) {
+          continue;
         }
+        cell.entities.forEach((entityId) => {
+          switch (queryType) {
+            case 'collision-distant':
+            case 'collision':
+              if (
+                cell.entityTypes.get(entityId) === 'enemy' ||
+                cell.entityTypes.get(entityId) === 'player' ||
+                cell.entityTypes.get(entityId) === 'projectile' ||
+                cell.entityTypes.get(entityId) === 'areaEffect'
+              ) {
+                result.push(entityId);
+              }
+              break;
+            case 'damage':
+              if (
+                cell.entityTypes.get(entityId) === 'enemy' ||
+                cell.entityTypes.get(entityId) === 'projectile' ||
+                cell.entityTypes.get(entityId) === 'areaEffect'
+              ) {
+                result.push(entityId);
+              }
+              break;
+            case 'pickup':
+              if (cell.entityTypes.get(entityId) === 'pickup') {
+                result.push(entityId);
+              }
+              break;
+          }
+        });
       }
     }
 
@@ -214,6 +252,7 @@ export class SpatialGridComponent extends Component {
   private invalidateCaches(): void {
     // Mark caches as needing update
     this.lastCacheUpdate = 0;
+    this.updateCaches();
   }
 
   // Call this method every frame to update frame counter

@@ -1,5 +1,6 @@
 import { ColliderComponent } from '@ecs/components/physics/ColliderComponent';
 import { MovementComponent } from '@ecs/components/physics/MovementComponent';
+import { SpatialQueryType } from '@ecs/components/physics/SpatialGridComponent';
 import { VelocityComponent } from '@ecs/components/physics/VelocityComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -161,10 +162,15 @@ export class CollisionSystem extends System {
       const collisionResult = this.checkCollision(entity, nearbyEntity);
       if (collisionResult) {
         this.handleCollision(entity, nearbyEntity, collisionResult);
-        // skip case where both entities are enemies because they will not attack each other
-        if (entity.isType('enemy') && nearbyEntity.isType('enemy')) continue;
-
-        this.damageCollisionResults.push(collisionResult);
+        // skip case where both entities are non-damageable
+        if (
+          entity.isType('projectile') ||
+          nearbyEntity.isType('projectile') ||
+          entity.isType('areaEffect') ||
+          nearbyEntity.isType('areaEffect')
+        ) {
+          this.damageCollisionResults.push(collisionResult);
+        }
       }
 
       this.checkedPairs.add(pairKey);
@@ -185,15 +191,15 @@ export class CollisionSystem extends System {
     }
   }
 
-  private getCacheTypeForTier(tier: CollisionTier): 'collision' | 'damage' | 'weapon' {
+  private getCacheTypeForTier(tier: CollisionTier): SpatialQueryType {
     // Map collision tiers to cache types
     switch (tier) {
       case CollisionTier.CRITICAL:
         return 'collision'; // Use collision cache for critical tier
       case CollisionTier.NORMAL:
-        return 'damage'; // Use damage cache for normal tier
+        return 'collision'; // Use collision cache for normal tier
       case CollisionTier.DISTANT:
-        return 'weapon'; // Use weapon cache for distant tier
+        return 'collision-distant'; // Use collision-distant cache for distant tier
       default:
         return 'collision';
     }

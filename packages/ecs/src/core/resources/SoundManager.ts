@@ -39,6 +39,7 @@ export class SoundManager {
     const bgm = ResourceManager.getInstance().getAudio('bgm');
     if (bgm) {
       bgm.volume = volume;
+      bgm.loop = true;
       if (pause) {
         bgm.pause();
       } else {

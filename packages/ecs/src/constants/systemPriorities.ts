@@ -10,9 +10,9 @@ export enum SystemPriorities {
   SPAWN = 300, // Spawn new entities
   AI = 400, // AI decision making
   WEAPON = 500, // Weapon firing
-  VELOCITY = 600, // Update velocities
-  MOVEMENT = 700, // Apply movement
-  CHASE = 800, // Chase target
+  CHASE = 600, // Chase target
+  VELOCITY = 700, // Update velocities
+  MOVEMENT = 800, // Apply movement
 
   COLLISION = 900, // Collision detection
   DAMAGE = 901, // Process damage

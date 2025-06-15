@@ -154,8 +154,8 @@ export class WeaponSystem extends System {
     weaponIndex: number,
   ): void {
     // Find nearest enemy
-    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range) ?? [];
-    if (enemyIds.length === 0) return;
+    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
+    if (!enemyIds || enemyIds.length === 0) return;
 
     let nearestEnemy: Entity | null = null;
     let nearestDistance = Infinity;
@@ -220,7 +220,8 @@ export class WeaponSystem extends System {
     weaponIndex: number,
   ): void {
     // Find enemies in melee range
-    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range) ?? [];
+    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
+    if (!enemyIds || enemyIds.length === 0) return;
 
     for (const enemyId of enemyIds) {
       const enemy = this.world.getEntityById(enemyId);
@@ -472,8 +473,8 @@ export class WeaponSystem extends System {
     weaponIndex: number,
   ): void {
     // Find nearest enemy
-    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range) ?? [];
-    if (enemyIds.length === 0) return;
+    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
+    if (!enemyIds || enemyIds.length === 0) return;
 
     let nearestEnemy: Entity | null = null;
     let nearestDistance = Infinity;

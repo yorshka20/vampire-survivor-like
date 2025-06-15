@@ -151,6 +151,7 @@ export class DamageSystem extends System {
     const enemies = this.gridComponent?.getNearbyEntities(
       position,
       (damageComponent.weapon as BombWeapon).explosionRadius ?? 0,
+      'damage',
     );
     if (!enemies?.length) return;
 
