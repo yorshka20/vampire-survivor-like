@@ -149,7 +149,7 @@ export class World implements IWorld {
 
     // Clean up components when the entity is actually removed
     entity.getComponents().forEach((component) => {
-      component.reset();
+      // just return, DO NOT reset.
       this.poolManager.returnComponentToPool(
         component.constructor as new (...args: any[]) => Component,
         component,

@@ -23,10 +23,19 @@ export class ObjectPool<T extends IPoolable> {
     }
     return this.factory(props);
   }
-
+  /**
+   * return an object to the pool
+   *
+   * do not reset the object when returning to the pool
+   * why?
+   * 1. the object(as a component) can be returned when its Entity is returned
+   * 2. component remain unconsumed when Entity is returned
+   * 3. if we immediately reset the object, the component state will be lost
+   * 4. if the component state is lost, the logic process will be broken
+   * @param {T} obj
+   * @memberof ObjectPool
+   */
   return(obj: T): void {
-    // always reset
-    obj.reset();
     if (this.pool.length < this.maxSize) {
       this.pool.push(obj);
     }

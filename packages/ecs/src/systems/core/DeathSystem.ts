@@ -41,9 +41,7 @@ export class DeathSystem extends System {
   }
 
   update(deltaTime: number): void {
-    const entities = this.world.getEntitiesByCondition(
-      (entity) => entity.hasComponent(HealthComponent.componentName) && entity.isType('enemy'),
-    );
+    const entities = this.world.getEntitiesByType('enemy');
     const entitiesToRemove: Entity[] = [];
 
     for (const entity of entities) {
@@ -62,7 +60,7 @@ export class DeathSystem extends System {
         const health = entity.getComponent<HealthComponent>(HealthComponent.componentName);
         if (health.isDead && !entity.hasComponent(DeathMarkComponent.componentName)) {
           // Add death mark to ensure consistent handling
-          entity.addComponent(this.world.createComponent(DeathMarkComponent, null));
+          entity.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
           entitiesToRemove.push(entity);
         }
       }
@@ -89,10 +87,15 @@ export class DeathSystem extends System {
     const movement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
     if (!movement) return;
 
+    const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
     const position = movement.getPosition();
 
     // Always drop experience
-    this.createExperienceGem(position[0], position[1], 10 + Math.floor(Math.random() * 20));
+    this.createExperienceGem(
+      position[0],
+      position[1],
+      10 * health.maxHealth + Math.floor(Math.random() * 20),
+    );
 
     // Chance for other drops
     const dropChance = Math.random();
@@ -163,7 +166,7 @@ export class DeathSystem extends System {
   private createMagnetPickup(x: number, y: number): void {
     const pickup = createItemEntity(this.world, {
       position: { x, y },
-      type: 'pickup',
+      type: 'magnet',
       pullable: true,
       value: 0.01,
     });

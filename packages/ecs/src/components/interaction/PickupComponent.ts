@@ -7,6 +7,7 @@ export type PickupType =
   | 'health'
   | 'powerup'
   | 'pickup'
+  | 'magnet'
   | 'specialEffect';
 
 interface PickupProps {
@@ -57,5 +58,14 @@ export class PickupComponent extends Component {
     this.powerup = undefined;
     this.magnetRange = 50;
     this.isBeingCollected = false;
+  }
+
+  recreate(props: PickupProps): void {
+    this.type = props.type;
+    this.value = props.value ?? 0;
+    this.magnetRange = props.magnetRange ?? 50;
+    this.pullable = props.pullable ?? false;
+    this.weapon = props.weapon;
+    this.powerup = props.powerup;
   }
 }

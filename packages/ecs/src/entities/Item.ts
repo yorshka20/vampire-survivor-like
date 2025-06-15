@@ -25,18 +25,18 @@ export interface ItemProps {
   };
 }
 
+// Set default values
+const defaultProps: ItemProps = {
+  position: { x: 0, y: 0 },
+  size: [15, 15],
+  color: { r: 0, g: 255, b: 255, a: 1 },
+  type: 'experience',
+  value: 10,
+  pullable: false,
+};
+
 export function createItemEntity(world: World, props?: Partial<ItemProps>): Entity {
   const item = world.createEntity('pickup');
-
-  // Set default values
-  const defaultProps: ItemProps = {
-    position: { x: 0, y: 0 },
-    size: [15, 15],
-    color: { r: 0, g: 255, b: 255, a: 1 },
-    type: 'experience',
-    value: 10,
-    pullable: false,
-  };
 
   const finalProps = { ...defaultProps, ...props };
 
@@ -91,9 +91,11 @@ function getItemPatternType(type: PickupType): RenderPatternType {
       return 'exp';
     case 'powerup':
       return 'star';
-    case 'pickup':
-      return 'diamond';
     case 'specialEffect':
       return 'star';
+    case 'magnet':
+      return 'magnet';
+    default:
+      return 'diamond';
   }
 }

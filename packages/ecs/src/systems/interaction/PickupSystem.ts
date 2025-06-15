@@ -5,7 +5,6 @@ import {
   MovementComponent,
   PickupComponent,
   StatsComponent,
-  VelocityComponent,
   WeaponComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -53,12 +52,21 @@ export class PickupSystem extends System {
 
     for (const entityId of nearbyEntities) {
       const entity = this.world.getEntityById(entityId);
-      if (!entity?.hasComponent(PickupComponent.componentName) || !entity.isType('pickup')) {
+
+      // Skip if entity doesn't exist or is not a pickup
+      if (!entity || !entity.isType('pickup')) {
+        continue;
+      }
+
+      // Skip if entity doesn't have required components
+      if (!entity.hasComponent(PickupComponent.componentName)) {
         continue;
       }
 
       const pickupComponent = entity.getComponent<PickupComponent>(PickupComponent.componentName);
-      if (pickupComponent.isBeingCollected) continue;
+      if (pickupComponent.isBeingCollected) {
+        continue;
+      }
 
       const pickupMovement = entity.getComponent<MovementComponent>(
         MovementComponent.componentName,
@@ -74,11 +82,6 @@ export class PickupSystem extends System {
         distance < pickupComponent.magnetRange &&
         !entity.hasComponent(ChaseComponent.componentName)
       ) {
-        if (entity.hasComponent(VelocityComponent.componentName)) {
-          const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
-          velocity.setVelocity({ x: 0, y: 0 });
-        }
-
         entity.addComponent(
           this.world.createComponent(ChaseComponent, {
             targetId: player.id,
@@ -144,7 +147,7 @@ export class PickupSystem extends System {
           }
           break;
 
-        case 'pickup':
+        case 'magnet':
           stats.applyIncrement('pickupRangeMultiplier', pickup.value);
           break;
 
@@ -185,11 +188,6 @@ export class PickupSystem extends System {
       // Skip if item is being collected or not pullable
       const pickupComponent = item.getComponent<PickupComponent>(PickupComponent.componentName);
       if (pickupComponent.isBeingCollected || !pickupComponent.pullable) continue;
-
-      if (item.hasComponent(VelocityComponent.componentName)) {
-        const velocity = item.getComponent<VelocityComponent>(VelocityComponent.componentName);
-        velocity.setVelocity({ x: 0, y: 0 });
-      }
 
       item.addComponent(
         this.world.createComponent(ChaseComponent, {

@@ -78,6 +78,7 @@ export class PoolManager {
       return undefined;
     }
     const component = pool.get(props);
+    // just recreate, no need to reset
     component.recreate(props);
     return component as T;
   }
