@@ -61,7 +61,7 @@ export class SpatialGridSystem extends System {
     for (const entity of entities) {
       const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
       const position = movement.getPosition();
-      gridComponent.insert(entity.id, position);
+      gridComponent.insert(entity.id, position, entity.type);
     }
 
     this.lastUpdateTime = currentTime;

@@ -6,7 +6,7 @@ interface VelocityProps {
   // keep for compatibility
   friction?: number;
   maxSpeed?: number;
-  entityType?: 'PLAYER' | 'ENEMY' | 'PROJECTILE';
+  entityType?: 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM';
 }
 
 export class VelocityComponent extends Component {
@@ -18,7 +18,7 @@ export class VelocityComponent extends Component {
   private readonly BLOCKED_DURATION: number = 500; // 500ms blocked duration
   private readonly COLLISION_DAMPING: number = 0.5; // Damping factor for collision response
   private friction: number;
-  private entityType: 'PLAYER' | 'ENEMY' | 'PROJECTILE';
+  private entityType: 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM';
 
   constructor(props: VelocityProps = {}) {
     super('Velocity');

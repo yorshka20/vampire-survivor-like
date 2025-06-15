@@ -5,12 +5,30 @@
   let speedMultiplier = 1;
   const speedOptions = [1, 2, 4];
   const repoUrl = import.meta.env.VITE_REPO_URL;
+  let isGameStarted = false;
+  let isPaused = false;
 
   function toggleSpeed() {
     const currentIndex = speedOptions.indexOf(speedMultiplier);
     const nextIndex = (currentIndex + 1) % speedOptions.length;
     speedMultiplier = speedOptions[nextIndex];
     gameState.setSpeedMultiplier(speedMultiplier);
+  }
+
+  function togglePause() {
+    isPaused = !isPaused;
+    if (isPaused) {
+      gameState.pause();
+    } else {
+      gameState.start();
+    }
+  }
+
+  function startGame() {
+    if (!isGameStarted) {
+      isGameStarted = true;
+      gameState.start();
+    }
   }
 
   onMount(() => {
@@ -123,7 +141,75 @@
     height: 16px;
     fill: currentColor;
   }
+  .start-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+  }
+
+  .start-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .start-text {
+    color: white;
+    font-family: monospace;
+    font-size: 32px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .pause-button {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.5);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.3);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pause-button:hover {
+    background: rgba(0,0,0,0.7);
+    border-color: rgba(255,255,255,0.5);
+  }
+
+  .pause-icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
 </style>
+
+<div class="start-overlay" class:hidden={isGameStarted} on:click={startGame}>
+  <div class="start-text">Click to Start Game</div>
+</div>
 
 <a href={repoUrl} target="_blank" rel="noopener noreferrer" class="github-button">
   <svg class="github-icon" viewBox="0 0 24 24">
@@ -132,11 +218,11 @@
   GitHub
 </a>
 
-<div class="game-time">
+<div class="game-time" class:hidden={!isGameStarted}>
   {Math.floor($gameState.gameTime / 60).toString().padStart(2, '0')}:{($gameState.gameTime % 60).toString().padStart(2, '0')}
 </div>
 
-<div class="ui-container">
+<div class="ui-container" class:hidden={!isGameStarted}>
   <div style="margin-bottom: 10px;">
     <div>Wave: {$gameState.wave}</div>
     <div>Enemies: {$gameState.enemies}</div>
@@ -156,10 +242,21 @@
   {/if}
 </div>
 
-<div class="fps" class:warning={$gameState.fps < 45} class:critical={$gameState.fps < 30}>
+<div class="fps" class:hidden={!isGameStarted} class:warning={$gameState.fps < 45} class:critical={$gameState.fps < 30}>
   FPS: {$gameState.fps}
 </div>
 
-<button class="speed-button" on:click={toggleSpeed}>
+<button class="speed-button" class:hidden={!isGameStarted} on:click={toggleSpeed}>
   {speedMultiplier}x Speed
+</button>
+
+<button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
+  <svg class="pause-icon" viewBox="0 0 24 24">
+    {#if isPaused}
+      <path d="M8 5v14l11-7z"/>
+    {:else}
+      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+    {/if}
+  </svg>
+  {isPaused ? 'Resume' : 'Pause'}
 </button> 

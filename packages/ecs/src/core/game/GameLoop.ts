@@ -1,5 +1,6 @@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
+import { SoundManager } from '../resources';
 
 /**
  * GameLoop class that manages the main game loop
@@ -44,6 +45,8 @@ export class GameLoop {
     this.lastFpsUpdate = this.lastTime;
     this.frameCount = 0;
     this.accumulator = 0;
+
+    SoundManager.playBGM();
 
     // Start logic update loop
     this.startLogicLoop();

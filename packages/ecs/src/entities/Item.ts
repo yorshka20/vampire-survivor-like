@@ -4,6 +4,7 @@ import {
   PickupType,
   RenderComponent,
   RenderPatternType,
+  VelocityComponent,
 } from '@ecs/components';
 import { Weapon } from '@ecs/components/weapon/WeaponTypes';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
@@ -55,6 +56,13 @@ export function createItemEntity(world: World, props?: Partial<ItemProps>): Enti
     world.createComponent(MovementComponent, {
       position: { x: finalProps.position.x, y: finalProps.position.y },
       speed: 0,
+    }),
+  );
+
+  item.addComponent(
+    world.createComponent(VelocityComponent, {
+      velocity: { x: 0, y: 0 },
+      entityType: 'ITEM',
     }),
   );
 

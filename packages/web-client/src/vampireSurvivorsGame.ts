@@ -55,13 +55,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
         renderSystem.setBackgroundImage(bgImage);
       }
     });
-    await resourceManager.loadAudio('bgm', '/assets/music/time_for_adventure.mp3').then(() => {
-      const bgm = resourceManager.getAudio('bgm');
-      if (bgm) {
-        bgm.loop = true;
-        bgm.play();
-      }
-    });
+    await resourceManager.loadAudio('bgm', '/assets/music/time_for_adventure.mp3');
     await resourceManager.loadAudio('coin', '/assets/sounds/coin.wav');
     await resourceManager.loadAudio('death', '/assets/sounds/death.mp3');
     await resourceManager.loadAudio('explosion', '/assets/sounds/explosion.wav');

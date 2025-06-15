@@ -3,6 +3,7 @@ import { Point } from '@ecs/utils/types';
 
 interface GridCell {
   entities: Set<string>;
+  entityTypes: Map<string, string>; // Add entity type mapping
 }
 
 // Cache types for different spatial queries
@@ -93,12 +94,14 @@ export class SpatialGridComponent extends Component {
     };
   }
 
-  insert(entityId: string, position: Point): void {
+  insert(entityId: string, position: Point, entityType: string): void {
     const cellKey = this.getCellKey(position[0], position[1]);
     if (!this.grid.has(cellKey)) {
-      this.grid.set(cellKey, { entities: new Set() });
+      this.grid.set(cellKey, { entities: new Set(), entityTypes: new Map() });
     }
-    this.grid.get(cellKey)!.entities.add(entityId);
+    const cell = this.grid.get(cellKey)!;
+    cell.entities.add(entityId);
+    cell.entityTypes.set(entityId, entityType);
 
     // Invalidate caches when grid changes
     this.invalidateCaches();
@@ -109,6 +112,7 @@ export class SpatialGridComponent extends Component {
     const cell = this.grid.get(cellKey);
     if (cell) {
       cell.entities.delete(entityId);
+      cell.entityTypes.delete(entityId);
       if (cell.entities.size === 0) {
         this.grid.delete(cellKey);
       }
@@ -143,7 +147,7 @@ export class SpatialGridComponent extends Component {
       if (!cachedEntry || currentTime - cachedEntry.timestamp > config.ttl) {
         // Calculate with adjusted radius based on query type
         const adjustedRadius = radius * config.radiusMultiplier;
-        const result = this.calculateNearbyEntities(position, adjustedRadius);
+        const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
 
         // Update cache
         cache.set(cellKey, {
@@ -165,7 +169,7 @@ export class SpatialGridComponent extends Component {
 
     // If no cache available, calculate and cache
     const adjustedRadius = radius * config.radiusMultiplier;
-    const result = this.calculateNearbyEntities(position, adjustedRadius);
+    const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
     cache.set(cellKey, {
       entities: new Set(result),
       timestamp: currentTime,
@@ -174,7 +178,11 @@ export class SpatialGridComponent extends Component {
     return result;
   }
 
-  private calculateNearbyEntities(position: Point, radius: number): string[] {
+  private calculateNearbyEntities(
+    position: Point,
+    radius: number,
+    queryType: SpatialQueryType,
+  ): string[] {
     const result: string[] = [];
 
     const cellX = Math.floor(position[0] / this.cellSize);
@@ -186,7 +194,11 @@ export class SpatialGridComponent extends Component {
         const cellKey = `${x},${y}`;
         const cell = this.grid.get(cellKey);
         if (cell) {
-          cell.entities.forEach((entityId) => result.push(entityId));
+          cell.entities.forEach((entityId) => {
+            if (cell.entityTypes.get(entityId) === queryType) {
+              result.push(entityId);
+            }
+          });
         }
       }
     }

@@ -22,6 +22,11 @@ export const SPEED_MULTIPLIERS = {
     MIN: 1.0, // Minimum projectile speed
     MAX: 4.0, // Maximum projectile speed
   },
+  ITEM: {
+    BASE: 0.8, // Base item speed
+    MIN: 0.8, // Minimum item speed
+    MAX: 1.0, // Maximum item speed
+  },
 };
 
 // Helper function to calculate actual speed in pixels per logic frame

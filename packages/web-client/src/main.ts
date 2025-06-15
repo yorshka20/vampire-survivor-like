@@ -19,20 +19,24 @@ async function initGame() {
     gameState.setPlayer(player);
     console.log('Player set in store');
 
+    // Initialize the game but don't start it
+    await gameState.initialize();
+    console.log('Game initialized');
+
     // Mount UI
     mount(GameUI, {
       target: document.body,
     });
     console.log('UI mounted');
 
-    // Start the game
-    gameState.start();
-    console.log('Game started');
+    (window as any).game = game;
+    (window as any).player = player;
+    (window as any).gameState = gameState;
   } catch (error) {
     console.error('Failed to initialize game:', error);
     document.body.innerHTML = `
       <div style="color: red; padding: 20px;">
-        Failed to initialize game: ${error instanceof Error ? error.message : String(error)}
+        Failed to initialize game: ${error}
       </div>
     `;
   }

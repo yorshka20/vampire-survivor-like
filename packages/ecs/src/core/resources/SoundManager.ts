@@ -8,6 +8,8 @@ interface SoundPool {
   currentIndex: number;
 }
 
+type SoundType = 'hit' | 'death' | 'hurt' | 'coin' | 'explosion' | 'jump' | 'power_up' | 'tap';
+
 export class SoundManager {
   private static instance: SoundManager;
   private pools: Map<string, SoundPool> = new Map();
@@ -26,11 +28,23 @@ export class SoundManager {
     return SoundManager.instance;
   }
 
-  static playSound(entity: IEntity, sound: string, volume: number = 0.5): void {
+  static playSound(entity: IEntity, sound: SoundType, volume: number = 0.5): void {
     if (!entity.hasComponent(SoundEffectComponent.componentName)) return;
 
     const soundManager = SoundManager.getInstance();
     soundManager.play(sound, volume);
+  }
+
+  static playBGM(pause: boolean = false, volume: number = 0.5): void {
+    const bgm = ResourceManager.getInstance().getAudio('bgm');
+    if (bgm) {
+      bgm.volume = volume;
+      if (pause) {
+        bgm.pause();
+      } else {
+        bgm.play();
+      }
+    }
   }
 
   setVolume(volume: number): void {

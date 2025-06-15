@@ -81,7 +81,6 @@ export class Entity implements IEntity {
   reset(): void {
     this.active = true;
     this.toRemove = false;
-    this.components.forEach((component) => component.onDetach());
     this.components.clear();
     this.onRemovedCallbacks.length = 0;
   }

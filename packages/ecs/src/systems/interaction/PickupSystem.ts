@@ -127,7 +127,7 @@ export class PickupSystem extends System {
 
           if (leveledUp) {
             this.onPlayerLevelUp(player, exp.level);
-            SoundManager.playSound(player, 'level_up');
+            SoundManager.playSound(player, 'power_up');
           }
           break;
 
@@ -149,7 +149,7 @@ export class PickupSystem extends System {
               `${pickup.powerup.stat}Multiplier` as any,
               pickup.powerup.multiplier,
             );
-            SoundManager.playSound(player, 'power_up');
+            SoundManager.playSound(player, 'tap');
           }
           break;
 
