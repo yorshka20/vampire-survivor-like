@@ -46,6 +46,7 @@ export class InputComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.state = {
       up: false,
       down: false,

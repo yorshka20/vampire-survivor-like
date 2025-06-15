@@ -87,6 +87,7 @@ export class VelocityComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.velocity = { x: 0, y: 0 };
     this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.isBlocked = false;

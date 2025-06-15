@@ -36,6 +36,7 @@ export class GameStateComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.currentWave = 1;
     this.enemyCount = 0;
     this.timeUntilNextWave = 0;

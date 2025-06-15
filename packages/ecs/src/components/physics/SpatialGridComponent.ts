@@ -266,6 +266,7 @@ export class SpatialGridComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.grid.clear();
     this.cellSize = 0;
     this.worldSize = { width: 0, height: 0 };

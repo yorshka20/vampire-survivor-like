@@ -28,6 +28,7 @@ export class DamageTextComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.text = '';
     this.position = [0, 0];
     this.lifetime = 0.8;

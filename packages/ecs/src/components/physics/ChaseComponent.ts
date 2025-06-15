@@ -40,4 +40,9 @@ export class ChaseComponent extends Component {
       this.currentSpeed = speed;
     }
   }
+
+  reset(): void {
+    super.reset();
+    this.currentSpeed = 0;
+  }
 }

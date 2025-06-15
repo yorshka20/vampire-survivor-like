@@ -74,6 +74,7 @@ export class WeaponComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.weapons.length = 0;
     this.currentWeaponIndex = 0;
     this.lastAttackTimes.length = 0;

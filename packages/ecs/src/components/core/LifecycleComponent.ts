@@ -23,6 +23,7 @@ export class LifecycleComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.lifetime = 0;
     this.remainingTime = 0;
   }

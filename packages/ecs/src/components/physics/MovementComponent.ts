@@ -63,6 +63,7 @@ export class MovementComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.position = { x: -9999, y: -9999 };
     this.speed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
     this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);

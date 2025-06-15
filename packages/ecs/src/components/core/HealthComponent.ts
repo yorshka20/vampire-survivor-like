@@ -36,6 +36,7 @@ export class HealthComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.maxHealth = 100;
     this.currentHealth = 100;
     this.isDead = false;

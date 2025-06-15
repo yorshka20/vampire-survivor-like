@@ -90,4 +90,14 @@ export class SpiralMovementComponent extends Component {
   getRadius(): number {
     return this.radius;
   }
+
+  reset(): void {
+    super.reset();
+    this.followPlayer = false;
+    this.center = { x: 0, y: 0 };
+    this.angle = 0;
+    this.radius = 0;
+    this.speed = 0;
+    this.expansion = 0;
+  }
 }

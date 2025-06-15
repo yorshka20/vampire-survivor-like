@@ -67,4 +67,12 @@ export class AnimationComponent extends Component {
   isAnimationPlaying(): boolean {
     return this.isPlaying;
   }
+
+  reset(): void {
+    super.reset();
+    this.currentFrame = 0;
+    this.frameTime = 0;
+    this.currentAnimation = 'idle';
+    this.isPlaying = true;
+  }
 }

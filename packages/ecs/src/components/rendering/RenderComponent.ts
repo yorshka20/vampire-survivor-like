@@ -140,6 +140,7 @@ export class RenderComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.patternImage = null;
     this.properties = {
       shape: 'circle',

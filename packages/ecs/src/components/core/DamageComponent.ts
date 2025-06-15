@@ -99,6 +99,7 @@ export class DamageComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.hitEntities.clear();
     this.lastTickTime = Date.now();
     this.startTime = Date.now();

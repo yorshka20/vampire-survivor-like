@@ -43,6 +43,7 @@ export class ExperienceComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.level = 1;
     this.currentExp = 0;
     this.expToNextLevel = 100;

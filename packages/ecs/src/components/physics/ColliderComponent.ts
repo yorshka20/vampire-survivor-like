@@ -99,6 +99,7 @@ export class ColliderComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.type = 'circle';
     this.size = [0, 0];
     this.offset = [0, 0];

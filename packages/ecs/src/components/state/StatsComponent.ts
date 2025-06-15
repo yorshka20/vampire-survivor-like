@@ -66,6 +66,7 @@ export class StatsComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.damageMultiplier = 1;
     this.attackSpeedMultiplier = 1;
     this.moveSpeedMultiplier = 1;

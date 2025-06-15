@@ -92,7 +92,10 @@ export class PoolManager {
     pool.return(entity);
   }
 
-  returnComponentToPool(ComponentClass: ComponentConstructor<any>, component: any): void {
+  returnComponentToPool<T extends Component>(
+    ComponentClass: ComponentConstructor<T>,
+    component: T,
+  ): void {
     const pool = this.componentPools.get(ComponentClass);
     if (!pool) {
       console.warn(`Component pool ${ComponentClass.name} does not exist`);

@@ -53,6 +53,7 @@ export class PickupComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.type = 'pickup';
     this.value = 0;
     this.weapon = undefined;

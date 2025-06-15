@@ -50,6 +50,7 @@ export class AIComponent extends Component {
   }
 
   reset(): void {
+    super.reset();
     this.behavior = 'chase';
     this.targetEntityId = null;
     this.detectionRange = 500;
