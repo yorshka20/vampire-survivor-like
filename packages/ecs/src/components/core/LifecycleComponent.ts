@@ -27,9 +27,9 @@ export class LifecycleComponent extends Component {
     this.remainingTime = 0;
   }
 
-  recreate(props: { lifetime: number }): void {
+  recreate(lifetime: number): void {
     this.createdAt = Date.now();
-    this.lifetime = props.lifetime;
-    this.remainingTime = props.lifetime;
+    this.lifetime = lifetime;
+    this.remainingTime = lifetime;
   }
 }

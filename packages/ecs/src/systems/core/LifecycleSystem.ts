@@ -13,9 +13,7 @@ export class LifecycleSystem extends System {
     // remove entities in next update
     this.removeEntities();
 
-    const entities = this.world.getEntitiesWithComponents([
-      { componentName: LifecycleComponent.componentName },
-    ]);
+    const entities = this.world.getEntitiesWithComponents([LifecycleComponent]);
 
     for (const entity of entities) {
       const lifecycle = entity.getComponent<LifecycleComponent>(LifecycleComponent.componentName);
