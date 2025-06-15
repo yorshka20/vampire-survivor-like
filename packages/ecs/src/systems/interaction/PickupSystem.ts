@@ -10,6 +10,7 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { IEntity } from '@ecs/core/ecs/types';
+import { SoundManager } from '@ecs/core/resources/SoundManager';
 
 export class PickupSystem extends System {
   invokeTimeGap = 50;
@@ -126,6 +127,7 @@ export class PickupSystem extends System {
 
           if (leveledUp) {
             this.onPlayerLevelUp(player, exp.level);
+            SoundManager.playSound(player, 'level_up');
           }
           break;
 
@@ -147,6 +149,7 @@ export class PickupSystem extends System {
               `${pickup.powerup.stat}Multiplier` as any,
               pickup.powerup.multiplier,
             );
+            SoundManager.playSound(player, 'power_up');
           }
           break;
 
@@ -156,6 +159,7 @@ export class PickupSystem extends System {
 
         case 'specialEffect':
           this.triggerGlobalItemPull(player);
+          SoundManager.playSound(player, 'coin');
           break;
       }
     }

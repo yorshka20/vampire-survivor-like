@@ -3,7 +3,9 @@
  */
 export class ResourceManager {
   private static instance: ResourceManager;
-  private resources: Map<string, any> = new Map();
+
+  private images: Map<string, HTMLImageElement> = new Map();
+  private audios: Map<string, HTMLAudioElement> = new Map();
 
   private constructor() {}
 
@@ -18,7 +20,7 @@ export class ResourceManager {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        this.resources.set(key, img);
+        this.images.set(key, img);
         resolve();
       };
       img.onerror = reject;
@@ -27,14 +29,14 @@ export class ResourceManager {
   }
 
   getImage(key: string): HTMLImageElement | undefined {
-    return this.resources.get(key);
+    return this.images.get(key);
   }
 
   async loadAudio(key: string, url: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const audio = new Audio();
       audio.oncanplaythrough = () => {
-        this.resources.set(key, audio);
+        this.audios.set(key, audio);
         resolve();
       };
       audio.onerror = reject;
@@ -43,10 +45,11 @@ export class ResourceManager {
   }
 
   getAudio(key: string): HTMLAudioElement | undefined {
-    return this.resources.get(key);
+    return this.audios.get(key);
   }
 
   clear(): void {
-    this.resources.clear();
+    this.images.clear();
+    this.audios.clear();
   }
 }

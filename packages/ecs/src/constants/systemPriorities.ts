@@ -23,6 +23,7 @@ export enum SystemPriorities {
   // Rendering systems (must be last)
   DAMAGE_TEXT = 8000, // Render damage text
   STATE_EFFECT = 8001, // Process state effects
+  ANIMATION = 8002, // Process animation
   RENDER = 9999, // Final rendering
 }
 

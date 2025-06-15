@@ -20,8 +20,6 @@ import {
 } from '@ecs';
 import { RectArea } from '@ecs/utils/types';
 
-import bgImage from '../assets/texture.png';
-
 export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance
   const game = new Game();
@@ -48,16 +46,33 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   const renderSystem = new RenderSystem(rootElement, viewport);
   world.addSystem(renderSystem);
 
-  // Load background image
-  const resourceManager = ResourceManager.getInstance();
-  resourceManager.loadImage('bg', bgImage).then(() => {
-    const bgImage = resourceManager.getImage('bg');
-    if (bgImage) {
-      renderSystem.setBackgroundImage(bgImage);
-    }
-  });
-  await resourceManager.loadAudio('hit', '/assets/audio/hit.mp3');
-  await resourceManager.loadAudio('death', '/assets/audio/death.mp3');
+  try {
+    // Load background image
+    const resourceManager = ResourceManager.getInstance();
+    resourceManager.loadImage('bg', '/assets/texture.png').then(() => {
+      const bgImage = resourceManager.getImage('bg');
+      if (bgImage) {
+        renderSystem.setBackgroundImage(bgImage);
+      }
+    });
+    await resourceManager.loadAudio('bgm', '/assets/music/time_for_adventure.mp3').then(() => {
+      const bgm = resourceManager.getAudio('bgm');
+      if (bgm) {
+        bgm.loop = true;
+        bgm.play();
+      }
+    });
+    await resourceManager.loadAudio('coin', '/assets/sounds/coin.wav');
+    await resourceManager.loadAudio('death', '/assets/sounds/death.mp3');
+    await resourceManager.loadAudio('explosion', '/assets/sounds/explosion.wav');
+    await resourceManager.loadAudio('hit', '/assets/sounds/hit.mp3');
+    await resourceManager.loadAudio('hurt', '/assets/sounds/hurt.wav');
+    await resourceManager.loadAudio('jump', '/assets/sounds/jump.wav');
+    await resourceManager.loadAudio('power_up', '/assets/sounds/power_up.wav');
+    await resourceManager.loadAudio('tap', '/assets/sounds/tap.wav');
+  } catch (error) {
+    console.error('Failed to load resources:', error);
+  }
 
   // Initialize game and pattern assets
   await game.initialize();

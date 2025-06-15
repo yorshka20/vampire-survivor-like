@@ -16,6 +16,7 @@ export type ComponentFactory<T extends Component> = (props?: ComponentProps<T>) 
  */
 export interface IEntity extends IPoolable {
   id: string;
+  numericId: number;
   active: boolean;
   type: EntityType;
   toRemove: boolean;

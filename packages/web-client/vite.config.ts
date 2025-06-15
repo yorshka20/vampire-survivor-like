@@ -10,14 +10,14 @@ export default defineConfig(({ mode }) => {
     plugins: [
       svelte(),
       {
-        name: 'copy-audio',
+        name: 'copy-resources',
         closeBundle: async () => {
           // Copy audio files to dist
-          const audioSourceDir = path.resolve(__dirname, 'assets/audio');
-          const audioTargetDir = path.resolve(__dirname, 'dist/assets/audio');
-          await fs.ensureDir(audioTargetDir);
-          await fs.copy(audioSourceDir, audioTargetDir);
-          console.log('Copied audio files to dist');
+          const sourceDir = path.resolve(__dirname, 'assets/');
+          const targetDir = path.resolve(__dirname, 'dist/assets/');
+          await fs.ensureDir(targetDir);
+          await fs.copy(sourceDir, targetDir);
+          console.log('Copied resources to dist');
         },
       },
       {
@@ -38,7 +38,13 @@ export default defineConfig(({ mode }) => {
           assetFileNames: (assetInfo) => {
             const name = assetInfo.name || '';
             if (name.endsWith('.mp3')) {
-              return 'assets/audio/[name][extname]';
+              return 'assets/sounds/[name][extname]';
+            }
+            if (name.endsWith('.png')) {
+              return 'assets/sprites/[name][extname]';
+            }
+            if (name.endsWith('.jpg') || name.endsWith('.jpeg')) {
+              return 'assets/images/[name][extname]';
             }
             return 'assets/[name]-[hash][extname]';
           },
