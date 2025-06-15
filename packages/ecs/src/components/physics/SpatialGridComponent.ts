@@ -122,7 +122,6 @@ export class SpatialGridComponent extends Component {
     position: Point,
     radius: number,
     queryType: SpatialQueryType = 'collision',
-    out?: string[],
   ): string[] {
     if (
       this.frameCount - this.lastCacheCleanupFrame >
@@ -144,7 +143,7 @@ export class SpatialGridComponent extends Component {
       if (!cachedEntry || currentTime - cachedEntry.timestamp > config.ttl) {
         // Calculate with adjusted radius based on query type
         const adjustedRadius = radius * config.radiusMultiplier;
-        const result = this.calculateNearbyEntities(position, adjustedRadius, out);
+        const result = this.calculateNearbyEntities(position, adjustedRadius);
 
         // Update cache
         cache.set(cellKey, {
@@ -155,28 +154,18 @@ export class SpatialGridComponent extends Component {
         return result;
       }
 
-      if (out) {
-        out.length = 0;
-        cachedEntry.entities.forEach((id) => out.push(id));
-        return out;
-      }
       return Array.from(cachedEntry.entities);
     }
 
     // If not time to update, return cached result if available
     const cachedEntry = cache.get(cellKey);
     if (cachedEntry) {
-      if (out) {
-        out.length = 0;
-        cachedEntry.entities.forEach((id) => out.push(id));
-        return out;
-      }
       return Array.from(cachedEntry.entities);
     }
 
     // If no cache available, calculate and cache
     const adjustedRadius = radius * config.radiusMultiplier;
-    const result = this.calculateNearbyEntities(position, adjustedRadius, out);
+    const result = this.calculateNearbyEntities(position, adjustedRadius);
     cache.set(cellKey, {
       entities: new Set(result),
       timestamp: currentTime,
@@ -185,11 +174,8 @@ export class SpatialGridComponent extends Component {
     return result;
   }
 
-  private calculateNearbyEntities(position: Point, radius: number, out?: string[]): string[] {
-    const result = out || [];
-    if (out) {
-      result.length = 0;
-    }
+  private calculateNearbyEntities(position: Point, radius: number): string[] {
+    const result: string[] = [];
 
     const cellX = Math.floor(position[0] / this.cellSize);
     const cellY = Math.floor(position[1] / this.cellSize);

@@ -4,7 +4,6 @@ import {
   PickupType,
   RenderComponent,
   RenderPatternType,
-  VelocityComponent,
 } from '@ecs/components';
 import { Weapon } from '@ecs/components/weapon/WeaponTypes';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
@@ -58,15 +57,6 @@ export function createItemEntity(world: World, props?: Partial<ItemProps>): Enti
       speed: 0,
     }),
   );
-
-  if (finalProps.pullable) {
-    item.addComponent(
-      world.createComponent(VelocityComponent, {
-        friction: 0.9,
-        maxSpeed: 1,
-      }),
-    );
-  }
 
   item.addComponent(
     world.createComponent(RenderComponent, {

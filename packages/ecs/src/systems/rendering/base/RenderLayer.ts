@@ -36,16 +36,16 @@ export abstract class BaseRenderLayer implements RenderLayer {
     this.renderSystem = system;
   }
 
-  protected getPlayerPosition(): [number, number] {
+  protected getPlayerPosition(): [number, number] | undefined {
     const position = this.renderSystem?.getPlayerPosition();
     if (position) {
       return position;
     }
 
     const player = this.getWorld().getEntitiesByType('player')[0];
-    if (!player) return [0, 0];
+    if (!player) return undefined;
     const movement = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement) return [0, 0];
+    if (!movement) return undefined;
     return movement.getPosition();
   }
 
@@ -53,17 +53,18 @@ export abstract class BaseRenderLayer implements RenderLayer {
     const position = entity.getComponent<MovementComponent>(MovementComponent.componentName);
     if (!position) return false;
 
-    const [playerX, playerY] = this.getPlayerPosition();
-    const [px, py] = position.getPosition();
-    const [, , vw, vh] = viewport;
+    const playerPos = this.getPlayerPosition();
+    if (!playerPos) return false;
+    const entityPos = position.getPosition();
 
-    const currentViewport = [playerX - vw / 2, playerY - vh / 2, vw, vh];
+    const currentX = playerPos[0] - viewport[2] / 2;
+    const currentY = playerPos[1] - viewport[3] / 2;
 
     return (
-      px + vw / 2 > currentViewport[0] &&
-      px - vw / 2 < currentViewport[0] + currentViewport[2] &&
-      py + vh / 2 > currentViewport[1] &&
-      py - vh / 2 < currentViewport[1] + currentViewport[3]
+      entityPos[0] + viewport[2] / 2 > currentX &&
+      entityPos[0] - viewport[2] / 2 < currentX + viewport[2] &&
+      entityPos[1] + viewport[3] / 2 > currentY &&
+      entityPos[1] - viewport[3] / 2 < currentY + viewport[3]
     );
   }
 

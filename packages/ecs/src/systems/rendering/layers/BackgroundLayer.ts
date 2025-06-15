@@ -28,20 +28,17 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   private renderBackground(viewport: RectArea, cameraOffset: [number, number]): void {
     if (!this.bgImage || !this.bgImage.complete) return;
 
-    const [vx, vy, vw, vh] = viewport;
-    const [cx, cy] = cameraOffset;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.renderSystem!.getDevicePixelRatio();
 
     // Calculate the visible area of the background
-    const visibleX = Math.floor(vx - cx);
-    const visibleY = Math.floor(vy - cy);
-    const visibleWidth = Math.ceil(vw);
-    const visibleHeight = Math.ceil(vh);
+    const visibleX = Math.floor(viewport[0] - cameraOffset[0]);
+    const visibleY = Math.floor(viewport[1] - cameraOffset[1]);
+    const visibleWidth = Math.ceil(viewport[2]);
+    const visibleHeight = Math.ceil(viewport[3]);
 
     // Calculate tile dimensions maintaining aspect ratio
     const tileWidth = this.bgImage.width;
     const tileHeight = this.bgImage.height;
-    const aspectRatio = tileWidth / tileHeight;
 
     // Calculate how many tiles we need to cover the viewport
     const tilesX = Math.ceil(visibleWidth / tileWidth) + 2; // Add extra tiles to prevent gaps
@@ -84,16 +81,11 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     const stats = player.getComponent<StatsComponent>(StatsComponent.componentName);
     if (!stats) return;
 
-    const movement = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement) return;
-
-    const render = player.getComponent<RenderComponent>(RenderComponent.componentName);
-    if (!render) return;
-
-    const playerPos = movement.getPosition();
+    const playerPos = this.getPlayerPosition();
+    if (!playerPos) return;
 
     // todo: define base pickup range
-    const pickupRange = stats.pickupRangeMultiplier * 50;
+    const pickupRange = 50 * stats.pickupRangeMultiplier; // base is 50
 
     this.ctx.save();
     // apply camera offset
@@ -108,24 +100,22 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   }
 
   private renderEffects(viewport: RectArea, cameraOffset: [number, number]): void {
-    const effects = this.getWorld().getEntitiesByType('effect');
-    const areaEffects = this.getWorld().getEntitiesByType('areaEffect');
-    if (!effects && !areaEffects) return;
+    const effects = this.getWorld().getEntitiesByCondition(
+      (entity) =>
+        (entity.isType('effect') || entity.isType('areaEffect')) &&
+        this.isInViewport(entity, viewport),
+    );
 
-    for (const effect of [...effects, ...areaEffects]) {
+    for (const effect of effects) {
       const render = effect.getComponent<RenderComponent>(RenderComponent.componentName);
-      if (!render) continue;
-
       const position = effect.getComponent<MovementComponent>(MovementComponent.componentName);
-      if (!position) continue;
-
-      if (!this.isInViewport(effect, viewport)) continue;
 
       const pos = position.getPosition();
       const size = render.getSize();
       const color = render.getColor();
 
       this.ctx.save();
+
       // Calculate position relative to the background
       const relativeX = pos[0] + cameraOffset[0];
       const relativeY = pos[1] + cameraOffset[1];
@@ -136,6 +126,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
       this.ctx.arc(0, 0, size[0] / 2, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.closePath();
+
       this.ctx.restore();
     }
   }

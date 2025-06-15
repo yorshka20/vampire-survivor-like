@@ -11,17 +11,19 @@ export enum SystemPriorities {
   AI = 400, // AI decision making
   WEAPON = 500, // Weapon firing
   VELOCITY = 600, // Update velocities
-  COLLISION = 700, // Collision detection
-  MOVEMENT = 800, // Apply movement
-  CHASE = 801, // Chase target
-  DAMAGE = 900, // Process damage
-  PICKUP = 1000, // Handle pickups
-  DEATH = 1100, // Process death
-  STATE_EFFECT = 1200, // Process state effects
+  MOVEMENT = 700, // Apply movement
+  CHASE = 800, // Chase target
+
+  COLLISION = 900, // Collision detection
+  DAMAGE = 901, // Process damage
+  DEATH = 1000, // Process death
+
+  PICKUP = 1100, // Handle pickups
 
   // Rendering systems (must be last)
   DAMAGE_TEXT = 8000, // Render damage text
-  RENDER = 9000, // Final rendering
+  STATE_EFFECT = 8001, // Process state effects
+  RENDER = 9999, // Final rendering
 }
 
 /**

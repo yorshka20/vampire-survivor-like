@@ -24,19 +24,22 @@ export class PickupSystem extends System {
     this.lastGlobalPullTime = Date.now();
   }
 
+  private checkGlobalPull(player: IEntity): void {
+    const currentTime = Date.now();
+    if (currentTime - this.lastGlobalPullTime >= this.GLOBAL_PULL_INTERVAL) {
+      this.triggerGlobalItemPull(player);
+      this.lastGlobalPullTime = currentTime;
+    }
+  }
+
   update(deltaTime: number): void {
     if (!this.gridComponent) return;
 
     const player = this.getPlayer();
     if (!player) return;
 
-    // Check if it's time for global pull
-    const currentTime = Date.now();
-    if (currentTime - this.lastGlobalPullTime >= this.GLOBAL_PULL_INTERVAL) {
-      this.triggerGlobalItemPull(player);
-      this.lastGlobalPullTime = currentTime;
-      return;
-    }
+    // invoke global pull every 30 seconds
+    this.checkGlobalPull(player);
 
     const playerMovement = player.getComponent<MovementComponent>(MovementComponent.componentName);
     const stats = player.getComponent<StatsComponent>(StatsComponent.componentName);
@@ -181,10 +184,12 @@ export class PickupSystem extends System {
   }
 
   private triggerGlobalItemPull(player: IEntity): void {
-    const allItems = this.world.getEntitiesWithComponents([PickupComponent, MovementComponent]);
+    const allItems = this.world.getEntitiesByCondition(
+      (entity) =>
+        entity.hasComponent(PickupComponent.componentName) &&
+        !entity.hasComponent(ChaseComponent.componentName),
+    );
     for (const item of allItems) {
-      if (item.hasComponent(ChaseComponent.componentName)) continue;
-
       // Skip if item is being collected or not pullable
       const pickupComponent = item.getComponent<PickupComponent>(PickupComponent.componentName);
       if (pickupComponent.isBeingCollected || !pickupComponent.pullable) continue;
@@ -193,8 +198,6 @@ export class PickupSystem extends System {
         this.world.createComponent(ChaseComponent, {
           targetId: player.id,
           speed: 0.8,
-          decelerationDistance: 30,
-          decelerationRate: 1,
         }),
       );
     }

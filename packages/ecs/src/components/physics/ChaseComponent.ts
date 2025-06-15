@@ -3,8 +3,8 @@ import { Component } from '../../core/ecs/Component';
 export interface ChaseConfig {
   targetId: string;
   speed: number; // Constant speed
-  decelerationDistance: number; // Distance at which to start decelerating
-  decelerationRate: number; // How quickly to decelerate
+  decelerationDistance?: number; // Distance at which to start decelerating
+  decelerationRate?: number; // How quickly to decelerate
 }
 
 export class ChaseComponent extends Component {
@@ -28,10 +28,10 @@ export class ChaseComponent extends Component {
   }
 
   updateSpeed(deltaTime: number, distanceToTarget: number): void {
-    const { speed, decelerationDistance, decelerationRate } = this.config;
+    const { speed, decelerationDistance } = this.config;
 
     // If we're within deceleration distance, start slowing down
-    if (distanceToTarget <= decelerationDistance) {
+    if (decelerationDistance && distanceToTarget <= decelerationDistance) {
       // Calculate how much to slow down based on remaining distance
       const decelerationFactor = distanceToTarget / decelerationDistance;
       this.currentSpeed = speed * decelerationFactor;

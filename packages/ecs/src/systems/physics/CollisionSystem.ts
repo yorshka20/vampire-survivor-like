@@ -34,7 +34,7 @@ export class CollisionSystem extends System {
   private readonly tempCollisionArea1: RectArea = [0, 0, 0, 0];
   private readonly tempCollisionArea2: RectArea = [0, 0, 0, 0];
   private readonly tempPairKey: Uint32Array = new Uint32Array(2);
-  private readonly tempNearbyEntities: string[] = [];
+  private tempNearbyEntities: string[] = [];
 
   // Distance thresholds for different collision tiers
   private readonly TIER_DISTANCES = {
@@ -127,11 +127,10 @@ export class CollisionSystem extends System {
 
     // Get nearby entities using spatial grid with tier-specific cache
     this.tempNearbyEntities.length = 0;
-    this.gridComponent.getNearbyEntities(
+    this.tempNearbyEntities = this.gridComponent.getNearbyEntities(
       position,
       searchRadius,
       this.getCacheTypeForTier(tier),
-      this.tempNearbyEntities,
     );
 
     for (const nearbyId of this.tempNearbyEntities) {

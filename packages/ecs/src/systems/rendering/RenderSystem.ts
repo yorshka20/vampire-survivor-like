@@ -20,8 +20,10 @@ export class RenderSystem extends System {
   private layers: RenderLayer[] = [];
   private mainCanvas: HTMLCanvasElement;
   private mainCtx: CanvasRenderingContext2D;
+  private dpr: number = 1;
 
-  private playerPosition: [number, number] | undefined;
+  private cameraOffset: [number, number] = [0, 0];
+  private playerPosition: [number, number] = [0, 0];
 
   constructor(rootElement: HTMLElement, viewport: RectArea, bgImage?: HTMLImageElement) {
     super('RenderSystem', SystemPriorities.RENDER, 'render');
@@ -30,23 +32,17 @@ export class RenderSystem extends System {
 
     // Create main canvas for game rendering
     this.mainCanvas = document.createElement('canvas');
-    this.mainCanvas.id = 'main-game-canvas';
+    this.mainCtx = this.mainCanvas.getContext('2d')!;
 
     // Set canvas size based on device pixel ratio
-    const dpr = window.devicePixelRatio || 1;
-    this.mainCanvas.width = window.innerWidth * dpr;
-    this.mainCanvas.height = window.innerHeight * dpr;
-    this.mainCanvas.style.width = `${window.innerWidth}px`;
-    this.mainCanvas.style.height = `${window.innerHeight}px`;
+    this.dpr = window.devicePixelRatio || 1;
+    this.updateCtxConfig();
 
+    this.mainCanvas.id = 'main-game-canvas';
     this.mainCanvas.style.position = 'absolute';
     this.mainCanvas.style.top = '0';
     this.mainCanvas.style.left = '0';
     this.mainCanvas.style.zIndex = '0';
-    this.mainCtx = this.mainCanvas.getContext('2d')!;
-
-    // Scale context to match device pixel ratio
-    this.mainCtx.scale(dpr, dpr);
 
     this.rootElement.appendChild(this.mainCanvas);
 
@@ -70,13 +66,7 @@ export class RenderSystem extends System {
 
     // handle window resize
     window.addEventListener('resize', () => {
-      const dpr = window.devicePixelRatio || 1;
-      this.mainCanvas.width = window.innerWidth * dpr;
-      this.mainCanvas.height = window.innerHeight * dpr;
-      this.mainCanvas.style.width = `${window.innerWidth}px`;
-      this.mainCanvas.style.height = `${window.innerHeight}px`;
-      this.mainCtx.scale(dpr, dpr);
-
+      this.updateCtxConfig();
       this.layers.forEach((layer) => {
         layer.onResize();
       });
@@ -84,17 +74,32 @@ export class RenderSystem extends System {
     });
   }
 
+  getDevicePixelRatio(): number {
+    return this.dpr;
+  }
+
+  private updateCtxConfig(): void {
+    this.mainCanvas.width = window.innerWidth * this.dpr;
+    this.mainCanvas.height = window.innerHeight * this.dpr;
+    this.mainCanvas.style.width = `${window.innerWidth}px`;
+    this.mainCanvas.style.height = `${window.innerHeight}px`;
+    this.mainCtx.scale(this.dpr, this.dpr);
+  }
+
   setBackgroundImage(image: HTMLImageElement): void {
     const backgroundLayer = this.layers.find(
       (l) => l.identifier === RenderLayerIdentifier.BACKGROUND,
-    ) as BackgroundRenderLayer;
+    );
     if (backgroundLayer) {
-      backgroundLayer.setBackgroundImage(image);
+      (backgroundLayer as BackgroundRenderLayer).setBackgroundImage(image);
     }
   }
 
   setViewport(viewport: RectArea): void {
-    this.viewport = viewport;
+    this.viewport[0] = viewport[0];
+    this.viewport[1] = viewport[1];
+    this.viewport[2] = viewport[2];
+    this.viewport[3] = viewport[3];
   }
 
   setCameraTarget(entityId: string): void {
@@ -111,15 +116,15 @@ export class RenderSystem extends System {
     this.updatePlayerPosition();
 
     // Calculate camera offset
-    const cameraOffset = this.updateCameraOffset();
+    this.updateCameraOffset();
 
     // Clear main canvas
-    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+    this.clearCanvas();
 
     // Update all layers
     for (const layer of this.layers) {
       if (layer.visible) {
-        layer.update(deltaTime, this.viewport, cameraOffset);
+        layer.update(deltaTime, this.viewport, this.cameraOffset);
       }
     }
   }
@@ -128,16 +133,21 @@ export class RenderSystem extends System {
     return this.playerPosition;
   }
 
+  private clearCanvas(): void {
+    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+  }
+
   private updatePlayerPosition() {
     const player = this.world.getEntitiesByType('player')[0];
     if (!player) return;
     const position = player.getComponent<MovementComponent>(MovementComponent.componentName);
     if (!position) return;
-    this.playerPosition = position.getPosition();
+    const [px, py] = position.getPosition();
+    this.playerPosition[0] = px;
+    this.playerPosition[1] = py;
   }
 
-  private updateCameraOffset(): [number, number] {
-    let cameraOffset: [number, number] = [0, 0];
+  private updateCameraOffset(): void {
     const targetEntity = this.cameraTargetId
       ? this.world.getEntityById(this.cameraTargetId)
       : undefined;
@@ -148,11 +158,10 @@ export class RenderSystem extends System {
       if (movement) {
         const [px, py] = movement.getPosition();
         const [vx, vy, vw, vh] = this.viewport;
-        cameraOffset = [Math.round(vx + vw / 2 - px), Math.round(vy + vh / 2 - py)];
+        this.cameraOffset[0] = Math.round(vx + vw / 2 - px);
+        this.cameraOffset[1] = Math.round(vy + vh / 2 - py);
       }
     }
-
-    return cameraOffset;
   }
 
   onDestroy(): void {

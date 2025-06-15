@@ -116,7 +116,7 @@ function createGameStateStore() {
           exp: expComp.currentExp,
           level: expComp.level,
           expToNextLevel: expComp.expToNextLevel,
-          weapon: weaponComp.getCurrentWeapon()?.name || 'Basic Gun',
+          weapon: weaponComp.weapons.map((i) => i.name).join('/'),
           stats: statsComp,
           position: movement?.getPosition() || state.player?.position || [0, 0],
         };

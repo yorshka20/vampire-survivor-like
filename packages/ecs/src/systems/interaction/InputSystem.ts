@@ -94,7 +94,7 @@ export class InputSystem extends System {
   }
 
   private handleEntityAdded = (entity: Entity) => {
-    if (entity.hasComponent('Input')) {
+    if (entity.hasComponent(InputComponent.componentName)) {
       this.inputEntities.add(entity);
     }
   };
@@ -105,10 +105,11 @@ export class InputSystem extends System {
 
   private updateInputEntities(): void {
     this.inputEntities.clear();
-    for (const entity of this.world.entities) {
-      if (entity.hasComponent('Input')) {
-        this.inputEntities.add(entity);
-      }
+    const entities = this.world.getEntitiesByCondition((entity) =>
+      entity.hasComponent(InputComponent.componentName),
+    );
+    for (const entity of entities) {
+      this.inputEntities.add(entity);
     }
   }
 
@@ -183,7 +184,7 @@ export class InputSystem extends System {
   private updateInputComponents(): void {
     // Only update entities that have Input component
     for (const entity of this.inputEntities) {
-      const inputComponent = entity.getComponent<InputComponent>('Input');
+      const inputComponent = entity.getComponent<InputComponent>(InputComponent.componentName);
       inputComponent.setState(this.keyState);
     }
   }

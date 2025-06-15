@@ -47,6 +47,7 @@ export class PickupComponent extends Component {
     this.pullable = props.pullable ?? false;
   }
 
+  // todo: remove this and use chaseComponent
   startCollection(): void {
     this.isBeingCollected = true;
   }

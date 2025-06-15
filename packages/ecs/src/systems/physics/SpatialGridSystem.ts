@@ -1,4 +1,3 @@
-import { LifecycleComponent } from '@ecs/components';
 import { MovementComponent } from '@ecs/components/physics/MovementComponent';
 import {
   SpatialGridComponent,
@@ -19,7 +18,7 @@ export class SpatialGridSystem extends System {
 
   init(): void {
     // Create spatial grid entity
-    this.spatialGridEntity = new Entity('spatial-grid');
+    this.spatialGridEntity = new Entity('spatial-grid', 'other');
     this.spatialGridEntity.addComponent(
       new SpatialGridComponent(100, { width: window.innerWidth, height: window.innerHeight }),
     );
@@ -40,8 +39,6 @@ export class SpatialGridSystem extends System {
 
   update(deltaTime: number): void {
     if (!this.spatialGridEntity) return;
-
-    this.forceRecycleRemovalEntities();
 
     const currentTime = performance.now();
     if (currentTime - this.lastUpdateTime < this.UPDATE_INTERVAL) {
@@ -84,15 +81,6 @@ export class SpatialGridSystem extends System {
     if (!gridComponent) return [];
 
     return gridComponent.getNearbyEntities(position, radius, queryType);
-  }
-
-  private forceRecycleRemovalEntities(): void {
-    const entities = this.world.getEntitiesByCondition(
-      (entity) => entity.toRemove && entity.hasComponent(LifecycleComponent.componentName),
-    );
-    for (const entity of entities) {
-      this.world.removeEntity(entity);
-    }
   }
 
   destroy(): void {
