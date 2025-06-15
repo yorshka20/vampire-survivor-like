@@ -1,4 +1,9 @@
-import { MovementComponent, RenderComponent, StateComponent } from '@ecs/components';
+import {
+  AnimationComponent,
+  MovementComponent,
+  RenderComponent,
+  StateComponent,
+} from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -51,23 +56,43 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     this.ctx.rotate(rotation);
     this.ctx.scale(scale, scale);
 
-    // Get pattern image based on entity state
-    let patternImage = null;
+    // Check if entity has animation component
+    if (entity.hasComponent(AnimationComponent.componentName)) {
+      const animation = entity.getComponent<AnimationComponent>(AnimationComponent.componentName);
+      const spriteSheet = animation.getSpriteSheet();
+      const currentFrame = animation.getCurrentFrame();
+      const frameWidth = spriteSheet.frameWidth;
+      const frameHeight = spriteSheet.frameHeight;
 
-    // Only apply white silhouette effect for entities with StateComponent
-    if (entity.hasComponent(StateComponent.componentName)) {
-      const state = entity.getComponent<StateComponent>(StateComponent.componentName);
-      const stateType: PatternState = state.getIsHit() ? 'hit' : 'normal';
-      patternImage = render.getPatternImageForState(stateType, 'whiteSilhouette');
+      // Draw the current animation frame
+      this.ctx.drawImage(
+        spriteSheet.image,
+        currentFrame * frameWidth,
+        0, // Source x, y
+        frameWidth,
+        frameHeight, // Source width, height
+        -sizeX / 2,
+        -sizeY / 2, // Destination x, y
+        sizeX,
+        sizeY, // Destination width, height
+      );
     } else {
-      patternImage = render.getPatternImageForState();
-    }
+      // Fallback to pattern or shape rendering
+      let patternImage = null;
 
-    // Render the pattern or shape
-    if (patternImage && patternImage.complete) {
-      RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
-    } else {
-      RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      if (entity.hasComponent(StateComponent.componentName)) {
+        const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+        const stateType: PatternState = state.getIsHit() ? 'hit' : 'normal';
+        patternImage = render.getPatternImageForState(stateType, 'whiteSilhouette');
+      } else {
+        patternImage = render.getPatternImageForState();
+      }
+
+      if (patternImage && patternImage.complete) {
+        RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+      } else {
+        RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      }
     }
 
     this.ctx.restore();

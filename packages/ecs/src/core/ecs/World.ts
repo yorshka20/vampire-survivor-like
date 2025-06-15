@@ -1,5 +1,6 @@
 import {
   AIComponent,
+  AnimationComponent,
   ChaseComponent,
   ColliderComponent,
   DamageComponent,
@@ -103,6 +104,7 @@ export class World implements IWorld {
       SoundEffectComponent,
       SpiralMovementComponent,
       StateComponent,
+      AnimationComponent,
     ];
 
     componentClasses.forEach((ComponentClass) => {

@@ -4,7 +4,7 @@ import { System } from '@ecs/core/ecs/System';
 
 export class AnimationSystem extends System {
   constructor() {
-    super('AnimationSystem', SystemPriorities.ANIMATION);
+    super('AnimationSystem', SystemPriorities.ANIMATION, 'render');
   }
 
   update(deltaTime: number): void {

@@ -2,6 +2,8 @@ import { Component } from '@ecs/core/ecs/Component';
 import { AnimationState, SpriteSheetData } from '@ecs/types/animation';
 
 export class AnimationComponent extends Component {
+  static componentName: string = 'AnimationComponent';
+
   private currentFrame: number = 0;
   private frameTime: number = 0;
   private currentAnimation: AnimationState = 'idle';

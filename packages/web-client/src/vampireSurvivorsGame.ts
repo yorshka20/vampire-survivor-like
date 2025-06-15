@@ -1,5 +1,6 @@
 import {
   AISystem,
+  AnimationSystem,
   ChaseSystem,
   CollisionSystem,
   DamageSystem,
@@ -41,6 +42,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   world.addSystem(new ChaseSystem());
   world.addSystem(new CollisionSystem());
   world.addSystem(new StateEffectSystem());
+  world.addSystem(new AnimationSystem());
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement, viewport);
@@ -72,7 +74,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   await game.initialize();
 
   // Create player entity at center of screen
-  const player = createPlayerEntity(world, {
+  const player = await createPlayerEntity(world, {
     position: { x: viewport[2] / 2, y: viewport[3] / 2 },
     speed: 5,
     size: [30, 30],
