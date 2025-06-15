@@ -56,7 +56,7 @@ export class DamageTextLayer extends DomRenderLayer {
         }
         newElement.element.style.color = damageText.color;
         newElement.element.textContent = damageText.text;
-        newElement.element.style.opacity = '0';
+        newElement.element.style.opacity = '1';
         this.activeElements.set(entity.id, newElement);
         pooledElement = newElement;
       }
