@@ -1,9 +1,4 @@
-import {
-  DeathMarkComponent,
-  HealthComponent,
-  MovementComponent,
-  SoundEffectComponent,
-} from '@ecs/components';
+import { DeathMarkComponent, HealthComponent, MovementComponent } from '@ecs/components';
 import { ItemDropRate } from '@ecs/constants/itemDropRate';
 import { PowerupStats, WeaponList } from '@ecs/constants/resources';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -48,7 +43,7 @@ export class DeathSystem extends System {
       // Check for death mark first
       if (entity.hasComponent(DeathMarkComponent.componentName)) {
         // Play death sound if entity has sound effect component
-        this.playDeathSound(entity);
+        SoundManager.playSound(entity, 'death');
         // Drop items
         this.dropItems(entity);
         entitiesToRemove.push(entity);
@@ -69,17 +64,6 @@ export class DeathSystem extends System {
     // Remove dead entities
     for (const entity of entitiesToRemove) {
       this.world.removeEntity(entity);
-    }
-  }
-
-  private playDeathSound(entity: Entity): void {
-    if (!entity.hasComponent(SoundEffectComponent.componentName)) return;
-    const soundEffect = entity.getComponent<SoundEffectComponent>(
-      SoundEffectComponent.componentName,
-    );
-    const deathSound = soundEffect.getDeathSound();
-    if (deathSound) {
-      SoundManager.getInstance().play(deathSound, soundEffect.volume);
     }
   }
 

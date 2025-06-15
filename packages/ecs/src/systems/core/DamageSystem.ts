@@ -5,7 +5,6 @@ import {
   DeathMarkComponent,
   HealthComponent,
   MovementComponent,
-  SoundEffectComponent,
   StateComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -89,7 +88,7 @@ export class DamageSystem extends System {
     this.world.addEntity(damageTextEntity);
 
     // Play hit sound
-    this.playHitSound(enemy);
+    SoundManager.playSound(enemy, 'hit');
 
     // Check for death
     if (health.currentHealth <= 0) {
@@ -98,17 +97,6 @@ export class DamageSystem extends System {
 
     // Record the hit
     damageComponent.recordHit(enemy.id);
-  }
-
-  private playHitSound(entity: Entity): void {
-    if (!entity.hasComponent(SoundEffectComponent.componentName)) return;
-    const soundEffect = entity.getComponent<SoundEffectComponent>(
-      SoundEffectComponent.componentName,
-    );
-    const hitSound = soundEffect.getHitSound();
-    if (hitSound) {
-      SoundManager.getInstance().play(hitSound, soundEffect.volume);
-    }
   }
 
   private processContinuousDamage(
@@ -143,7 +131,7 @@ export class DamageSystem extends System {
     this.world.addEntity(damageTextEntity);
 
     // Play hit sound
-    this.playHitSound(enemy);
+    SoundManager.playSound(enemy, 'hit');
 
     // Check for death
     if (health.currentHealth <= 0) {
@@ -202,7 +190,7 @@ export class DamageSystem extends System {
       this.world.addEntity(damageTextEntity);
 
       // Play hit sound
-      this.playHitSound(enemy);
+      SoundManager.playSound(enemy, 'hit');
 
       // Check for death
       if (health.currentHealth <= 0) {

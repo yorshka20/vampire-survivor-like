@@ -1,3 +1,5 @@
+import { SoundEffectComponent } from '@ecs/components/state/SoundEffectComponent';
+import { Entity } from '@ecs/core/ecs/Entity';
 import { ResourceManager } from './ResourceManager';
 
 interface SoundPool {
@@ -22,6 +24,28 @@ export class SoundManager {
       SoundManager.instance = new SoundManager();
     }
     return SoundManager.instance;
+  }
+
+  static playSound(entity: Entity, sound: string, volume: number = 0.5): void {
+    if (!entity.hasComponent(SoundEffectComponent.componentName)) return;
+
+    const soundManager = SoundManager.getInstance();
+    const soundEffect = entity.getComponent<SoundEffectComponent>(
+      SoundEffectComponent.componentName,
+    );
+    switch (sound) {
+      case 'hit':
+        const hitSound = soundEffect.getHitSound();
+        if (hitSound) {
+          soundManager.play(hitSound, volume);
+        }
+        break;
+      case 'death':
+        const deathSound = soundEffect.getDeathSound();
+        if (deathSound) {
+          soundManager.play(deathSound, volume);
+        }
+    }
   }
 
   setVolume(volume: number): void {
