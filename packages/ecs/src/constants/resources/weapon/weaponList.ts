@@ -160,8 +160,8 @@ const Bomb: BombWeapon = {
   projectileCount: 4,
   projectileLifetime: 1000 * 5,
   explosionRadius: 100,
-  explosionDuration: 500,
-  explosionColor: { r: 255, g: 100, b: 0, a: 0.8 },
+  explosionDuration: 100,
+  explosionColor: { r: 255, g: 255, b: 200, a: 0.2 }, // Light yellow color for explosion effect
 };
 
 export const WeaponList: Weapon[] = [

@@ -98,6 +98,8 @@ export class PoolManager {
       console.warn(`Component pool ${ComponentClass.name} does not exist`);
       return;
     }
+    component.reset();
+    // ensure to detach the entity from the component
     pool.return(component);
   }
 

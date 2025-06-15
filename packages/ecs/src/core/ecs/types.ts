@@ -24,7 +24,6 @@ export interface IEntity extends IPoolable {
 
   addComponent(component: IComponent): void;
   removeComponent(componentName: string): void;
-  getComponents(): IComponent[];
   getComponent<T extends IComponent>(componentName: string): T;
   hasComponent(componentName: string): boolean;
   isType(type: EntityType): boolean;

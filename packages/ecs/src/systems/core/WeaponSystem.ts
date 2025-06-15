@@ -536,7 +536,8 @@ export class WeaponSystem extends System {
             x: projectilePos[0],
             y: projectilePos[1],
           },
-          size: [currentWeapon.explosionRadius, currentWeapon.explosionRadius],
+          // circle so use 2x radius
+          size: [currentWeapon.explosionRadius * 2, currentWeapon.explosionRadius * 2],
           type: 'explosion',
           duration: currentWeapon.explosionDuration,
           color: currentWeapon.explosionColor,

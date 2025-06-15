@@ -104,15 +104,18 @@ export class PickupSystem extends System {
       }
     }
 
-    // Remove collected pickups
+    // !Process pickups before removing entities
+    if (componentsToPickup.length > 0) {
+      this.collectPickups(player, componentsToPickup);
+    }
+
+    // Remove collected pickups after processing
     for (const id of entitiesToRemove) {
       const entity = this.world.getEntityById(id);
       if (entity) {
         this.world.removeEntity(entity);
       }
     }
-
-    this.collectPickups(player, componentsToPickup);
   }
 
   private collectPickups(player: IEntity, pickups: PickupComponent[]): void {

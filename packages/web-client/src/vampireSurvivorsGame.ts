@@ -36,8 +36,8 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   world.addSystem(new SpawnSystem());
   world.addSystem(new WeaponSystem());
   world.addSystem(new DamageSystem());
-  world.addSystem(new PickupSystem());
   world.addSystem(new DeathSystem());
+  world.addSystem(new PickupSystem());
   world.addSystem(new ChaseSystem());
   world.addSystem(new CollisionSystem());
   world.addSystem(new StateEffectSystem());

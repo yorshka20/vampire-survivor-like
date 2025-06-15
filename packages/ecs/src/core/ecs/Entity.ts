@@ -59,10 +59,6 @@ export class Entity implements IEntity {
     return this.components.has(componentName);
   }
 
-  getComponents(): Component[] {
-    return Array.from(this.components.values());
-  }
-
   isType(type: EntityType): boolean {
     return this.type === type;
   }

@@ -164,6 +164,15 @@ export class DamageSystem extends System {
       ) {
         continue;
       }
+      const enemyPosition = enemy
+        .getComponent<MovementComponent>(MovementComponent.componentName)
+        .getPosition();
+      const distance = Math.sqrt(
+        (position[0] - enemyPosition[0]) ** 2 + (position[1] - enemyPosition[1]) ** 2,
+      );
+      if (distance > damageComponent.getAoeRadius()) {
+        continue;
+      }
       aoeEnemies.push(enemy);
     }
 

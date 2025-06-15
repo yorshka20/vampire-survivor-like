@@ -148,7 +148,7 @@ export class World implements IWorld {
     entity.notifyRemoved();
 
     // Clean up components when the entity is actually removed
-    entity.getComponents().forEach((component) => {
+    entity.components.forEach((component) => {
       // just return, DO NOT reset.
       component.onDetach();
       this.poolManager.returnComponentToPool(
@@ -178,9 +178,7 @@ export class World implements IWorld {
       return entity;
     }
     // Fallback to creating new entity if pool is empty
-    const newEntity = new Entity(generateEntityId(type), type);
-    this.addEntity(newEntity);
-    return newEntity;
+    return new Entity(generateEntityId(type), type);
   }
 
   createComponent<T extends Component, C extends ComponentConstructor<T>>(
@@ -246,7 +244,7 @@ export class World implements IWorld {
     if (requesterPriority < system.priority) {
       console.warn(
         `System ${systemName} cannot be accessed by a system with priority ${requesterPriority} ` +
-          `as it has priority ${system.priority}. Systems can only access systems with higher priority.`,
+          `as it has priority ${system.priority}. Systems can only access systems with lower priority because the data may not be ready.`,
       );
       return system as T;
     }
