@@ -10,12 +10,12 @@
     "build:post": "node ../../scripts/copy-dist.js",
     "preview": "vite preview"
   },
-  "dependencies": {},
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.1.0",
     "@types/fs-extra": "^11.0.4",
     "fs-extra": "^11.3.0",
     "svelte": "^5.33.14",
+    "vconsole": "^3.15.1",
     "vite": "^6.3.5"
   }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { createGame } from './main';
   import { gameState } from './stores/gameState';
 
   let speedMultiplier = 1;
@@ -27,7 +28,10 @@
   function startGame() {
     if (!isGameStarted) {
       isGameStarted = true;
-      gameState.start();
+      // Initialize resources first, then start the game
+      createGame().then(() => {
+        gameState.start();
+      });
     }
   }
 

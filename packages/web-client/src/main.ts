@@ -6,6 +6,18 @@ import { createVampireSurvivorsGame } from './vampireSurvivorsGame';
 import './style.css';
 
 async function initGame() {
+  // Mount UI first, without initializing resources
+  mount(GameUI, {
+    target: document.body,
+  });
+
+  console.log('UI mounted');
+}
+
+// Start the game
+initGame();
+
+export async function createGame() {
   try {
     console.log('Starting game initialization...');
     const { game, player } = await createVampireSurvivorsGame(document.body);
@@ -19,16 +31,6 @@ async function initGame() {
     gameState.setPlayer(player);
     console.log('Player set in store');
 
-    // Initialize the game but don't start it
-    await gameState.initialize();
-    console.log('Game initialized');
-
-    // Mount UI
-    mount(GameUI, {
-      target: document.body,
-    });
-    console.log('UI mounted');
-
     (window as any).game = game;
     (window as any).player = player;
     (window as any).gameState = gameState;
@@ -41,6 +43,3 @@ async function initGame() {
     `;
   }
 }
-
-// Start the game
-initGame();

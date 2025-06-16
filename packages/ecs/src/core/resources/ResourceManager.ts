@@ -35,11 +35,15 @@ export class ResourceManager {
   async loadAudio(key: string, url: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const audio = new Audio();
+      console.log('Loading audio:', url);
       audio.oncanplaythrough = () => {
         this.audios.set(key, audio);
         resolve();
       };
-      audio.onerror = reject;
+      audio.onerror = (error) => {
+        console.error('Error loading audio:', url, error);
+        reject(error);
+      };
       audio.src = url;
       // For mobile browsers, we'll try to load the audio anyway
       audio.load();
