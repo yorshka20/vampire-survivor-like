@@ -7,6 +7,7 @@ import {
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
+import { LaserWeapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -212,24 +213,30 @@ export class DamageSystem extends System {
   private processLaserDamage(damageSource: Entity, damageComponent: DamageComponent): void {
     const { damage, isCritical } = damageComponent.getDamage();
     const laser = damageComponent.getLaser();
-    if (!laser) return;
+    if (!laser) {
+      return;
+    }
+    // Get weapon configuration
+    const weapon = damageComponent.weapon;
+    if (!weapon || weapon.type !== WeaponType.LASER) {
+      return;
+    }
 
     // Get laser start position (player position)
     const startPos = damageSource
       .getComponent<TransformComponent>(TransformComponent.componentName)
       .getPosition();
-    const aimPos = laser.aim;
 
     // Calculate laser direction vector
-    const dx = aimPos[0] - startPos[0];
-    const dy = aimPos[1] - startPos[1];
+    const dx = laser.aim[0] - startPos[0];
+    const dy = laser.aim[1] - startPos[1];
     const length = Math.sqrt(dx * dx + dy * dy);
     const dirX = dx / length;
     const dirY = dy / length;
 
-    // Laser width and length
-    const laserWidth = 10; // Width of the laser beam
-    const laserLength = 2000; // Length of the laser beam
+    // Use weapon's laser width and length
+    const laserWidth = (weapon as LaserWeapon).laserWidth;
+    const laserLength = (weapon as LaserWeapon).laserLength;
 
     // Calculate laser end position
     const endPos: [number, number] = [
@@ -239,7 +246,9 @@ export class DamageSystem extends System {
 
     // Get cells that the laser passes through
     const cells = this.gridComponent?.getCellsInLine(startPos, endPos, laserWidth);
-    if (!cells) return;
+    if (!cells) {
+      return;
+    }
 
     const hitEnemies: Entity[] = [];
     const processedEnemies = new Set<string>(); // Track processed enemies to avoid duplicates
@@ -273,7 +282,7 @@ export class DamageSystem extends System {
         const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
 
         // Calculate distance from enemy to laser line
-        const distance = this.pointToLineDistance(enemyPos, startPos, endPos);
+        const distance = this.pointToRayDistance(enemyPos, startPos, dirX, dirY);
 
         // If enemy is within laser width, they are hit
         if (distance <= laserWidth + enemyRadius) {
@@ -314,47 +323,37 @@ export class DamageSystem extends System {
     }
   }
 
-  // Helper method to calculate distance from a point to a line segment
-  private pointToLineDistance(
+  // Helper method to calculate distance from a point to a ray
+  private pointToRayDistance(
     point: [number, number],
-    lineStart: [number, number],
-    lineEnd: [number, number],
+    rayStart: [number, number],
+    dirX: number,
+    dirY: number,
   ): number {
     const x = point[0];
     const y = point[1];
-    const x1 = lineStart[0];
-    const y1 = lineStart[1];
-    const x2 = lineEnd[0];
-    const y2 = lineEnd[1];
+    const x1 = rayStart[0];
+    const y1 = rayStart[1];
 
-    const A = x - x1;
-    const B = y - y1;
-    const C = x2 - x1;
-    const D = y2 - y1;
+    // Vector from ray start to point
+    const px = x - x1;
+    const py = y - y1;
 
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
+    // Project point onto ray direction
+    const proj = px * dirX + py * dirY;
 
-    if (lenSq !== 0) {
-      param = dot / lenSq;
+    // If projection is negative, point is behind ray start
+    if (proj < 0) {
+      return Math.sqrt(px * px + py * py);
     }
 
-    let xx, yy;
+    // Calculate closest point on ray
+    const closestX = x1 + dirX * proj;
+    const closestY = y1 + dirY * proj;
 
-    if (param < 0) {
-      xx = x1;
-      yy = y1;
-    } else if (param > 1) {
-      xx = x2;
-      yy = y2;
-    } else {
-      xx = x1 + param * C;
-      yy = y1 + param * D;
-    }
-
-    const dx = x - xx;
-    const dy = y - yy;
+    // Calculate distance from point to closest point on ray
+    const dx = x - closestX;
+    const dy = y - closestY;
 
     return Math.sqrt(dx * dx + dy * dy);
   }

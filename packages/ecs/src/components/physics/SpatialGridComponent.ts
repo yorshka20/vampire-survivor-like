@@ -210,33 +210,7 @@ export class SpatialGridComponent extends Component {
           continue;
         }
         cell.entities.forEach((entityId) => {
-          switch (queryType) {
-            case 'collision-distant':
-            case 'collision':
-              if (
-                cell.entityTypes.get(entityId) === 'enemy' ||
-                cell.entityTypes.get(entityId) === 'player' ||
-                cell.entityTypes.get(entityId) === 'projectile' ||
-                cell.entityTypes.get(entityId) === 'areaEffect'
-              ) {
-                result.push(entityId);
-              }
-              break;
-            case 'damage':
-              if (
-                cell.entityTypes.get(entityId) === 'enemy' ||
-                cell.entityTypes.get(entityId) === 'projectile' ||
-                cell.entityTypes.get(entityId) === 'areaEffect'
-              ) {
-                result.push(entityId);
-              }
-              break;
-            case 'pickup':
-              if (cell.entityTypes.get(entityId) === 'pickup') {
-                result.push(entityId);
-              }
-              break;
-          }
+          result.push(...this.filterEntityByQueryType(cell, entityId, queryType));
         });
       }
     }
@@ -335,35 +309,45 @@ export class SpatialGridComponent extends Component {
 
     const result: string[] = [];
     cell.entities.forEach((entityId) => {
-      switch (queryType) {
-        case 'collision-distant':
-        case 'collision':
-          if (
-            cell.entityTypes.get(entityId) === 'enemy' ||
-            cell.entityTypes.get(entityId) === 'player' ||
-            cell.entityTypes.get(entityId) === 'projectile' ||
-            cell.entityTypes.get(entityId) === 'areaEffect'
-          ) {
-            result.push(entityId);
-          }
-          break;
-        case 'damage':
-          if (
-            cell.entityTypes.get(entityId) === 'enemy' ||
-            cell.entityTypes.get(entityId) === 'projectile' ||
-            cell.entityTypes.get(entityId) === 'areaEffect'
-          ) {
-            result.push(entityId);
-          }
-          break;
-        case 'pickup':
-          if (cell.entityTypes.get(entityId) === 'pickup') {
-            result.push(entityId);
-          }
-          break;
-      }
+      result.push(...this.filterEntityByQueryType(cell, entityId, queryType));
     });
 
+    return result;
+  }
+
+  private filterEntityByQueryType(
+    cell: GridCell,
+    entityId: string,
+    queryType: SpatialQueryType,
+  ): string[] {
+    const result: string[] = [];
+    switch (queryType) {
+      case 'collision-distant':
+      case 'collision':
+        if (
+          cell.entityTypes.get(entityId) === 'enemy' ||
+          cell.entityTypes.get(entityId) === 'player' ||
+          cell.entityTypes.get(entityId) === 'projectile' ||
+          cell.entityTypes.get(entityId) === 'areaEffect'
+        ) {
+          result.push(entityId);
+        }
+        break;
+      case 'damage':
+        if (
+          cell.entityTypes.get(entityId) === 'enemy' ||
+          cell.entityTypes.get(entityId) === 'projectile' ||
+          cell.entityTypes.get(entityId) === 'areaEffect'
+        ) {
+          result.push(entityId);
+        }
+        break;
+      case 'pickup':
+        if (cell.entityTypes.get(entityId) === 'pickup') {
+          result.push(entityId);
+        }
+        break;
+    }
     return result;
   }
 }

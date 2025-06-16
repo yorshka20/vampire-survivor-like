@@ -1,6 +1,7 @@
 import {
   ColliderComponent,
   DamageComponent,
+  LifecycleComponent,
   RenderComponent,
   TransformComponent,
   Weapon,
@@ -25,6 +26,8 @@ export interface AreaEffectProps {
   };
   laser?: {
     aim: Point;
+    laserWidth: number;
+    laserLength: number;
   };
 }
 
@@ -39,13 +42,16 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
   );
 
   const size: [number, number] =
-    props.type === 'laser' ? [10, 10] : [props.area?.radius ?? 0, props.area?.radius ?? 0];
+    props.type === 'laser'
+      ? [props.laser?.laserWidth ?? 0, props.laser?.laserLength ?? 0]
+      : [props.area?.radius ?? 0, props.area?.radius ?? 0];
 
   effect.addComponent(
     world.createComponent(ColliderComponent, {
-      type: 'circle',
+      type: props.type === 'laser' ? 'laser' : 'circle',
       size,
       isTrigger: true,
+      laser: props.type === 'laser' ? props.laser : undefined,
     }),
   );
 
@@ -65,10 +71,17 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
       source: props.source,
       penetration: -1, // Infinite penetration for area effects
       tickRate: props.area?.tickRate ?? 100,
-      duration: props.area?.duration ?? 400,
-      weapon: props.weapon,
+      duration: props.type === 'laser' ? 100 : (props.area?.duration ?? 400),
       laser: props.laser,
+      weapon: props.weapon,
     }),
+  );
+
+  effect.addComponent(
+    world.createComponent(
+      LifecycleComponent,
+      props.type === 'laser' ? 1000 : (props.area?.duration ?? 400),
+    ),
   );
 
   return effect;

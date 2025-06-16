@@ -136,11 +136,18 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
             continue;
           }
 
-          // For laser, we need to handle both start and end points with camera offset
+          // Calculate laser direction vector
+          const dx = laser.aim[0] - pos[0];
+          const dy = laser.aim[1] - pos[1];
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const dirX = dx / length;
+          const dirY = dy / length;
+
+          // Calculate start and end points with camera offset
           const startX = pos[0] + cameraOffset[0];
           const startY = pos[1] + cameraOffset[1];
-          const endX = laser.aim[0] + cameraOffset[0];
-          const endY = laser.aim[1] + cameraOffset[1];
+          const endX = startX + dirX * 2000; // Use a large number for "infinite" length
+          const endY = startY + dirY * 2000;
 
           this.ctx.beginPath();
           this.ctx.lineWidth = 10;

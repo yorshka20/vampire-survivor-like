@@ -169,11 +169,11 @@ const Laser: LaserWeapon = {
   name: 'Laser',
   damage: 100,
   attackSpeed: 1,
-  attackCooldown: 1000,
+  attackCooldown: 100,
   type: WeaponType.LASER,
   range: 400,
-  laserLength: 100,
-  laserWidth: 10,
+  laserLength: 2000,
+  laserWidth: 50,
   color: { r: 255, g: 255, b: 233, a: 0.7 },
 };
 

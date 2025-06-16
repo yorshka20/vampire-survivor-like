@@ -558,30 +558,53 @@ export class WeaponSystem extends System {
     currentTime: number,
     weaponIndex: number,
   ): void {
+    // Find nearest enemy
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
-    if (!enemyIds || enemyIds.length === 0) return;
+    if (!enemyIds || enemyIds.length === 0) {
+      return;
+    }
 
-    const enemy = this.world.getEntityById(enemyIds[Math.floor(Math.random() * enemyIds.length)]);
-    if (!enemy?.isType('enemy')) return;
+    let nearestEnemy: Entity | null = null;
+    let nearestDistance = Infinity;
+    let nearestEnemyPosition: [number, number] | null = null;
 
-    const enemyPos = enemy
-      .getComponent<TransformComponent>(TransformComponent.componentName)
-      .getPosition();
+    // Find the nearest enemy
+    for (const enemyId of enemyIds) {
+      const enemy = this.world.getEntityById(enemyId);
+      if (!enemy?.isType('enemy')) continue;
 
-    const effect = createAreaEffectEntity(this.world, {
-      position: [position[0], position[1]],
-      type: 'laser',
-      damage: effectiveDamage,
-      source: entity.id,
-      weapon: currentWeapon,
-      color: currentWeapon.color,
-      laser: {
-        aim: enemyPos,
-      },
-    });
+      const enemyPos = enemy
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
+      const distance = Math.sqrt(
+        (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
+      );
 
-    this.world.addEntity(effect);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestEnemy = enemy;
+        nearestEnemyPosition = enemyPos;
+      }
+    }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    if (nearestEnemy && nearestEnemyPosition) {
+      // Create laser effect
+      const effect = createAreaEffectEntity(this.world, {
+        position: [position[0], position[1]],
+        type: 'laser',
+        damage: effectiveDamage,
+        source: entity.id,
+        weapon: currentWeapon,
+        color: currentWeapon.color,
+        laser: {
+          aim: nearestEnemyPosition,
+          laserWidth: currentWeapon.laserWidth,
+          laserLength: currentWeapon.laserLength,
+        },
+      });
+
+      this.world.addEntity(effect);
+      weapon.updateAttackTime(currentTime, weaponIndex);
+    }
   }
 }
