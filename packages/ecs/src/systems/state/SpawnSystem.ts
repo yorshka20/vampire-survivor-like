@@ -1,4 +1,4 @@
-import { AIComponent, MovementComponent } from '@ecs/components';
+import { AIComponent, TransformComponent } from '@ecs/components';
 import { SPAWN_CONSTANTS } from '@ecs/constants/spawnConstants';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
@@ -80,8 +80,10 @@ export class SpawnSystem extends System {
     const player = this.getPlayer();
     if (!player) return;
 
-    const playerMovement = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    const playerPos = playerMovement.getPosition();
+    const playerTransform = player.getComponent<TransformComponent>(
+      TransformComponent.componentName,
+    );
+    const playerPos = playerTransform.getPosition();
 
     // Spawn enemies for current wave
     const remainingEnemies = this.enemiesPerWave - this.enemiesSpawnedThisWave;
@@ -115,7 +117,7 @@ export class SpawnSystem extends System {
     const size: [number, number] = [40 + Math.random() * 20, 40 + Math.random() * 20];
 
     const enemy = createEnemyEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       speed,
       size,
       health,

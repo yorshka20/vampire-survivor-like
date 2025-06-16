@@ -1,18 +1,19 @@
 import {
-  MovementComponent,
+  PhysicsComponent,
   PickupComponent,
   PickupType,
   RenderComponent,
   RenderPatternType,
-  VelocityComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { Weapon } from '@ecs/components/weapon/WeaponTypes';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { Point } from '@ecs/utils/types';
 
 export interface ItemProps {
-  position: { x: number; y: number };
+  position: Point;
   size: [number, number];
   color: { r: number; g: number; b: number; a: number };
   type: PickupType;
@@ -27,7 +28,7 @@ export interface ItemProps {
 
 // Set default values
 const defaultProps: ItemProps = {
-  position: { x: 0, y: 0 },
+  position: [0, 0],
   size: [15, 15],
   color: { r: 0, g: 255, b: 255, a: 1 },
   type: 'experience',
@@ -53,15 +54,14 @@ export function createItemEntity(world: World, props?: Partial<ItemProps>): Enti
   );
 
   item.addComponent(
-    world.createComponent(MovementComponent, {
-      position: { x: finalProps.position.x, y: finalProps.position.y },
-      speed: 0,
+    world.createComponent(TransformComponent, {
+      position: finalProps.position,
     }),
   );
 
   item.addComponent(
-    world.createComponent(VelocityComponent, {
-      velocity: { x: 0, y: 0 },
+    world.createComponent(PhysicsComponent, {
+      velocity: [0, 0],
       entityType: 'ITEM',
     }),
   );

@@ -1,7 +1,9 @@
-import { ColliderComponent } from '@ecs/components/physics/ColliderComponent';
-import { MovementComponent } from '@ecs/components/physics/MovementComponent';
-import { SpatialQueryType } from '@ecs/components/physics/SpatialGridComponent';
-import { VelocityComponent } from '@ecs/components/physics/VelocityComponent';
+import {
+  ColliderComponent,
+  PhysicsComponent,
+  SpatialQueryType,
+  TransformComponent,
+} from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -59,13 +61,15 @@ export class CollisionSystem extends System {
     const player = this.getPlayer();
     if (!player) return;
 
-    const playerMovement = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    const playerPos = playerMovement.getPosition();
+    const playerPos = player
+      .getComponent<TransformComponent>(TransformComponent.componentName)
+      .getPosition();
 
     // Process entities based on their distance from player
     for (const entity of entities) {
-      const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-      const position = movement.getPosition();
+      const position = entity
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
 
       // Calculate distance from player using reusable array
       this.tempPosition[0] = position[0] - playerPos[0];
@@ -110,11 +114,11 @@ export class CollisionSystem extends System {
   private processEntityCollisions(entity: Entity, tier: CollisionTier): void {
     if (!this.gridComponent) return;
 
-    const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
     const collider = entity.getComponent<ColliderComponent>(ColliderComponent.componentName);
-    if (!movement || !collider) return;
+    if (!transform || !collider) return;
 
-    const position = movement.getPosition();
+    const position = transform.getPosition();
     // Convert position to Float64Array for internal calculations
     this.tempPosition[0] = position[0];
     this.tempPosition[1] = position[1];
@@ -206,15 +210,15 @@ export class CollisionSystem extends System {
   }
 
   private checkCollision(entity1: Entity, entity2: Entity): CollisionResult | null {
-    const movement1 = entity1.getComponent<MovementComponent>(MovementComponent.componentName);
-    const movement2 = entity2.getComponent<MovementComponent>(MovementComponent.componentName);
+    const transform1 = entity1.getComponent<TransformComponent>(TransformComponent.componentName);
+    const transform2 = entity2.getComponent<TransformComponent>(TransformComponent.componentName);
     const collider1 = entity1.getComponent<ColliderComponent>(ColliderComponent.componentName);
     const collider2 = entity2.getComponent<ColliderComponent>(ColliderComponent.componentName);
 
-    if (!movement1 || !movement2 || !collider1 || !collider2) return null;
+    if (!transform1 || !transform2 || !collider1 || !collider2) return null;
 
-    const pos1 = movement1.getPosition();
-    const pos2 = movement2.getPosition();
+    const pos1 = transform1.getPosition();
+    const pos2 = transform2.getPosition();
 
     // Get collision areas using original component methods
     const area1 = collider1.getCollisionArea(pos1, this.tempCollisionArea1);
@@ -262,13 +266,15 @@ export class CollisionSystem extends System {
     }
 
     // Get movement components
-    const movement1 = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-    const movement2 = nearbyEntity.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement1 || !movement2) return;
+    const transform1 = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    const transform2 = nearbyEntity.getComponent<TransformComponent>(
+      TransformComponent.componentName,
+    );
+    if (!transform1 || !transform2) return;
 
     // Get positions
-    const pos1 = movement1.getPosition();
-    const pos2 = movement2.getPosition();
+    const pos1 = transform1.getPosition();
+    const pos2 = transform2.getPosition();
 
     // Convert to TypedArray for internal calculations
     this.tempPosition[0] = pos2[0] - pos1[0];
@@ -292,12 +298,12 @@ export class CollisionSystem extends System {
       // Player pushes enemy
       if (nearbyEntity.isType('enemy')) {
         const pushForce = 5; // Adjust this value to control push strength
-        movement2.setPosition([pos2[0] + nx * pushForce, pos2[1] + ny * pushForce]);
+        transform2.setPosition([pos2[0] + nx * pushForce, pos2[1] + ny * pushForce]);
       }
     } else if (nearbyEntity.isType('player')) {
       // Enemy cannot push player
       const pushForce = 5;
-      movement1.setPosition([pos1[0] - nx * pushForce, pos1[1] - ny * pushForce]);
+      transform1.setPosition([pos1[0] - nx * pushForce, pos1[1] - ny * pushForce]);
     } else {
       // Enemy-Enemy collision: prevent overlap and exchange momentum
       this.handleEnemyCollision(entity, nearbyEntity, collisionResult, nx, ny, overlap);
@@ -312,16 +318,16 @@ export class CollisionSystem extends System {
     ny: number,
     overlap: number,
   ): void {
-    const movement1 = entity1.getComponent<MovementComponent>(MovementComponent.componentName);
-    const movement2 = entity2.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement1 || !movement2) return;
+    const transform1 = entity1.getComponent<TransformComponent>(TransformComponent.componentName);
+    const transform2 = entity2.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!transform1 || !transform2) return;
 
-    const pos1 = movement1.getPosition();
-    const pos2 = movement2.getPosition();
+    const pos1 = transform1.getPosition();
+    const pos2 = transform2.getPosition();
 
     // Get velocity components
-    const velocity1 = entity1.getComponent<VelocityComponent>(VelocityComponent.componentName);
-    const velocity2 = entity2.getComponent<VelocityComponent>(VelocityComponent.componentName);
+    const velocity1 = entity1.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+    const velocity2 = entity2.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
     if (!velocity1 || !velocity2) return;
 
     // Get current velocities
@@ -329,8 +335,8 @@ export class CollisionSystem extends System {
     const vel2 = velocity2.getVelocity();
 
     // Calculate relative velocity
-    const relativeVelocityX = vel2.x - vel1.x;
-    const relativeVelocityY = vel2.y - vel1.y;
+    const relativeVelocityX = vel2[0] - vel1[0];
+    const relativeVelocityY = vel2[1] - vel1[1];
 
     // Calculate relative velocity in terms of the normal direction
     const velocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
@@ -351,24 +357,24 @@ export class CollisionSystem extends System {
     const impulseY = impulseScalar * ny;
 
     // Update velocities
-    const newVel1X = vel1.x - impulseX;
-    const newVel1Y = vel1.y - impulseY;
-    const newVel2X = vel2.x + impulseX;
-    const newVel2Y = vel2.y + impulseY;
+    const newVel1X = vel1[0] - impulseX;
+    const newVel1Y = vel1[1] - impulseY;
+    const newVel2X = vel2[0] + impulseX;
+    const newVel2Y = vel2[1] + impulseY;
 
     // Apply velocity changes
-    velocity1.setVelocity({ x: newVel1X, y: newVel1Y });
-    velocity2.setVelocity({ x: newVel2X, y: newVel2Y });
+    velocity1.setVelocity([newVel1X, newVel1Y]);
+    velocity2.setVelocity([newVel2X, newVel2Y]);
 
     // Still prevent overlap
     const pushForce = overlap / 2;
-    movement1.setPosition([pos1[0] - nx * pushForce, pos1[1] - ny * pushForce]);
-    movement2.setPosition([pos2[0] + nx * pushForce, pos2[1] + ny * pushForce]);
+    transform1.setPosition([pos1[0] - nx * pushForce, pos1[1] - ny * pushForce]);
+    transform2.setPosition([pos2[0] + nx * pushForce, pos2[1] + ny * pushForce]);
 
     // Apply damping to reduce oscillation
     const damping = 0.8; // Adjust this value to control damping
-    velocity1.setVelocity({ x: newVel1X * damping, y: newVel1Y * damping });
-    velocity2.setVelocity({ x: newVel2X * damping, y: newVel2Y * damping });
+    velocity1.setVelocity([newVel1X * damping, newVel1Y * damping]);
+    velocity2.setVelocity([newVel2X * damping, newVel2Y * damping]);
   }
 
   getCollisionResults(): CollisionResult[] {

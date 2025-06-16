@@ -1,8 +1,8 @@
 import {
   AnimationComponent,
-  MovementComponent,
   RenderComponent,
   StateComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -20,9 +20,9 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const entities = this.getLayerEntities(viewport);
     for (const entity of entities) {
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
-      const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (render) {
-        this.renderEntity(render, movement, cameraOffset);
+        this.renderEntity(render, transform, cameraOffset);
       }
     }
   }
@@ -30,7 +30,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   filterEntity(entity: Entity, viewport: RectArea): boolean {
     return (
       entity.hasComponent(RenderComponent.componentName) &&
-      entity.hasComponent(MovementComponent.componentName) &&
+      entity.hasComponent(TransformComponent.componentName) &&
       (entity.isType('player') || entity.isType('enemy')) &&
       this.isInViewport(entity, viewport)
     );
@@ -38,13 +38,13 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
   renderEntity(
     render: RenderComponent,
-    movement: MovementComponent,
+    transform: TransformComponent,
     cameraOffset: [number, number],
   ): void {
     const entity = render.entity;
     if (!entity) return;
 
-    const position = movement.getPosition();
+    const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
     const rotation = render.getRotation();

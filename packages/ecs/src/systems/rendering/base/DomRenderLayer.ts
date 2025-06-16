@@ -1,4 +1,4 @@
-import { MovementComponent, RenderComponent } from '@ecs/components/index';
+import { RenderComponent, TransformComponent } from '@ecs/components/index';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -40,7 +40,7 @@ export class DomRenderLayer extends BaseRenderLayer {
 
   protected renderEntity(
     render: RenderComponent,
-    movement: MovementComponent,
+    transform: TransformComponent,
     cameraOffset: [number, number],
   ): void {
     throw new Error('Method not implemented.');
@@ -58,10 +58,10 @@ export class DomRenderLayer extends BaseRenderLayer {
 
   protected createDomElement(
     render: RenderComponent,
-    movement: MovementComponent,
+    transform: TransformComponent,
     rotation: number,
   ): HTMLDivElement {
-    const position = movement.getPosition();
+    const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
     const color = render.getColor();

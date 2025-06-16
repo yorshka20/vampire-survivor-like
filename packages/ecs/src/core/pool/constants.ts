@@ -10,14 +10,14 @@ import {
   HealthComponent,
   InputComponent,
   LifecycleComponent,
-  MovementComponent,
+  PhysicsComponent,
   PickupComponent,
   RenderComponent,
   SoundEffectComponent,
   SpiralMovementComponent,
   StateComponent,
   StatsComponent,
-  VelocityComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
 import { Component } from '../ecs/Component';
@@ -36,12 +36,12 @@ export const EntityPoolList: EntityType[] = [
 ];
 
 export const ComponentPoolList: ComponentConstructor<Component>[] = [
-  MovementComponent,
   RenderComponent,
   HealthComponent,
   AIComponent,
   ColliderComponent,
-  VelocityComponent,
+  PhysicsComponent,
+  TransformComponent,
   DamageComponent,
   LifecycleComponent,
   InputComponent,

@@ -1,18 +1,18 @@
 import {
   ColliderComponent,
   DamageComponent,
-  MovementComponent,
   RenderComponent,
+  TransformComponent,
   Weapon,
 } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
-import { Color } from '@ecs/utils/types';
+import { Color, Point } from '@ecs/utils/types';
 import { randomRgb } from './utils/rgb';
 
 export interface AreaEffectProps {
-  position: { x: number; y: number };
+  position: Point;
   radius: number;
   duration: number;
   tickRate: number;
@@ -27,9 +27,8 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
 
   // Add components
   effect.addComponent(
-    world.createComponent(MovementComponent, {
-      position: { x: props.position.x, y: props.position.y },
-      speed: 0,
+    world.createComponent(TransformComponent, {
+      position: props.position,
     }),
   );
 

@@ -1,4 +1,4 @@
-import { ChaseComponent, MovementComponent, VelocityComponent } from '@ecs/components';
+import { ChaseComponent, PhysicsComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 
@@ -10,8 +10,8 @@ export class ChaseSystem extends System {
   update(deltaTime: number): void {
     const chasers = this.world.getEntitiesWithComponents([
       ChaseComponent,
-      MovementComponent,
-      VelocityComponent,
+      TransformComponent,
+      PhysicsComponent,
     ]);
 
     // Convert deltaTime to seconds for smoother acceleration
@@ -19,19 +19,16 @@ export class ChaseSystem extends System {
 
     for (const chaser of chasers) {
       const chase = chaser.getComponent<ChaseComponent>(ChaseComponent.componentName);
-      const movement = chaser.getComponent<MovementComponent>(MovementComponent.componentName);
-      const velocity = chaser.getComponent<VelocityComponent>(VelocityComponent.componentName);
+      const transform = chaser.getComponent<TransformComponent>(TransformComponent.componentName);
+      const physics = chaser.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
 
       const target = this.world.getEntityById(chase.getConfig().targetId);
       if (!target) continue;
 
-      const targetMovement = target.getComponent<MovementComponent>(
-        MovementComponent.componentName,
-      );
-      if (!targetMovement) continue;
-
-      const chaserPos = movement.getPosition();
-      const targetPos = targetMovement.getPosition();
+      const targetPos = target
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
+      const chaserPos = transform.getPosition();
 
       // Calculate direction to target
       const dx = targetPos[0] - chaserPos[0];
@@ -48,20 +45,17 @@ export class ChaseSystem extends System {
         const normalizedDy = dy / distance;
 
         // Apply velocity with some smoothing
-        const currentVelocity = velocity.getVelocity();
-        const targetVelocity = {
-          x: normalizedDx * currentSpeed,
-          y: normalizedDy * currentSpeed,
-        };
+        const currentVelocity = physics.getVelocity();
+        const targetVelocity = [normalizedDx * currentSpeed, normalizedDy * currentSpeed];
 
         // Smoothly interpolate between current and target velocity
-        velocity.setVelocity({
-          x: currentVelocity.x + (targetVelocity.x - currentVelocity.x) * 0.3,
-          y: currentVelocity.y + (targetVelocity.y - currentVelocity.y) * 0.3,
-        });
+        physics.setVelocity([
+          currentVelocity[0] + (targetVelocity[0] - currentVelocity[0]) * 0.3,
+          currentVelocity[1] + (targetVelocity[1] - currentVelocity[1]) * 0.3,
+        ]);
       } else {
         // Stop completely when speed reaches 0
-        velocity.setVelocity({ x: 0, y: 0 });
+        physics.setVelocity([0, 0]);
       }
     }
   }

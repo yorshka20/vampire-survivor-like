@@ -1,7 +1,7 @@
 import {
   ColliderComponent,
-  MovementComponent,
   RenderComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
 import {
@@ -15,10 +15,11 @@ import {
 } from '@ecs/components/weapon/WeaponTypes';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { Point } from '@ecs/utils/types';
 import { randomRgb } from './utils/rgb';
 
 export interface WeaponProps {
-  position: { x: number; y: number };
+  position: Point;
   size: [number, number];
   ownerId: string;
   weaponType: WeaponType;
@@ -44,7 +45,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
 
   // Set default values
   const defaultProps: WeaponProps = {
-    position: { x: 0, y: 0 },
+    position: [0, 0],
     size: [20, 20],
     ownerId: '',
     weaponType: WeaponType.RANGED_AUTO_AIM,
@@ -138,9 +139,8 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
 
   // Add components
   weapon.addComponent(
-    world.createComponent(MovementComponent, {
-      position: { x: finalProps.position.x, y: finalProps.position.y },
-      speed: 0,
+    world.createComponent(TransformComponent, {
+      position: finalProps.position,
     }),
   );
 

@@ -1,10 +1,11 @@
-import { LifecycleComponent, MovementComponent, RenderComponent } from '@ecs/components';
+import { LifecycleComponent, RenderComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { Point } from '@ecs/utils/types';
 
 export interface EffectProps {
-  position: { x: number; y: number };
+  position: Point;
   size: [number, number];
   color: { r: number; g: number; b: number; a: number };
   type: 'explosion' | 'heal' | 'buff';
@@ -16,7 +17,7 @@ export function createEffectEntity(world: World, props?: Partial<EffectProps>): 
 
   // Set default values
   const defaultProps: EffectProps = {
-    position: { x: 0, y: 0 },
+    position: [0, 0],
     size: [30, 30],
     color: { r: 255, g: 255, b: 0, a: 1 },
     type: 'explosion',
@@ -27,9 +28,8 @@ export function createEffectEntity(world: World, props?: Partial<EffectProps>): 
 
   // Add components
   effect.addComponent(
-    world.createComponent(MovementComponent, {
-      position: { x: finalProps.position.x, y: finalProps.position.y },
-      speed: 0,
+    world.createComponent(TransformComponent, {
+      position: finalProps.position,
     }),
   );
 

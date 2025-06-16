@@ -1,4 +1,4 @@
-import { AIComponent, RenderComponent, StateComponent, VelocityComponent } from '@ecs/components';
+import { AIComponent, PhysicsComponent, RenderComponent, StateComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 
@@ -11,7 +11,7 @@ export class StateEffectSystem extends System {
     const entities = this.world.getEntitiesWithComponents([
       StateComponent,
       RenderComponent,
-      VelocityComponent,
+      PhysicsComponent,
       AIComponent,
     ]);
 
@@ -23,9 +23,9 @@ export class StateEffectSystem extends System {
 
       // Handle movement and AI effects
       if (state.getIsDazed()) {
-        if (entity.hasComponent(VelocityComponent.componentName)) {
-          const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
-          velocity.setVelocity({ x: 0, y: 0 });
+        if (entity.hasComponent(PhysicsComponent.componentName)) {
+          const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+          physics.setVelocity([0, 0]);
         }
         if (entity.hasComponent(AIComponent.componentName)) {
           const ai = entity.getComponent<AIComponent>(AIComponent.componentName);

@@ -1,4 +1,4 @@
-import { AIComponent, MovementComponent, VelocityComponent } from '@ecs/components';
+import { AIComponent, PhysicsComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 
@@ -10,11 +10,11 @@ export class AISystem extends System {
   }
 
   update(deltaTime: number): void {
-    const aiEntities = this.world.getEntitiesWithComponents([AIComponent, MovementComponent]);
+    const aiEntities = this.world.getEntitiesWithComponents([AIComponent, TransformComponent]);
 
     for (const entity of aiEntities) {
       const ai = entity.getComponent<AIComponent>(AIComponent.componentName);
-      const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
 
       if (ai.behavior === 'chase' && ai.targetEntityId) {
         // Find target entity
@@ -23,15 +23,10 @@ export class AISystem extends System {
           continue;
         }
 
-        const targetMovement = targetEntity.getComponent<MovementComponent>(
-          MovementComponent.componentName,
-        );
-        if (!targetMovement) {
-          continue;
-        }
-
-        const targetPos = targetMovement.getPosition();
-        const currentPos = movement.getPosition();
+        const targetPos = targetEntity
+          .getComponent<TransformComponent>(TransformComponent.componentName)
+          .getPosition();
+        const currentPos = transform.getPosition();
 
         // Calculate direction to target
         const dx = targetPos[0] - currentPos[0];
@@ -44,20 +39,15 @@ export class AISystem extends System {
           const dirY = dy / distance;
 
           // Apply movement
-          if (entity.hasComponent(VelocityComponent.componentName)) {
-            const velocity = entity.getComponent<VelocityComponent>(
-              VelocityComponent.componentName,
-            );
+          if (entity.hasComponent(PhysicsComponent.componentName)) {
+            const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
             // Scale down AI speed
             const aiSpeed = ai.speed * 0.1;
-            velocity.setVelocity({
-              x: dirX * aiSpeed,
-              y: dirY * aiSpeed,
-            });
+            physics.setVelocity([dirX * aiSpeed, dirY * aiSpeed]);
           } else {
             // Direct movement for entities without velocity component
             const aiSpeed = ai.speed * 0.1;
-            movement.move(dirX * aiSpeed * deltaTime * 60, dirY * aiSpeed * deltaTime * 60);
+            transform.move(dirX * aiSpeed * deltaTime * 60, dirY * aiSpeed * deltaTime * 60);
           }
         }
       }

@@ -1,4 +1,4 @@
-import { MovementComponent, RenderComponent, StatsComponent } from '@ecs/components';
+import { RenderComponent, StatsComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { RectArea } from '@ecs/utils/types';
 import { CanvasRenderLayer } from '../base';
@@ -108,9 +108,9 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
 
     for (const effect of effects) {
       const render = effect.getComponent<RenderComponent>(RenderComponent.componentName);
-      const position = effect.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = effect.getComponent<TransformComponent>(TransformComponent.componentName);
 
-      const pos = position.getPosition();
+      const pos = transform.getPosition();
       const size = render.getSize();
       const color = render.getColor();
 

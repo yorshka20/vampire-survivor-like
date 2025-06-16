@@ -2,9 +2,9 @@ import {
   ColliderComponent,
   DamageComponent,
   LifecycleComponent,
-  MovementComponent,
+  PhysicsComponent,
   RenderComponent,
-  VelocityComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { SpiralMovementComponent } from '@ecs/components/projectile/SpiralProjectileComponent';
 import {
@@ -15,15 +15,16 @@ import {
   Weapon,
 } from '@ecs/components/weapon/WeaponTypes';
 import { World } from '@ecs/core/ecs/World';
+import { Point } from '@ecs/utils/types';
 
 type UniqueProperties<T, U> = Pick<T, Exclude<keyof T, keyof U>>;
 
 interface ProjectileProps {
   id?: string;
-  position?: { x: number; y: number };
+  position?: Point;
   color?: { r: number; g: number; b: number; a: number };
   size?: [number, number];
-  velocity?: { x: number; y: number };
+  velocity?: Point;
   damage?: number;
   penetration?: number;
   source?: string;
@@ -44,8 +45,8 @@ interface ProjectileProps {
 export function createProjectileEntity(
   world: World,
   {
-    position = { x: 0, y: 0 },
-    velocity = { x: 0, y: 0 },
+    position = [0, 0],
+    velocity = [0, 0],
     damage = 10,
     penetration = 1,
     source = 'player',
@@ -62,16 +63,16 @@ export function createProjectileEntity(
   const projectile = world.createEntity('projectile');
 
   projectile.addComponent(
-    world.createComponent(MovementComponent, {
+    world.createComponent(TransformComponent, {
       position,
-      speed: Math.sqrt(velocity.x ** 2 + velocity.y ** 2),
     }),
   );
 
   // Always add velocity component for base movement
   projectile.addComponent(
-    world.createComponent(VelocityComponent, {
-      velocity: { x: velocity.x * 0.5, y: velocity.y * 0.5 },
+    world.createComponent(PhysicsComponent, {
+      velocity: [velocity[0] * 0.5, velocity[1] * 0.5],
+      speed: Math.sqrt(velocity[0] ** 2 + velocity[1] ** 2),
       friction: 1, // No friction for projectiles
       maxSpeed: 20,
       entityType: 'PROJECTILE',
@@ -83,7 +84,7 @@ export function createProjectileEntity(
     projectile.addComponent(
       world.createComponent(SpiralMovementComponent, {
         followPlayer: spiralData.followPlayer,
-        center: { x: position.x, y: position.y },
+        center: position,
         angle: spiralData.initialAngle ?? 0,
         radius: spiralData.spiralRadius,
         speed: spiralData.spiralSpeed,
@@ -96,7 +97,7 @@ export function createProjectileEntity(
     projectile.addComponent(
       world.createComponent(SpiralMovementComponent, {
         followPlayer: spinningData.followPlayer,
-        center: { x: position.x, y: position.y },
+        center: position,
         angle: 0,
         radius: spinningData.spinRadius,
         speed: spinningData.spinSpeed,

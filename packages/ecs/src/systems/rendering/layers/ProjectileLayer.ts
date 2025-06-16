@@ -1,4 +1,4 @@
-import { MovementComponent, RenderComponent } from '@ecs/components';
+import { RenderComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -16,9 +16,11 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
     const projectiles = this.getLayerEntities(viewport);
     for (const projectile of projectiles) {
       const render = projectile.getComponent<RenderComponent>(RenderComponent.componentName);
-      const movement = projectile.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = projectile.getComponent<TransformComponent>(
+        TransformComponent.componentName,
+      );
       if (render) {
-        this.renderEntity(render, movement, cameraOffset);
+        this.renderEntity(render, transform, cameraOffset);
       }
     }
   }
@@ -26,7 +28,7 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
   filterEntity(entity: Entity, viewport: RectArea): boolean {
     return (
       entity.hasComponent(RenderComponent.componentName) &&
-      entity.hasComponent(MovementComponent.componentName) &&
+      entity.hasComponent(TransformComponent.componentName) &&
       entity.isType('projectile') &&
       this.isInViewport(entity, viewport)
     );
@@ -34,10 +36,10 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
 
   renderEntity(
     render: RenderComponent,
-    movement: MovementComponent,
+    transform: TransformComponent,
     cameraOffset: [number, number],
   ): void {
-    const position = movement.getPosition();
+    const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
     const rotation = render.getRotation();

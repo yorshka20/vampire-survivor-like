@@ -1,15 +1,15 @@
-import { MovementComponent, SpiralMovementComponent, VelocityComponent } from '@ecs/components';
+import { PhysicsComponent, SpiralMovementComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 
-export class VelocitySystem extends System {
+export class PhysicsSystem extends System {
   constructor() {
-    super('VelocitySystem', SystemPriorities.VELOCITY, 'logic');
+    super('PhysicsSystem', SystemPriorities.PHYSICS, 'logic');
   }
 
   update(deltaTime: number): void {
-    const entities = this.world.getEntitiesWithComponents([MovementComponent, VelocityComponent]);
+    const entities = this.world.getEntitiesWithComponents([PhysicsComponent, TransformComponent]);
 
     for (const entity of entities) {
       // If entity has spiral movement, update velocity based on spiral angle
@@ -26,17 +26,17 @@ export class VelocitySystem extends System {
     const spiralMovement = entity.getComponent<SpiralMovementComponent>(
       SpiralMovementComponent.componentName,
     );
-    const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-    const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    const velocity = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
 
     // Update spiral center to follow the player if needed
     const player = this.world.getEntitiesByType('player')[0];
     if (player && spiralMovement.getFollowPlayer()) {
-      const playerMovement = player.getComponent<MovementComponent>(
-        MovementComponent.componentName,
+      const playerTransform = player.getComponent<TransformComponent>(
+        TransformComponent.componentName,
       );
-      if (playerMovement) {
-        const playerPos = playerMovement.getPosition();
+      if (playerTransform) {
+        const playerPos = playerTransform.getPosition();
         spiralMovement.updateCenter(playerPos[0], playerPos[1]);
       }
     }
@@ -46,25 +46,22 @@ export class VelocitySystem extends System {
 
     // Set the position directly to the spiral position
     const spiralPos = spiralMovement.getPosition();
-    movement.setPosition([spiralPos.x, spiralPos.y]);
+    transform.setPosition([spiralPos[0], spiralPos[1]]);
 
     // Set the velocity for collision and other systems that need it
     const spiralVelocity = spiralMovement.getVelocity();
-    velocity.setVelocity({
-      x: spiralVelocity.x,
-      y: spiralVelocity.y,
-    });
+    velocity.setVelocity([spiralVelocity[0], spiralVelocity[1]]);
   }
 
   private updateLinearVelocity(entity: Entity, deltaTime: number): void {
-    const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-    const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
 
-    velocity.update(deltaTime);
+    physics.update(deltaTime);
 
-    const position = movement.getPosition();
-    let newX = position[0] + velocity.getVelocity().x * (deltaTime * 1000);
-    let newY = position[1] + velocity.getVelocity().y * (deltaTime * 1000);
-    movement.setPosition([newX, newY]);
+    const position = transform.getPosition();
+    let newX = position[0] + physics.getVelocity()[0] * (deltaTime * 1000);
+    let newY = position[1] + physics.getVelocity()[1] * (deltaTime * 1000);
+    transform.setPosition([newX, newY]);
   }
 }

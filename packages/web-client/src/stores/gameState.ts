@@ -4,8 +4,8 @@ import {
   Game,
   GameStore,
   HealthComponent,
-  MovementComponent,
   StatsComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs';
 import { writable } from 'svelte/store';
@@ -108,7 +108,7 @@ function createGameStateStore() {
         const expComp = player.getComponent<ExperienceComponent>('Experience');
         const weaponComp = player.getComponent<WeaponComponent>('Weapon');
         const statsComp = player.getComponent<StatsComponent>('Stats');
-        const movement = player.getComponent<MovementComponent>('Movement');
+        const transform = player.getComponent<TransformComponent>('Transform');
 
         playerState = {
           health: healthComp.currentHealth,
@@ -118,7 +118,7 @@ function createGameStateStore() {
           expToNextLevel: expComp.expToNextLevel,
           weapon: weaponComp.weapons.map((i) => i.name).join('/'),
           stats: statsComp,
-          position: movement?.getPosition() || state.player?.position || [0, 0],
+          position: transform?.getPosition() || state.player?.position || [0, 0],
         };
       }
 

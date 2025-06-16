@@ -1,5 +1,4 @@
-import { MovementComponent } from '@ecs/components/physics/MovementComponent';
-import { SpatialGridComponent } from '@ecs/components/physics/SpatialGridComponent';
+import { SpatialGridComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -46,10 +45,10 @@ export class SpatialGridSystem extends System {
     this.spatialComponent.clear();
 
     // Update all entities in the grid
-    const entities = this.world.getEntitiesWithComponents([MovementComponent]);
+    const entities = this.world.getEntitiesWithComponents([TransformComponent]);
     for (const entity of entities) {
-      const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-      const position = movement.getPosition();
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const position = transform.getPosition();
       this.spatialComponent.insert(entity.id, position, entity.type);
     }
 

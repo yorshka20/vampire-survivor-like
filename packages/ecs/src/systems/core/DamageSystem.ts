@@ -3,8 +3,8 @@ import {
   DamageComponent,
   DeathMarkComponent,
   HealthComponent,
-  MovementComponent,
   StateComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -144,7 +144,7 @@ export class DamageSystem extends System {
   private processAoeDamage(damageSource: Entity, damageComponent: DamageComponent): void {
     const { damage, isCritical } = damageComponent.getDamage();
     const position = damageSource
-      .getComponent<MovementComponent>(MovementComponent.componentName)
+      .getComponent<TransformComponent>(TransformComponent.componentName)
       .getPosition();
 
     const enemies = this.gridComponent?.getNearbyEntities(
@@ -165,7 +165,7 @@ export class DamageSystem extends System {
         continue;
       }
       const enemyPosition = enemy
-        .getComponent<MovementComponent>(MovementComponent.componentName)
+        .getComponent<TransformComponent>(TransformComponent.componentName)
         .getPosition();
       const distance = Math.sqrt(
         (position[0] - enemyPosition[0]) ** 2 + (position[1] - enemyPosition[1]) ** 2,
@@ -182,7 +182,7 @@ export class DamageSystem extends System {
       damageComponent.recordHit(enemy.id);
 
       const enemyPosition = enemy
-        .getComponent<MovementComponent>(MovementComponent.componentName)
+        .getComponent<TransformComponent>(TransformComponent.componentName)
         .getPosition();
       // Set hit and daze states
       const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
@@ -250,7 +250,7 @@ export class DamageSystem extends System {
       if (
         // invalid enemy
         !enemy.hasComponent(HealthComponent.componentName) ||
-        !enemy.hasComponent(MovementComponent.componentName) ||
+        !enemy.hasComponent(TransformComponent.componentName) ||
         // already dead
         enemy.toRemove ||
         enemy.hasComponent(DeathMarkComponent.componentName) ||
@@ -261,13 +261,15 @@ export class DamageSystem extends System {
       }
 
       const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
-      const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
+      const enemyTransform = enemy.getComponent<TransformComponent>(
+        TransformComponent.componentName,
+      );
       const damageComponent = damageSource.getComponent<DamageComponent>(
         DamageComponent.componentName,
       );
 
       // Process damage based on collision tier
-      const position = enemyMovement.getPosition();
+      const position = enemyTransform.getPosition();
 
       // For area effects (which are triggers), always process continuous damage
       if (isAreaEffect1 || isAreaEffect2) {

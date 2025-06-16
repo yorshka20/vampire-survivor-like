@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { Point, RectArea } from '@ecs/utils/types';
-import { MovementComponent } from './MovementComponent';
+import { TransformComponent } from './TransformComponent';
 
 export interface ColliderProps {
   type: 'circle' | 'rect';
@@ -27,14 +27,11 @@ export class ColliderComponent extends Component {
   }
 
   getBounds(): { x: number; y: number; width: number; height: number } {
-    const position = this.entity?.getComponent<MovementComponent>('MovementComponent')
-      ?.position || {
-      x: 0,
-      y: 0,
-    };
+    const position = this.entity?.getComponent<TransformComponent>('TransformComponent')
+      ?.position || [0, 0];
     return {
-      x: position.x + this.offset[0],
-      y: position.y + this.offset[1],
+      x: position[0] + this.offset[0],
+      y: position[1] + this.offset[1],
       width: this.size[0],
       height: this.size[1],
     };

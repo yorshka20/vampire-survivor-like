@@ -3,21 +3,21 @@ import {
   AnimationComponent,
   ColliderComponent,
   HealthComponent,
-  MovementComponent,
+  PhysicsComponent,
   RenderComponent,
   SoundEffectComponent,
   StateComponent,
-  VelocityComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
-import { Color } from '@ecs/utils/types';
+import { Color, Point } from '@ecs/utils/types';
 import { randomRgb } from './utils/rgb';
 
 export interface EnemyProps {
-  position: { x: number; y: number };
+  position: Point;
   size?: [number, number];
   health?: number;
   playerId: string;
@@ -37,15 +37,14 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
 
   // Add components
   enemy.addComponent(
-    world.createComponent(MovementComponent, {
-      position: { x: props.position.x, y: props.position.y },
-      speed: props.speed ?? 2,
+    world.createComponent(TransformComponent, {
+      position: props.position,
     }),
   );
 
   enemy.addComponent(
-    world.createComponent(VelocityComponent, {
-      velocity: { x: 0, y: 0 },
+    world.createComponent(PhysicsComponent, {
+      velocity: [0, 0],
       maxSpeed: props.speed ?? 2,
     }),
   );

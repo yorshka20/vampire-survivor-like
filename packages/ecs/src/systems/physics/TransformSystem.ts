@@ -1,48 +1,52 @@
 import {
   InputComponent,
   InputState,
-  MovementComponent,
+  PhysicsComponent,
   StatsComponent,
-  VelocityComponent,
+  TransformComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 
-export class MovementSystem extends System {
+export class TransformSystem extends System {
   constructor() {
-    super('MovementSystem', SystemPriorities.MOVEMENT, 'render');
+    super('TransformSystem', SystemPriorities.TRANSFORM, 'render');
   }
 
   update(deltaTime: number): void {
-    const entities = this.world.getEntitiesWithComponents([MovementComponent, InputComponent]);
+    const entities = this.world.getEntitiesWithComponents([
+      TransformComponent,
+      PhysicsComponent,
+      InputComponent,
+    ]);
 
     for (const entity of entities) {
-      const movement = entity.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
       const input = entity.getComponent<InputComponent>(InputComponent.componentName);
-      const velocity = entity.getComponent<VelocityComponent>(VelocityComponent.componentName);
       const stats = entity.getComponent<StatsComponent>(StatsComponent.componentName);
 
-      if (!movement || !input) continue;
+      if (!transform || !physics || !input) continue;
 
       const state = input.getState();
 
       // If entity has velocity component, use velocity-based movement
-      if (velocity) {
-        this.handleVelocityMovement(state, movement, velocity, stats);
+      if (physics) {
+        this.handleVelocityMovement(state, transform, physics, stats);
       } else {
-        this.handleDirectMovement(state, movement, stats, deltaTime);
+        this.handleDirectMovement(state, transform, physics, stats, deltaTime);
       }
     }
   }
 
   private handleVelocityMovement(
     state: InputState,
-    movement: MovementComponent,
-    velocity: VelocityComponent,
+    transform: TransformComponent,
+    velocity: PhysicsComponent,
     stats: StatsComponent,
   ): void {
     // Use the speed directly from movement component, which already includes entity type multiplier
-    const speed = movement.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
+    const speed = velocity.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
     let vx = 0,
       vy = 0;
 
@@ -61,18 +65,19 @@ export class MovementSystem extends System {
     if (vx === 0 && vy === 0) {
       velocity.stop();
     } else {
-      velocity.setVelocity({ x: vx, y: vy });
+      velocity.setVelocity([vx, vy]);
     }
   }
 
   private handleDirectMovement(
     state: InputState,
-    movement: MovementComponent,
+    transform: TransformComponent,
+    velocity: PhysicsComponent,
     stats: StatsComponent,
     deltaTime: number,
   ): void {
     // Use the speed directly from movement component, which already includes entity type multiplier
-    const speed = movement.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
+    const speed = velocity.getSpeed() * (stats?.moveSpeedMultiplier ?? 1);
     let dx = 0,
       dy = 0;
 
@@ -90,6 +95,6 @@ export class MovementSystem extends System {
 
     // Since we're using fixed time step, we don't need to multiply by deltaTime
     // The speed is already calibrated for one logic frame
-    movement.move(dx, dy);
+    transform.move(dx, dy);
   }
 }

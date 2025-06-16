@@ -1,4 +1,4 @@
-import { MovementComponent } from '@ecs/components';
+import { TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
@@ -140,9 +140,9 @@ export class RenderSystem extends System {
   private updatePlayerPosition() {
     const player = this.world.getEntitiesByType('player')[0];
     if (!player) return;
-    const position = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!position) return;
-    const [px, py] = position.getPosition();
+    const transform = player.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!transform) return;
+    const [px, py] = transform.getPosition();
     this.playerPosition[0] = px;
     this.playerPosition[1] = py;
   }
@@ -152,11 +152,11 @@ export class RenderSystem extends System {
       ? this.world.getEntityById(this.cameraTargetId)
       : undefined;
     if (targetEntity) {
-      const movement = targetEntity.getComponent<MovementComponent>(
-        MovementComponent.componentName,
+      const transform = targetEntity.getComponent<TransformComponent>(
+        TransformComponent.componentName,
       );
-      if (movement) {
-        const [px, py] = movement.getPosition();
+      if (transform) {
+        const [px, py] = transform.getPosition();
         const [vx, vy, vw, vh] = this.viewport;
         this.cameraOffset[0] = Math.round(vx + vw / 2 - px);
         this.cameraOffset[1] = Math.round(vy + vh / 2 - py);

@@ -1,4 +1,4 @@
-import { DeathMarkComponent, HealthComponent, MovementComponent } from '@ecs/components';
+import { DeathMarkComponent, HealthComponent, TransformComponent } from '@ecs/components';
 import { ItemDropRate } from '@ecs/constants/itemDropRate';
 import { PowerupStats, WeaponList } from '@ecs/constants/resources';
 import { Entity } from '@ecs/core/ecs/Entity';
@@ -68,11 +68,11 @@ export class DeathSystem extends System {
   }
 
   private dropItems(enemy: Entity): void {
-    const movement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement) return;
+    const transform = enemy.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!transform) return;
 
     const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
-    const position = movement.getPosition();
+    const position = transform.getPosition();
 
     // Always drop experience
     this.createExperienceGem(
@@ -102,7 +102,7 @@ export class DeathSystem extends System {
 
   private createExperienceGem(x: number, y: number, value: number): void {
     const gem = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'experience',
       value,
       pullable: true,
@@ -113,7 +113,7 @@ export class DeathSystem extends System {
 
   private createHealthPickup(x: number, y: number, value: number): void {
     const health = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'health',
       value,
       pullable: true,
@@ -126,7 +126,7 @@ export class DeathSystem extends System {
     const randomWeapon = WeaponList[Math.floor(Math.random() * WeaponList.length)];
 
     const weapon = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'weapon',
       weapon: [randomWeapon],
       pullable: false,
@@ -138,7 +138,7 @@ export class DeathSystem extends System {
   private createPowerupPickup(x: number, y: number): void {
     const randomPowerup = PowerupStats[Math.floor(Math.random() * PowerupStats.length)];
     const powerup = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'powerup',
       powerup: randomPowerup,
       pullable: true,
@@ -149,7 +149,7 @@ export class DeathSystem extends System {
 
   private createMagnetPickup(x: number, y: number): void {
     const pickup = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'magnet',
       pullable: true,
       value: 0.01,
@@ -160,7 +160,7 @@ export class DeathSystem extends System {
 
   private createGlobalPullPickup(x: number, y: number): void {
     const pickup = createItemEntity(this.world, {
-      position: { x, y },
+      position: [x, y],
       type: 'specialEffect',
       size: [40, 40],
       pullable: false,

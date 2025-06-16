@@ -1,4 +1,4 @@
-import { MovementComponent, RenderComponent } from '@ecs/components';
+import { RenderComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -13,9 +13,9 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     const items = this.getLayerEntities(viewport);
     for (const item of items) {
       const render = item.getComponent<RenderComponent>(RenderComponent.componentName);
-      const movement = item.getComponent<MovementComponent>(MovementComponent.componentName);
+      const transform = item.getComponent<TransformComponent>(TransformComponent.componentName);
       if (render) {
-        this.renderEntity(render, movement, cameraOffset);
+        this.renderEntity(render, transform, cameraOffset);
       }
     }
   }
@@ -30,10 +30,10 @@ export class ItemRenderLayer extends CanvasRenderLayer {
 
   renderEntity(
     render: RenderComponent,
-    movement: MovementComponent,
+    transform: TransformComponent,
     cameraOffset: [number, number],
   ): void {
-    const position = movement.getPosition();
+    const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
     const color = render.getColor();

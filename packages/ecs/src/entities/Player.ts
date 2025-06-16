@@ -4,48 +4,28 @@ import {
   ExperienceComponent,
   HealthComponent,
   InputComponent,
-  MovementComponent,
+  PhysicsComponent,
   RenderComponent,
   StateComponent,
   StatsComponent,
-  VelocityComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { WeaponMap } from '@ecs/constants/resources/weapon/weaponList';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
-import { AnimationData } from '@ecs/types/animation';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
+import { Point } from '@ecs/utils/types';
 
 interface PlayerProps {
   id?: string;
-  position?: { x: number; y: number };
+  position?: Point;
   speed?: number;
   color?: { r: number; g: number; b: number; a: number };
   size?: [number, number];
   shape?: 'circle' | 'rect' | 'triangle';
 }
-
-// Define player animations
-const playerAnimations = new Map<string, AnimationData>([
-  [
-    'idle',
-    {
-      frames: [0, 1, 2, 3], // Idle animation frames
-      frameDuration: 0.2, // 0.2 seconds per frame
-      loop: true,
-    },
-  ],
-  [
-    'walk',
-    {
-      frames: [4, 5, 6, 7], // Walking animation frames
-      frameDuration: 0.15, // 0.15 seconds per frame
-      loop: true,
-    },
-  ],
-]);
 
 /**
  * Factory function to create a Player entity
@@ -54,7 +34,7 @@ export function createPlayerEntity(
   world: World,
   {
     id = 'player',
-    position = { x: 400, y: 300 },
+    position = [400, 300],
     speed = 5,
     color = { r: 0, g: 255, b: 0, a: 1 },
     size = [32, 32], // Updated to match sprite frame size
@@ -72,9 +52,8 @@ export function createPlayerEntity(
   // Basic components
   player.addComponent(world.createComponent(InputComponent, {}));
   player.addComponent(
-    world.createComponent(MovementComponent, {
+    world.createComponent(TransformComponent, {
       position,
-      speed,
     }),
   );
   player.addComponent(
@@ -97,8 +76,8 @@ export function createPlayerEntity(
   );
 
   player.addComponent(
-    world.createComponent(VelocityComponent, {
-      velocity: { x: 5, y: 5 },
+    world.createComponent(PhysicsComponent, {
+      velocity: [0, 0],
       maxSpeed: speed,
       friction: 0.85,
     }),

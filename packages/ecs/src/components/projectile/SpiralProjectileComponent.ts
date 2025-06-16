@@ -1,8 +1,9 @@
 import { Component } from '@ecs/core/ecs/Component';
+import { Point } from '@ecs/utils/types';
 
 interface SpiralMovementProps {
   followPlayer?: boolean;
-  center: { x: number; y: number };
+  center: Point;
   angle: number;
   radius: number;
   speed: number;
@@ -13,7 +14,7 @@ export class SpiralMovementComponent extends Component {
   static componentName = 'SpiralMovement';
 
   private followPlayer: boolean;
-  private center: { x: number; y: number };
+  private center: Point;
   private angle: number;
   private radius: number;
   private speed: number;
@@ -39,15 +40,15 @@ export class SpiralMovementComponent extends Component {
   }
 
   // Get the current position in Cartesian coordinates
-  getPosition(): { x: number; y: number } {
-    return {
-      x: this.center.x + Math.cos(this.angle) * this.radius,
-      y: this.center.y + Math.sin(this.angle) * this.radius,
-    };
+  getPosition(): Point {
+    return [
+      this.center[0] + Math.cos(this.angle) * this.radius,
+      this.center[1] + Math.sin(this.angle) * this.radius,
+    ];
   }
 
   // Get the velocity vector in Cartesian coordinates
-  getVelocity(): { x: number; y: number } {
+  getVelocity(): Point {
     // Angular velocity in radians per second
     const angularVelocity = this.speed * (Math.PI / 180);
     // Tangential velocity (perpendicular to radius)
@@ -60,19 +61,16 @@ export class SpiralMovementComponent extends Component {
       radialX = Math.cos(this.angle) * this.expansion;
       radialY = Math.sin(this.angle) * this.expansion;
     }
-    return {
-      x: tangentialX + radialX,
-      y: tangentialY + radialY,
-    };
+    return [tangentialX + radialX, tangentialY + radialY];
   }
 
-  getCenter(): { x: number; y: number } {
+  getCenter(): Point {
     return this.center;
   }
 
   updateCenter(x: number, y: number): void {
-    this.center.x = x;
-    this.center.y = y;
+    this.center[0] = x;
+    this.center[1] = y;
   }
 
   getAngle(): number {
@@ -94,7 +92,7 @@ export class SpiralMovementComponent extends Component {
   reset(): void {
     super.reset();
     this.followPlayer = false;
-    this.center = { x: 0, y: 0 };
+    this.center = [0, 0];
     this.angle = 0;
     this.radius = 0;
     this.speed = 0;

@@ -1,4 +1,4 @@
-import { MovementComponent } from '@ecs/components/physics/MovementComponent';
+import { TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -44,18 +44,18 @@ export abstract class BaseRenderLayer implements RenderLayer {
 
     const player = this.getWorld().getEntitiesByType('player')[0];
     if (!player) return undefined;
-    const movement = player.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!movement) return undefined;
-    return movement.getPosition();
+    const transform = player.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!transform) return undefined;
+    return transform.getPosition();
   }
 
   isInViewport(entity: Entity, viewport: RectArea): boolean {
-    const position = entity.getComponent<MovementComponent>(MovementComponent.componentName);
-    if (!position) return false;
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!transform) return false;
 
     const playerPos = this.getPlayerPosition();
     if (!playerPos) return false;
-    const entityPos = position.getPosition();
+    const entityPos = transform.getPosition();
 
     const currentX = playerPos[0] - viewport[2] / 2;
     const currentY = playerPos[1] - viewport[3] / 2;

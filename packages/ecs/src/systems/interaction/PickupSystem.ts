@@ -2,9 +2,9 @@ import {
   ChaseComponent,
   ExperienceComponent,
   HealthComponent,
-  MovementComponent,
   PickupComponent,
   StatsComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -42,13 +42,14 @@ export class PickupSystem extends System {
     // invoke global pull every 30 seconds
     this.checkGlobalPull(player);
 
-    const playerMovement = player.getComponent<MovementComponent>(MovementComponent.componentName);
+    const playerPos = player
+      .getComponent<TransformComponent>(TransformComponent.componentName)
+      .getPosition();
     const stats = player.getComponent<StatsComponent>(StatsComponent.componentName);
 
     const entitiesToRemove: string[] = [];
     const componentsToPickup: PickupComponent[] = [];
 
-    const playerPos = playerMovement.getPosition();
     const pickupRange = this.basePickupRange * (stats?.pickupRangeMultiplier ?? 1);
 
     // Use 'pickup' query type for better cache performance
@@ -72,10 +73,9 @@ export class PickupSystem extends System {
         continue;
       }
 
-      const pickupMovement = entity.getComponent<MovementComponent>(
-        MovementComponent.componentName,
-      );
-      const pickupPos = pickupMovement.getPosition();
+      const pickupPos = entity
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
 
       const dx = playerPos[0] - pickupPos[0];
       const dy = playerPos[1] - pickupPos[1];

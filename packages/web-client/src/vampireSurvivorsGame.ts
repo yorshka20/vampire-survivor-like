@@ -8,13 +8,13 @@ import {
   Game,
   InputSystem,
   LifecycleSystem,
-  MovementSystem,
+  PhysicsSystem,
   PickupSystem,
   RenderSystem,
   SpatialGridSystem,
   SpawnSystem,
   StateEffectSystem,
-  VelocitySystem,
+  TransformSystem,
   WeaponSystem,
   createPlayerEntity,
 } from '@ecs';
@@ -29,8 +29,8 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Add all systems in the correct order
   world.addSystem(new SpatialGridSystem());
   world.addSystem(new LifecycleSystem());
-  world.addSystem(new VelocitySystem());
-  world.addSystem(new MovementSystem());
+  world.addSystem(new PhysicsSystem());
+  world.addSystem(new TransformSystem());
   world.addSystem(new InputSystem());
   world.addSystem(new AISystem());
   world.addSystem(new SpawnSystem());
@@ -52,7 +52,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Create player entity at center of screen
   const player = createPlayerEntity(world, {
-    position: { x: viewport[2] / 2, y: viewport[3] / 2 },
+    position: [viewport[2] / 2, viewport[3] / 2],
     speed: 5,
     size: [64, 64],
   });

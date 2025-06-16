@@ -1,8 +1,9 @@
 import {
   HealthComponent,
-  MovementComponent,
+  PhysicsComponent,
   RenderComponent,
   StatsComponent,
+  TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
 import {
@@ -20,6 +21,7 @@ import { System } from '@ecs/core/ecs/System';
 import { Game } from '@ecs/core/game/Game';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
+import { Point } from '@ecs/utils/types';
 
 export class WeaponSystem extends System {
   private maxAreaEffects = 10;
@@ -33,13 +35,13 @@ export class WeaponSystem extends System {
     const currentTime = TimeUtil.now();
     const weaponEntities = this.world.getEntitiesWithComponents([
       WeaponComponent,
-      MovementComponent,
+      PhysicsComponent,
     ]);
 
     for (const weaponEntity of weaponEntities) {
       const weapon = weaponEntity.getComponent<WeaponComponent>(WeaponComponent.componentName);
-      const movement = weaponEntity.getComponent<MovementComponent>(
-        MovementComponent.componentName,
+      const transform = weaponEntity.getComponent<TransformComponent>(
+        TransformComponent.componentName,
       );
       const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
 
@@ -57,7 +59,7 @@ export class WeaponSystem extends System {
         const lastAttackTime = weapon.lastAttackTimes[i] ?? 0;
 
         if (currentTime - lastAttackTime >= attackInterval) {
-          const position = movement.getPosition();
+          const position = transform.getPosition();
           const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
 
           switch (currentWeapon.type) {
@@ -166,8 +168,9 @@ export class WeaponSystem extends System {
       const enemy = this.world.getEntityById(enemyId);
       if (!enemy?.isType('enemy')) continue;
 
-      const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
-      const enemyPos = enemyMovement.getPosition();
+      const enemyPos = enemy
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
       const distance = Math.sqrt(
         (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
       );
@@ -227,8 +230,9 @@ export class WeaponSystem extends System {
       const enemy = this.world.getEntityById(enemyId);
       if (!enemy || !enemy.isType('enemy')) continue;
 
-      const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
-      const enemyPos = enemyMovement.getPosition();
+      const enemyPos = enemy
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
       const distance = Math.sqrt(
         (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
       );
@@ -252,7 +256,7 @@ export class WeaponSystem extends System {
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
-  private getRandomPositionInViewport(position: [number, number]): { x: number; y: number } {
+  private getRandomPositionInViewport(position: Point): Point {
     const game = Game.getInstance();
     const viewport = game.getViewport();
     const padding = 50; // Padding from viewport edges
@@ -264,10 +268,10 @@ export class WeaponSystem extends System {
     const minY = py - viewport.height / 2 + padding;
     const maxY = py + viewport.height / 2 - padding;
 
-    return {
-      x: Math.random() * (maxX - minX - 2 * padding) + minX + padding,
-      y: Math.random() * (maxY - minY - 2 * padding) + minY + padding,
-    };
+    return [
+      Math.random() * (maxX - minX - 2 * padding) + minX + padding,
+      Math.random() * (maxY - minY - 2 * padding) + minY + padding,
+    ];
   }
 
   private handleArea(
@@ -320,14 +324,8 @@ export class WeaponSystem extends System {
     const [sizeX, sizeY] = render ? render.getSize() : [0, 0];
 
     const projectile = createProjectileEntity(this.world, {
-      position: {
-        x: position[0] + sizeX / 2,
-        y: position[1] + sizeY / 2,
-      },
-      velocity: {
-        x: dirX * weapon.projectileSpeed,
-        y: dirY * weapon.projectileSpeed,
-      },
+      position: [position[0] + sizeX / 2, position[1] + sizeY / 2],
+      velocity: [dirX * weapon.projectileSpeed, dirY * weapon.projectileSpeed],
       damage: damage,
       source: entity.id,
       size: weapon.projectileSize,
@@ -357,10 +355,7 @@ export class WeaponSystem extends System {
 
       // Create projectile with spiral trajectory
       const projectile = createProjectileEntity(this.world, {
-        position: {
-          x: spawnX,
-          y: spawnY,
-        },
+        position: [spawnX, spawnY],
         damage: effectiveDamage,
         source: entity.id,
         size: currentWeapon.projectileSize,
@@ -411,10 +406,7 @@ export class WeaponSystem extends System {
 
       // Create projectile with spiral trajectory
       const projectile = createProjectileEntity(this.world, {
-        position: {
-          x: spawnX,
-          y: spawnY,
-        },
+        position: [spawnX, spawnY],
         size: currentWeapon.projectileSize,
         damage: effectiveDamage,
         source: entity.id,
@@ -484,8 +476,9 @@ export class WeaponSystem extends System {
       const enemy = this.world.getEntityById(enemyId);
       if (!enemy?.isType('enemy')) continue;
 
-      const enemyMovement = enemy.getComponent<MovementComponent>(MovementComponent.componentName);
-      const enemyPos = enemyMovement.getPosition();
+      const enemyPos = enemy
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
       const distance = Math.sqrt(
         (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
       );
@@ -507,14 +500,8 @@ export class WeaponSystem extends System {
 
       // Create bomb projectile
       const projectile = createProjectileEntity(this.world, {
-        position: {
-          x: position[0],
-          y: position[1],
-        },
-        velocity: {
-          x: dirX * currentWeapon.projectileSpeed,
-          y: dirY * currentWeapon.projectileSpeed,
-        },
+        position: [position[0], position[1]],
+        velocity: [dirX * currentWeapon.projectileSpeed, dirY * currentWeapon.projectileSpeed],
         damage: effectiveDamage,
         source: entity.id,
         size: currentWeapon.projectileSize,
@@ -528,14 +515,11 @@ export class WeaponSystem extends System {
       // destroyed is different from removed.
       projectile.onDestroyed(() => {
         const projectilePos = projectile
-          .getComponent<MovementComponent>(MovementComponent.componentName)
+          .getComponent<TransformComponent>(TransformComponent.componentName)
           .getPosition();
         // Create a visual-only explosion effect
         const explosion = createEffectEntity(this.world, {
-          position: {
-            x: projectilePos[0],
-            y: projectilePos[1],
-          },
+          position: [projectilePos[0], projectilePos[1]],
           // circle so use 2x radius
           size: [currentWeapon.explosionRadius * 2, currentWeapon.explosionRadius * 2],
           type: 'explosion',
