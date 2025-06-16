@@ -41,6 +41,8 @@ export class ResourceManager {
       };
       audio.onerror = reject;
       audio.src = url;
+      // For mobile browsers, we'll try to load the audio anyway
+      audio.load();
     });
   }
 

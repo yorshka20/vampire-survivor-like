@@ -70,12 +70,13 @@ const slimeAnimations = new Map([
 export async function loadGameResources(renderSystem: RenderSystem) {
   const resourceManager = ResourceManager.getInstance();
 
-  resourceManager.loadImage('bg', '/assets/texture.png').then(() => {
-    const bgImage = resourceManager.getImage('bg');
-    if (bgImage) {
-      renderSystem.setBackgroundImage(bgImage);
-    }
-  });
+  await resourceManager.loadImage('bg', '/assets/texture.png');
+  const bg = resourceManager.getImage('bg');
+  if (bg) {
+    renderSystem.setBackgroundImage(bg);
+  }
+  console.log('Background image loaded');
+
   // Load audio
   await resourceManager.loadAudio('bgm', '/assets/music/time_for_adventure.mp3');
   await resourceManager.loadAudio('coin', '/assets/sounds/coin.wav');
@@ -86,6 +87,7 @@ export async function loadGameResources(renderSystem: RenderSystem) {
   await resourceManager.loadAudio('jump', '/assets/sounds/jump.wav');
   await resourceManager.loadAudio('power_up', '/assets/sounds/power_up.wav');
   await resourceManager.loadAudio('tap', '/assets/sounds/tap.wav');
+  console.log('Audio resources loaded');
 
   // Load sprite sheets
   const spriteLoader = SpriteSheetLoader.getInstance();
@@ -105,4 +107,5 @@ export async function loadGameResources(renderSystem: RenderSystem) {
       animations: slimeAnimations,
     },
   ]);
+  console.log('Sprite sheets loaded');
 }
