@@ -3,6 +3,7 @@ import {
   DamageComponent,
   DeathMarkComponent,
   HealthComponent,
+  RenderComponent,
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
@@ -208,6 +209,156 @@ export class DamageSystem extends System {
     }
   }
 
+  private processLaserDamage(damageSource: Entity, damageComponent: DamageComponent): void {
+    const { damage, isCritical } = damageComponent.getDamage();
+    const laser = damageComponent.getLaser();
+    if (!laser) return;
+
+    // Get laser start position (player position)
+    const startPos = damageSource
+      .getComponent<TransformComponent>(TransformComponent.componentName)
+      .getPosition();
+    const aimPos = laser.aim;
+
+    // Calculate laser direction vector
+    const dx = aimPos[0] - startPos[0];
+    const dy = aimPos[1] - startPos[1];
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / length;
+    const dirY = dy / length;
+
+    // Laser width and length
+    const laserWidth = 10; // Width of the laser beam
+    const laserLength = 2000; // Length of the laser beam
+
+    // Calculate laser end position
+    const endPos: [number, number] = [
+      startPos[0] + dirX * laserLength,
+      startPos[1] + dirY * laserLength,
+    ];
+
+    // Get cells that the laser passes through
+    const cells = this.gridComponent?.getCellsInLine(startPos, endPos, laserWidth);
+    if (!cells) return;
+
+    const hitEnemies: Entity[] = [];
+    const processedEnemies = new Set<string>(); // Track processed enemies to avoid duplicates
+
+    // Check enemies in each cell
+    for (const cell of cells) {
+      const enemyIds = this.gridComponent?.getEntitiesInCell(cell, 'damage');
+      if (!enemyIds) continue;
+
+      for (const enemyId of enemyIds) {
+        // Skip if already processed
+        if (processedEnemies.has(enemyId)) continue;
+        processedEnemies.add(enemyId);
+
+        const enemy = this.world.getEntityById(enemyId);
+        if (
+          !enemy ||
+          enemy.toRemove ||
+          enemy.hasComponent(DeathMarkComponent.componentName) ||
+          !enemy.hasComponent(HealthComponent.componentName)
+        ) {
+          continue;
+        }
+
+        const enemyPos = enemy
+          .getComponent<TransformComponent>(TransformComponent.componentName)
+          .getPosition();
+        const enemySize = enemy
+          .getComponent<RenderComponent>(RenderComponent.componentName)
+          .getSize();
+        const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
+
+        // Calculate distance from enemy to laser line
+        const distance = this.pointToLineDistance(enemyPos, startPos, endPos);
+
+        // If enemy is within laser width, they are hit
+        if (distance <= laserWidth + enemyRadius) {
+          hitEnemies.push(enemy);
+        }
+      }
+    }
+
+    // Apply damage to all hit enemies
+    for (const enemy of hitEnemies) {
+      const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
+      health.takeDamage(damage);
+
+      // Set hit and daze states
+      const stateComponent = enemy.getComponent<StateComponent>(StateComponent.componentName);
+      if (stateComponent) {
+        stateComponent.setHit(12); // 12 frames hit effect
+        stateComponent.setDazed(12); // 12 frames daze effect
+      }
+
+      // Create damage text
+      const damageTextEntity = createDamageTextEntity(this.world, {
+        damage,
+        targetPos: enemy
+          .getComponent<TransformComponent>(TransformComponent.componentName)
+          .getPosition(),
+        isCritical,
+      });
+      this.world.addEntity(damageTextEntity);
+
+      // Play hit sound
+      SoundManager.playSound(enemy, 'hit');
+
+      // Check for death
+      if (health.currentHealth <= 0) {
+        enemy.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
+      }
+    }
+  }
+
+  // Helper method to calculate distance from a point to a line segment
+  private pointToLineDistance(
+    point: [number, number],
+    lineStart: [number, number],
+    lineEnd: [number, number],
+  ): number {
+    const x = point[0];
+    const y = point[1];
+    const x1 = lineStart[0];
+    const y1 = lineStart[1];
+    const x2 = lineEnd[0];
+    const y2 = lineEnd[1];
+
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) {
+      param = dot / lenSq;
+    }
+
+    let xx, yy;
+
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+
+    const dx = x - xx;
+    const dy = y - yy;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   update(deltaTime: number): void {
     this.checkPerformance();
 
@@ -274,8 +425,10 @@ export class DamageSystem extends System {
       // For area effects (which are triggers), always process continuous damage
       if (isAreaEffect1 || isAreaEffect2) {
         // Check if area effect is still valid
-        if (!damageComponent.isExpired()) {
+        if (damageComponent.isAoe() && !damageComponent.isExpired()) {
           this.processContinuousDamage(damageSource, enemy, damageComponent, health, position);
+        } else if (damageComponent.isLaser()) {
+          this.processLaserDamage(damageSource, damageComponent);
         }
       } else if (isProjectile1 || isProjectile2) {
         // For projectiles, only process damage if not a trigger

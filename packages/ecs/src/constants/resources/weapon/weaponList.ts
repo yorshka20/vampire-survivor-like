@@ -1,6 +1,7 @@
 import {
   AreaWeapon,
   BombWeapon,
+  LaserWeapon,
   MeleeWeapon,
   RangedWeapon,
   SpinningWeapon,
@@ -164,6 +165,18 @@ const Bomb: BombWeapon = {
   explosionColor: { r: 255, g: 255, b: 200, a: 0.2 }, // Light yellow color for explosion effect
 };
 
+const Laser: LaserWeapon = {
+  name: 'Laser',
+  damage: 100,
+  attackSpeed: 1,
+  attackCooldown: 1000,
+  type: WeaponType.LASER,
+  range: 400,
+  laserLength: 100,
+  laserWidth: 10,
+  color: { r: 255, g: 255, b: 233, a: 0.7 },
+};
+
 export const WeaponList: Weapon[] = [
   RapidFire,
   HeavyShot,
@@ -174,6 +187,7 @@ export const WeaponList: Weapon[] = [
   SpiralShot,
   SpiralOrb,
   Bomb,
+  Laser,
 ];
 
 export const WeaponMap = {
@@ -186,4 +200,5 @@ export const WeaponMap = {
   SpiralShot: SpiralShot,
   SpiralOrb: SpiralOrb,
   Bomb: Bomb,
+  Laser: Laser,
 } as const;

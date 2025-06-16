@@ -6,6 +6,7 @@ import {
 } from '@ecs/components';
 import {
   AreaWeapon,
+  LaserWeapon,
   MeleeWeapon,
   RangedWeapon,
   SpinningWeapon,
@@ -38,6 +39,8 @@ export interface WeaponProps {
   spiralWeapon?: SpiralWeapon;
   // Spinning weapon properties
   spinningWeapon?: SpinningWeapon;
+  // Laser weapon properties
+  laserWeapon?: LaserWeapon;
 }
 
 export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): Entity {
@@ -133,6 +136,18 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         projectileColor: finalProps.spiralWeapon?.projectileColor ?? color,
         projectileCount: finalProps.spiralWeapon?.projectileCount ?? 1,
         projectileLifetime: finalProps.spiralWeapon?.projectileLifetime ?? projectileLifetime,
+      };
+      break;
+    case WeaponType.LASER:
+      weaponData = {
+        name: 'Laser Weapon',
+        type: WeaponType.LASER,
+        damage: finalProps.damage,
+        attackSpeed: finalProps.attackSpeed,
+        range: finalProps.range,
+        laserLength: finalProps.laserWeapon?.laserLength ?? 100,
+        laserWidth: finalProps.laserWeapon?.laserWidth ?? 10,
+        color: finalProps.laserWeapon?.color ?? color,
       };
       break;
   }

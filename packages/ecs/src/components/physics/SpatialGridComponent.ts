@@ -286,4 +286,84 @@ export class SpatialGridComponent extends Component {
       }
     });
   }
+
+  // Get all cells that a line passes through
+  getCellsInLine(start: Point, end: Point, width: number): string[] {
+    const result = new Set<string>();
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / length;
+    const dirY = dy / length;
+
+    // Calculate perpendicular vector for width
+    const perpX = -dirY;
+    const perpY = dirX;
+
+    // Calculate the four corners of the line's bounding box
+    const halfWidth = width / 2;
+    const corners: Point[] = [
+      [start[0] + perpX * halfWidth, start[1] + perpY * halfWidth],
+      [start[0] - perpX * halfWidth, start[1] - perpY * halfWidth],
+      [end[0] + perpX * halfWidth, end[1] + perpY * halfWidth],
+      [end[0] - perpX * halfWidth, end[1] - perpY * halfWidth],
+    ];
+
+    // Get all cells that the corners are in
+    for (const corner of corners) {
+      const cellKey = this.getCellKey(corner[0], corner[1]);
+      result.add(cellKey);
+    }
+
+    // Get cells along the line
+    const steps = Math.ceil(length / this.cellSize);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = start[0] + dx * t;
+      const y = start[1] + dy * t;
+      const cellKey = this.getCellKey(x, y);
+      result.add(cellKey);
+    }
+
+    return Array.from(result);
+  }
+
+  // Get all entities in a specific cell
+  getEntitiesInCell(cellKey: string, queryType: SpatialQueryType = 'collision'): string[] {
+    const cell = this.grid.get(cellKey);
+    if (!cell) return [];
+
+    const result: string[] = [];
+    cell.entities.forEach((entityId) => {
+      switch (queryType) {
+        case 'collision-distant':
+        case 'collision':
+          if (
+            cell.entityTypes.get(entityId) === 'enemy' ||
+            cell.entityTypes.get(entityId) === 'player' ||
+            cell.entityTypes.get(entityId) === 'projectile' ||
+            cell.entityTypes.get(entityId) === 'areaEffect'
+          ) {
+            result.push(entityId);
+          }
+          break;
+        case 'damage':
+          if (
+            cell.entityTypes.get(entityId) === 'enemy' ||
+            cell.entityTypes.get(entityId) === 'projectile' ||
+            cell.entityTypes.get(entityId) === 'areaEffect'
+          ) {
+            result.push(entityId);
+          }
+          break;
+        case 'pickup':
+          if (cell.entityTypes.get(entityId) === 'pickup') {
+            result.push(entityId);
+          }
+          break;
+      }
+    });
+
+    return result;
+  }
 }

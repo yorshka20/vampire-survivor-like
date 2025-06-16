@@ -13,13 +13,19 @@ import { randomRgb } from './utils/rgb';
 
 export interface AreaEffectProps {
   position: Point;
-  radius: number;
-  duration: number;
-  tickRate: number;
+  type: 'laser' | 'area';
   damage: number;
   source: string;
   color?: Color;
   weapon: Weapon;
+  area?: {
+    radius: number;
+    duration: number;
+    tickRate: number;
+  };
+  laser?: {
+    aim: Point;
+  };
 }
 
 export function createAreaEffectEntity(world: World, props: AreaEffectProps): Entity {
@@ -32,19 +38,23 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
     }),
   );
 
+  const size: [number, number] =
+    props.type === 'laser' ? [10, 10] : [props.area?.radius ?? 0, props.area?.radius ?? 0];
+
   effect.addComponent(
     world.createComponent(ColliderComponent, {
       type: 'circle',
-      size: [props.radius * 2, props.radius * 2],
+      size,
       isTrigger: true,
     }),
   );
 
   effect.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'circle',
+      shape: props.type === 'laser' ? 'line' : 'circle',
       color: props.color ?? randomRgb(0.3),
-      size: [props.radius * 2, props.radius * 2],
+      size,
+      laser: props.type === 'laser' ? props.laser : undefined,
       layer: RenderLayerIdentifier.BACKGROUND,
     }),
   );
@@ -54,9 +64,10 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
       damage: props.damage,
       source: props.source,
       penetration: -1, // Infinite penetration for area effects
-      tickRate: props.tickRate,
-      duration: props.duration,
+      tickRate: props.area?.tickRate ?? 100,
+      duration: props.area?.duration ?? 400,
       weapon: props.weapon,
+      laser: props.laser,
     }),
   );
 

@@ -3,7 +3,7 @@ import { Component } from '@ecs/core/ecs/Component';
 import { PatternAssetManager, PatternEffect, PatternState } from '@ecs/core/resources';
 import { Color, Point, Size } from '@ecs/utils/types';
 
-export type ShapeType = 'circle' | 'rect' | 'triangle' | 'pattern';
+export type ShapeType = 'circle' | 'rect' | 'triangle' | 'pattern' | 'line';
 
 export type RenderPatternType =
   | 'player'
@@ -29,6 +29,9 @@ export interface RenderProperties {
   scale?: number;
   visible?: boolean;
   layer?: RenderLayerIdentifier;
+  laser?: {
+    aim: Point;
+  };
 }
 
 export class RenderComponent extends Component {
@@ -121,6 +124,10 @@ export class RenderComponent extends Component {
 
   getSize(): Size {
     return this.properties.size;
+  }
+
+  getLaser(): { aim: Point } | undefined {
+    return this.properties.laser;
   }
 
   getColor(): Color {

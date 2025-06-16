@@ -8,7 +8,7 @@ export interface EffectProps {
   position: Point;
   size: [number, number];
   color: { r: number; g: number; b: number; a: number };
-  type: 'explosion' | 'heal' | 'buff';
+  type: 'explosion' | 'heal' | 'buff' | 'laser';
   duration: number;
 }
 

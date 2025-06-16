@@ -116,16 +116,41 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
 
       this.ctx.save();
 
-      // Calculate position relative to the background
-      const relativeX = pos[0] + cameraOffset[0];
-      const relativeY = pos[1] + cameraOffset[1];
+      switch (render.getShape()) {
+        case 'circle':
+          // Calculate position relative to the background
+          const relativeX = pos[0] + cameraOffset[0];
+          const relativeY = pos[1] + cameraOffset[1];
 
-      this.ctx.translate(relativeX, relativeY);
-      this.ctx.fillStyle = this.colorToString(color);
-      this.ctx.beginPath();
-      this.ctx.arc(0, 0, size[0] / 2, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.closePath();
+          this.ctx.translate(relativeX, relativeY);
+          this.ctx.fillStyle = this.colorToString(color);
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, size[0] / 2, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.closePath();
+          break;
+        case 'line':
+          const laser = render.getLaser();
+          if (!laser) {
+            this.ctx.restore();
+            continue;
+          }
+
+          // For laser, we need to handle both start and end points with camera offset
+          const startX = pos[0] + cameraOffset[0];
+          const startY = pos[1] + cameraOffset[1];
+          const endX = laser.aim[0] + cameraOffset[0];
+          const endY = laser.aim[1] + cameraOffset[1];
+
+          this.ctx.beginPath();
+          this.ctx.lineWidth = 10;
+          this.ctx.strokeStyle = this.colorToString(color);
+          this.ctx.moveTo(startX, startY);
+          this.ctx.lineTo(endX, endY);
+          this.ctx.stroke();
+          this.ctx.closePath();
+          break;
+      }
 
       this.ctx.restore();
     }

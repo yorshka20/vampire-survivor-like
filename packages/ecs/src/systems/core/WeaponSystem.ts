@@ -9,6 +9,7 @@ import {
 import {
   AreaWeapon,
   BombWeapon,
+  LaserWeapon,
   MeleeWeapon,
   RangedWeapon,
   SpinningWeapon,
@@ -140,6 +141,16 @@ export class WeaponSystem extends System {
                 i,
               );
               break;
+            case WeaponType.LASER:
+              this.handleLaser(
+                weaponEntity,
+                weapon,
+                currentWeapon as LaserWeapon,
+                position,
+                effectiveDamage,
+                currentTime,
+                i,
+              );
           }
         }
       }
@@ -293,9 +304,12 @@ export class WeaponSystem extends System {
     // Create area effect entity
     const areaEffect = createAreaEffectEntity(this.world, {
       position: randomPos,
-      radius: currentWeapon.radius,
-      duration: currentWeapon.duration,
-      tickRate: currentWeapon.tickRate,
+      type: 'area',
+      area: {
+        radius: currentWeapon.radius,
+        duration: currentWeapon.duration,
+        tickRate: currentWeapon.tickRate,
+      },
       damage: effectiveDamage,
       source: entity.id,
       weapon: currentWeapon,
@@ -533,5 +547,41 @@ export class WeaponSystem extends System {
       this.world.addEntity(projectile);
       weapon.updateAttackTime(currentTime, weaponIndex);
     }
+  }
+
+  private handleLaser(
+    entity: Entity,
+    weapon: WeaponComponent,
+    currentWeapon: LaserWeapon,
+    position: [number, number],
+    effectiveDamage: number,
+    currentTime: number,
+    weaponIndex: number,
+  ): void {
+    const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
+    if (!enemyIds || enemyIds.length === 0) return;
+
+    const enemy = this.world.getEntityById(enemyIds[Math.floor(Math.random() * enemyIds.length)]);
+    if (!enemy?.isType('enemy')) return;
+
+    const enemyPos = enemy
+      .getComponent<TransformComponent>(TransformComponent.componentName)
+      .getPosition();
+
+    const effect = createAreaEffectEntity(this.world, {
+      position: [position[0], position[1]],
+      type: 'laser',
+      damage: effectiveDamage,
+      source: entity.id,
+      weapon: currentWeapon,
+      color: currentWeapon.color,
+      laser: {
+        aim: enemyPos,
+      },
+    });
+
+    this.world.addEntity(effect);
+
+    weapon.updateAttackTime(currentTime, weaponIndex);
   }
 }

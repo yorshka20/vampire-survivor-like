@@ -8,6 +8,7 @@ export enum WeaponType {
   SPIRAL = 'SPIRAL',
   SPINNING = 'SPINNING',
   BOMB = 'BOMB',
+  LASER = 'LASER',
 }
 
 export interface BaseWeapon {
@@ -80,10 +81,18 @@ export interface BombWeapon extends RangedWeapon {
   explosionColor: Color; // Color of the explosion effect
 }
 
+export interface LaserWeapon extends BaseWeapon {
+  type: WeaponType.LASER;
+  color: Color;
+  laserLength: number; // Length of the laser
+  laserWidth: number; // Width of the laser
+}
+
 export type Weapon =
   | RangedWeapon
   | MeleeWeapon
   | AreaWeapon
   | SpiralWeapon
   | SpinningWeapon
-  | BombWeapon;
+  | BombWeapon
+  | LaserWeapon;

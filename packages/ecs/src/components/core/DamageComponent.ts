@@ -1,5 +1,6 @@
 import { AreaWeapon, BombWeapon, Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { Component } from '@ecs/core/ecs/Component';
+import { Point } from '@ecs/utils/types';
 
 export interface DamageProps {
   damage: number;
@@ -9,6 +10,9 @@ export interface DamageProps {
   tickRate?: number; // Time between damage ticks in milliseconds
   duration?: number; // Total duration of the damage effect in milliseconds
   weapon: Weapon; // Reference to the weapon that caused this damage
+  laser?: {
+    aim: Point;
+  };
 }
 
 export class DamageComponent extends Component {
@@ -24,6 +28,9 @@ export class DamageComponent extends Component {
   startTime: number;
   hitEntities: Set<string>;
   weapon: Weapon;
+  laser?: {
+    aim: Point;
+  };
 
   constructor(props: DamageProps) {
     super('Damage');
@@ -37,6 +44,7 @@ export class DamageComponent extends Component {
     this.startTime = Date.now();
     this.hitEntities = new Set();
     this.weapon = props.weapon;
+    this.laser = props.laser;
   }
 
   recordHit(entityId: string): void {
@@ -70,6 +78,14 @@ export class DamageComponent extends Component {
       return (this.weapon as AreaWeapon).radius;
     }
     return (this.weapon as BombWeapon).explosionRadius;
+  }
+
+  isLaser(): boolean {
+    return this.weapon?.type === WeaponType.LASER;
+  }
+
+  getLaser(): { aim: Point } | undefined {
+    return this.laser;
   }
 
   canExplode(): this is { weapon: BombWeapon } {
