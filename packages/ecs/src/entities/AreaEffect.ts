@@ -26,6 +26,7 @@ export interface AreaEffectProps {
   };
   laser?: {
     aim: Point;
+    duration: number;
     laserWidth: number;
     laserLength: number;
   };
@@ -80,7 +81,7 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
   effect.addComponent(
     world.createComponent(
       LifecycleComponent,
-      props.type === 'laser' ? 1000 : (props.area?.duration ?? 400),
+      props.type === 'laser' ? (props.laser?.duration ?? 400) : (props.area?.duration ?? 400),
     ),
   );
 

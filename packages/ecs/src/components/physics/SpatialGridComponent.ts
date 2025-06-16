@@ -33,7 +33,7 @@ interface CacheConfig {
 export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
   private grid: Map<string, GridCell> = new Map();
-  private cellSize: number;
+  public cellSize: number;
   private worldSize: { width: number; height: number };
 
   // Cache system
@@ -88,8 +88,8 @@ export class SpatialGridComponent extends Component {
   }
 
   private getCellKey(x: number, y: number): string {
-    const cellX = Math.floor(x / this.cellSize);
-    const cellY = Math.floor(y / this.cellSize);
+    const cellX = Math.round(x / this.cellSize);
+    const cellY = Math.round(y / this.cellSize);
     return `${cellX},${cellY}`;
   }
 
@@ -264,6 +264,11 @@ export class SpatialGridComponent extends Component {
   // Get all cells that a line passes through
   getCellsInLine(start: Point, end: Point, width: number): string[] {
     const result = new Set<string>();
+
+    // Always include the start cell
+    const startCellKey = this.getCellKey(start[0], start[1]);
+    result.add(startCellKey);
+
     const dx = end[0] - start[0];
     const dy = end[1] - start[1];
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -289,14 +294,21 @@ export class SpatialGridComponent extends Component {
       result.add(cellKey);
     }
 
-    // Get cells along the line
-    const steps = Math.ceil(length / this.cellSize);
+    // Get cells along the line with smaller steps
+    const steps = Math.ceil(length / (this.cellSize / 4)); // Use smaller steps for better accuracy
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       const x = start[0] + dx * t;
       const y = start[1] + dy * t;
-      const cellKey = this.getCellKey(x, y);
-      result.add(cellKey);
+
+      // Add cells along the width of the line
+      const widthSteps = Math.ceil(width / (this.cellSize / 4));
+      for (let w = -widthSteps; w <= widthSteps; w++) {
+        const wx = x + perpX * ((w * this.cellSize) / 4);
+        const wy = y + perpY * ((w * this.cellSize) / 4);
+        const cellKey = this.getCellKey(wx, wy);
+        result.add(cellKey);
+      }
     }
 
     return Array.from(result);

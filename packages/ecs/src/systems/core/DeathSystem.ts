@@ -1,6 +1,6 @@
 import { DeathMarkComponent, HealthComponent, TransformComponent } from '@ecs/components';
 import { ItemDropRate } from '@ecs/constants/itemDropRate';
-import { PowerupStats, WeaponList } from '@ecs/constants/resources';
+import { PowerupStats, WeaponMap } from '@ecs/constants/resources';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
@@ -123,7 +123,8 @@ export class DeathSystem extends System {
   }
 
   private createWeaponPickup(x: number, y: number): void {
-    const randomWeapon = WeaponList[Math.floor(Math.random() * WeaponList.length)];
+    // const randomWeapon = WeaponList[Math.floor(Math.random() * WeaponList.length)];
+    const randomWeapon = WeaponMap.Laser;
 
     const weapon = createItemEntity(this.world, {
       position: [x, y],

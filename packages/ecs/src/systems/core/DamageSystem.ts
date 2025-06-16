@@ -15,6 +15,7 @@ import { Game } from '@ecs/core/game/Game';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
 import { CollisionSystem } from '../physics/CollisionSystem';
+import { RenderSystem } from '../rendering/RenderSystem';
 
 // Performance monitoring thresholds
 const PERFORMANCE_THRESHOLDS = {
@@ -24,6 +25,7 @@ const PERFORMANCE_THRESHOLDS = {
 
 export class DamageSystem extends System {
   private collisionSystem: CollisionSystem | null = null;
+  private renderSystem: RenderSystem | null = null;
   private lastPerformanceCheck: number = 0;
   private performanceCheckInterval: number = 1000; // Check every second
   private isInPerformanceMode: boolean = false;
@@ -46,6 +48,21 @@ export class DamageSystem extends System {
       throw new Error('CollisionSystem not found');
     }
     return this.collisionSystem;
+  }
+
+  private getRenderSystem(): RenderSystem {
+    if (this.renderSystem) return this.renderSystem;
+
+    if (!this.renderSystem) {
+      this.renderSystem = this.world.getSystem<RenderSystem>(
+        'RenderSystem',
+        SystemPriorities.RENDER,
+      );
+    }
+    if (!this.renderSystem) {
+      throw new Error('RenderSystem not found');
+    }
+    return this.renderSystem;
   }
 
   private checkPerformance(): void {
@@ -250,6 +267,12 @@ export class DamageSystem extends System {
       return;
     }
 
+    // Highlight cells in debug layer
+    const gridDebugLayer = this.getRenderSystem().getGridDebugLayer();
+    if (gridDebugLayer) {
+      gridDebugLayer.setHighlightedCells(cells);
+    }
+
     const hitEnemies: Entity[] = [];
     const processedEnemies = new Set<string>(); // Track processed enemies to avoid duplicates
 
@@ -284,8 +307,8 @@ export class DamageSystem extends System {
         // Calculate distance from enemy to laser line
         const distance = this.pointToRayDistance(enemyPos, startPos, dirX, dirY);
 
-        // If enemy is within laser width, they are hit
-        if (distance <= laserWidth + enemyRadius) {
+        // If enemy is within laser width plus their radius, they are hit
+        if (distance <= laserWidth / 2 + enemyRadius) {
           hitEnemies.push(enemy);
         }
       }

@@ -86,6 +86,7 @@ export interface LaserWeapon extends BaseWeapon {
   color: Color;
   laserLength: number; // Length of the laser
   laserWidth: number; // Width of the laser
+  laserDuration: number; // Duration of the laser effect in milliseconds
 }
 
 export type Weapon =

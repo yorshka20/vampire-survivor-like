@@ -175,6 +175,7 @@ const Laser: LaserWeapon = {
   laserLength: 2000,
   laserWidth: 50,
   color: { r: 255, g: 255, b: 233, a: 0.7 },
+  laserDuration: 400,
 };
 
 export const WeaponList: Weapon[] = [
