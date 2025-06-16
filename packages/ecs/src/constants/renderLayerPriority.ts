@@ -8,6 +8,8 @@ export enum RenderLayerPriority {
   PROJECTILE,
   /** damage text */
   DAMAGE_TEXT,
+  /** grid debug */
+  GRID_DEBUG,
 }
 
 export enum RenderLayerIdentifier {
@@ -16,4 +18,5 @@ export enum RenderLayerIdentifier {
   DAMAGE_TEXT = 'damage-text',
   ITEM = 'item',
   PROJECTILE = 'projectile',
+  GRID_DEBUG = 'grid-debug',
 }

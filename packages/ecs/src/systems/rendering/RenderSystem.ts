@@ -8,6 +8,7 @@ import {
   BackgroundRenderLayer,
   DamageTextLayer,
   EntityRenderLayer,
+  GridDebugLayer,
   ItemRenderLayer,
   ProjectileRenderLayer,
 } from './layers';
@@ -52,6 +53,8 @@ export class RenderSystem extends System {
       new ItemRenderLayer(this.mainCanvas, this.mainCtx),
       new ProjectileRenderLayer(this.mainCanvas, this.mainCtx),
       new BackgroundRenderLayer(this.mainCanvas, this.mainCtx, bgImage),
+      // Debug layers
+      new GridDebugLayer(this.mainCanvas, this.mainCtx, 100), // 100 is the cell size
       // UI layers with their own canvas
       new DamageTextLayer(rootElement),
     ];
@@ -171,5 +174,12 @@ export class RenderSystem extends System {
     }
     this.layers.length = 0;
     this.rootElement.removeChild(this.mainCanvas);
+  }
+
+  // Add method to get grid debug layer
+  getGridDebugLayer(): GridDebugLayer | undefined {
+    return this.layers.find(
+      (layer) => layer.identifier === RenderLayerIdentifier.GRID_DEBUG,
+    ) as GridDebugLayer;
   }
 }
