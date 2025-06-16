@@ -1,6 +1,12 @@
 import { World } from '@ecs/core/ecs/World';
-import { initPatternAssets } from '@ecs/core/resources/initPatternAssets';
+import {
+  initAudioAssets,
+  initImageAssets,
+  initPatternAssets,
+  initSpriteSheetAssets,
+} from '@ecs/core/resources/loader';
 import { GameStore } from '@ecs/core/store/GameStore';
+import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
 import { GameLoop } from './GameLoop';
 
 export interface Viewport {
@@ -75,15 +81,23 @@ export class Game {
     this.initializationPromise = (async () => {
       try {
         console.log('Initializing game...');
-        // Initialize pattern assets
+
+        const renderSystem = this.world.systems.get(RenderSystem.name);
+        if (!renderSystem) {
+          throw new Error('RenderSystem not found');
+        }
+        // Initialize all game assets
+        await initImageAssets(renderSystem as RenderSystem);
+        console.log('Background images loaded');
+
+        await initAudioAssets();
+        console.log('Audio resources loaded');
+
+        await initSpriteSheetAssets();
+        console.log('Sprite sheets loaded');
+
         await initPatternAssets();
         console.log('Pattern assets initialized');
-
-        // Add other initialization steps here
-        // For example:
-        // await initAudioAssets();
-        // await initPhysics();
-        // etc.
 
         this.initialized = true;
         console.log('Game initialized successfully');

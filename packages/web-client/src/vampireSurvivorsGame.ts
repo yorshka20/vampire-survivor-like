@@ -19,7 +19,6 @@ import {
   createPlayerEntity,
 } from '@ecs';
 import { RectArea } from '@ecs/utils/types';
-import { loadGameResources } from './stores/game';
 
 export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance
@@ -48,13 +47,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   const renderSystem = new RenderSystem(rootElement, viewport);
   world.addSystem(renderSystem);
 
-  try {
-    await loadGameResources(renderSystem);
-  } catch (error) {
-    console.error('Failed to load resources:', error);
-  }
-
-  // Initialize game and pattern assets
+  // Initialize game and all assets
   await game.initialize();
 
   // Create player entity at center of screen

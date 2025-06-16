@@ -2,7 +2,12 @@ export { type Entity } from './core/ecs/Entity';
 export { System } from './core/ecs/System';
 export { World } from './core/ecs/World';
 export { Game } from './core/game/Game';
-export { ResourceManager } from './core/resources/ResourceManager';
+export {
+  initAudioAssets,
+  initImageAssets,
+  initSpriteSheetAssets,
+  ResourceManager,
+} from './core/resources';
 export { GameStore } from './core/store/GameStore';
 
 export * from './components';
