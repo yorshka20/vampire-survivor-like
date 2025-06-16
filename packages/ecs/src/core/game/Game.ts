@@ -1,3 +1,4 @@
+import { ResourceManager } from '@ecs';
 import { World } from '@ecs/core/ecs/World';
 import {
   initAudioAssets,
@@ -87,8 +88,12 @@ export class Game {
           throw new Error('RenderSystem not found');
         }
         // Initialize all game assets
-        await initImageAssets(renderSystem as RenderSystem);
+        await initImageAssets();
         console.log('Background images loaded');
+        const bg = ResourceManager.getInstance().getImage('bg');
+        if (bg) {
+          (renderSystem as RenderSystem).setBackgroundImage(bg);
+        }
 
         await initAudioAssets();
         console.log('Audio resources loaded');

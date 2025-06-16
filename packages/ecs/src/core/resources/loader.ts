@@ -1,6 +1,5 @@
 import { RenderPatternType } from '@ecs/components';
 import { playerAnimations, slimeAnimations } from '@ecs/constants/resources/animation';
-import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
 import { PatternAssetManager } from './PatternAssetManager';
 import { ResourceManager } from './ResourceManager';
@@ -42,13 +41,9 @@ export async function initAudioAssets() {
   await resourceManager.loadAudio('tap', '/assets/sounds/tap.wav');
 }
 
-export async function initImageAssets(renderSystem: RenderSystem) {
+export async function initImageAssets() {
   const resourceManager = ResourceManager.getInstance();
   await resourceManager.loadImage('bg', '/assets/texture.png');
-  const bg = resourceManager.getImage('bg');
-  if (bg) {
-    renderSystem.setBackgroundImage(bg);
-  }
 }
 
 export async function initSpriteSheetAssets() {

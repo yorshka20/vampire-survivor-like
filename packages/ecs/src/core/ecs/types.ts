@@ -1,10 +1,13 @@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
-import { IPoolable } from '../pool/IPoolable';
+import { IPoolable, IPoolableConfig } from '../pool/IPoolable';
 import { Component } from './Component';
 import { World } from './World';
 
 // define component constructor type
-export type ComponentConstructor<T extends Component> = new (...args: any[]) => T;
+export type ComponentConstructor<T extends Component> = {
+  new (...args: any[]): T;
+  poolConfig: IPoolableConfig;
+};
 
 // define component props type extraction
 export type ComponentProps<T> = T extends new (props: infer P) => any ? P : never;

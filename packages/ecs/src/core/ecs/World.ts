@@ -1,26 +1,5 @@
-import {
-  AIComponent,
-  AnimationComponent,
-  ChaseComponent,
-  ColliderComponent,
-  DamageComponent,
-  DamageTextComponent,
-  DeathMarkComponent,
-  ExperienceComponent,
-  HealthComponent,
-  InputComponent,
-  LifecycleComponent,
-  MovementComponent,
-  PickupComponent,
-  RenderComponent,
-  SoundEffectComponent,
-  SpiralMovementComponent,
-  StateComponent,
-  StatsComponent,
-  VelocityComponent,
-  WeaponComponent,
-} from '@ecs/components';
 import { generateEntityId } from '../../utils/name';
+import { ComponentPoolList, EntityPoolList } from '../pool/constants';
 import { PoolManager } from '../pool/PoolManager';
 import { Component } from './Component';
 import { Entity } from './Entity';
@@ -60,17 +39,7 @@ export class World implements IWorld {
 
   private initializeEntityPools(): void {
     // Create pools for different entity types
-    const entityTypes: EntityType[] = [
-      'player',
-      'enemy',
-      'projectile',
-      'weapon',
-      'areaEffect',
-      'damageText',
-      'pickup',
-      'effect',
-      'other',
-    ];
+    const entityTypes: EntityType[] = EntityPoolList;
 
     entityTypes.forEach((type) => {
       this.poolManager.createEntityPool(
@@ -84,36 +53,14 @@ export class World implements IWorld {
 
   private initializeComponentPools(): void {
     // Create pools for all component classes
-    const componentClasses = [
-      MovementComponent,
-      RenderComponent,
-      HealthComponent,
-      AIComponent,
-      ColliderComponent,
-      VelocityComponent,
-      DamageComponent,
-      LifecycleComponent,
-      InputComponent,
-      ExperienceComponent,
-      StatsComponent,
-      WeaponComponent,
-      PickupComponent,
-      DamageTextComponent,
-      DeathMarkComponent,
-      ChaseComponent,
-      SoundEffectComponent,
-      SpiralMovementComponent,
-      StateComponent,
-      AnimationComponent,
-    ];
+    const componentClasses = ComponentPoolList;
 
     componentClasses.forEach((ComponentClass) => {
-      const { poolConfig } = ComponentClass;
       this.poolManager.createComponentPool(
         ComponentClass,
         (props: any) => new ComponentClass(props),
-        poolConfig.initialSize,
-        poolConfig.maxSize,
+        ComponentClass.poolConfig.initialSize,
+        ComponentClass.poolConfig.maxSize,
       );
     });
   }
@@ -154,7 +101,7 @@ export class World implements IWorld {
       // just return, DO NOT reset.
       component.onDetach();
       this.poolManager.returnComponentToPool(
-        component.constructor as new (...args: any[]) => Component,
+        component.constructor as ComponentConstructor<Component>,
         component,
       );
     });
