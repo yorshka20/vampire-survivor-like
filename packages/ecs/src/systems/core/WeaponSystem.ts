@@ -9,6 +9,7 @@ import {
 import {
   AreaWeapon,
   BombWeapon,
+  LaserBurstWeapon,
   LaserWeapon,
   MeleeWeapon,
   RangedWeapon,
@@ -133,8 +134,17 @@ export class WeaponSystem extends System {
               currentWeapon: currentWeapon as LaserWeapon,
             });
             break;
+          case WeaponType.LASER_BURST:
+            this.handleLaserBurst({
+              ...baseParameters,
+              currentWeapon: currentWeapon as LaserBurstWeapon,
+            });
+            break;
         }
       }
+
+      // clear once weapons
+      weapon.clearOnceWeapon();
     }
   }
 
@@ -557,7 +567,7 @@ export class WeaponSystem extends System {
 
     // Create laser effect
     const effect = createAreaEffectEntity(this.world, {
-      position,
+      position: [position[0], position[1]],
       type: 'laser',
       damage: effectiveDamage,
       source: weaponEntity.id,
@@ -572,6 +582,44 @@ export class WeaponSystem extends System {
     });
 
     this.world.addEntity(effect);
+    weapon.updateAttackTime(currentTime, weaponIndex);
+  }
+
+  private handleLaserBurst({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<LaserBurstWeapon>): void {
+    // Create multiple lasers
+    for (let i = 0; i < currentWeapon.beamCount; i++) {
+      const angle = (i / currentWeapon.beamCount) * (2 * Math.PI);
+
+      const aimX = position[0] + Math.cos(angle) * currentWeapon.laserLength;
+      const aimY = position[1] + Math.sin(angle) * currentWeapon.laserLength;
+
+      // Create laser effect
+      const effect = createAreaEffectEntity(this.world, {
+        position: [position[0], position[1]],
+        type: 'laser',
+        damage: effectiveDamage,
+        source: weaponEntity.id,
+        weapon: currentWeapon,
+        color: currentWeapon.color,
+        laser: {
+          aim: [aimX, aimY],
+          duration: currentWeapon.laserDuration,
+          laserWidth: currentWeapon.laserWidth,
+          laserLength: currentWeapon.laserLength,
+        },
+      });
+
+      this.world.addEntity(effect);
+    }
+
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 }

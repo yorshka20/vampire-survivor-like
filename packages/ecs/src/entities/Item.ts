@@ -89,8 +89,10 @@ function getItemPatternType(type: PickupType): RenderPatternType {
       return 'exp';
     case 'powerup':
       return 'star';
-    case 'specialEffect':
+    case 'globalPull':
       return 'star';
+    case 'laserBurst':
+      return 'burst';
     case 'magnet':
       return 'magnet';
     default:

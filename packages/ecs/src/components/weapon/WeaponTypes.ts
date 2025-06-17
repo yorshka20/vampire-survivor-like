@@ -9,6 +9,7 @@ export enum WeaponType {
   SPINNING = 'SPINNING',
   BOMB = 'BOMB',
   LASER = 'LASER',
+  LASER_BURST = 'LASER_BURST',
 }
 
 export interface BaseWeapon {
@@ -102,6 +103,16 @@ export interface LaserWeapon extends BaseWeapon {
   laserDuration: number; // Duration of the laser effect in milliseconds
 }
 
+export interface LaserBurstWeapon extends BaseWeapon {
+  type: WeaponType.LASER_BURST;
+  beamCount: number;
+  rotationSpeed: number;
+  color: Color;
+  laserLength: number; // Length of the laser
+  laserWidth: number; // Width of the laser
+  laserDuration: number; // Duration of the laser effect in milliseconds
+}
+
 export type Weapon =
   | RangedWeapon
   | MeleeWeapon
@@ -109,4 +120,5 @@ export type Weapon =
   | SpiralWeapon
   | SpinningWeapon
   | BombWeapon
-  | LaserWeapon;
+  | LaserWeapon
+  | LaserBurstWeapon;

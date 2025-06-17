@@ -16,6 +16,7 @@ export class WeaponComponent extends Component {
   currentWeaponIndex: number;
   lastAttackTimes: number[] = [];
   attackCooldown: number = 200;
+  onceWeapons: Weapon[] = [];
 
   constructor(props: WeaponProps) {
     super('Weapon');
@@ -33,6 +34,22 @@ export class WeaponComponent extends Component {
     if (this.weapons.length >= WeaponComponent.maxWeapons) return;
     this.weapons.push(weapon);
     this.lastAttackTimes.push(0);
+  }
+
+  onceAttack(weapon: Weapon): void {
+    this.weapons.push(weapon);
+    this.lastAttackTimes.push(0);
+
+    this.onceWeapons.push(weapon);
+    // remove the weapon after attack
+  }
+
+  clearOnceWeapon(): void {
+    this.onceWeapons.forEach((weapon) => {
+      this.weapons.splice(this.weapons.indexOf(weapon), 1);
+      this.lastAttackTimes.splice(this.weapons.indexOf(weapon), 1);
+    });
+    this.onceWeapons.length = 0;
   }
 
   switchWeapon(index: number): void {

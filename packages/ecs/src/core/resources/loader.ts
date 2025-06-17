@@ -22,6 +22,7 @@ export async function initPatternAssets(): Promise<void> {
     'exp',
     'magnet',
     'projectile',
+    'burst',
   ];
 
   const patternManager = PatternAssetManager.getInstance();

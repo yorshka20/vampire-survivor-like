@@ -245,6 +245,8 @@ function getRenderPattern(patternType: string) {
       return '🧲';
     case 'projectile':
       return '💣';
+    case 'burst':
+      return '💥';
     default:
       return '';
   }

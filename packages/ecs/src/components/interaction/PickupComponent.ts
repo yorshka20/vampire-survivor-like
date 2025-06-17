@@ -8,7 +8,8 @@ export type PickupType =
   | 'powerup'
   | 'pickup'
   | 'magnet'
-  | 'specialEffect';
+  | 'globalPull'
+  | 'laserBurst';
 
 interface PickupProps {
   type: PickupType;

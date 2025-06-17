@@ -7,6 +7,7 @@ import {
   TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
+import { WeaponMap } from '@ecs/constants/resources';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { IEntity } from '@ecs/core/ecs/types';
@@ -142,7 +143,7 @@ export class PickupSystem extends System {
         case 'weapon':
           if (pickup.weapon) {
             const weapons = player.getComponent<WeaponComponent>(WeaponComponent.componentName);
-            weapons.addWeapon(pickup.weapon);
+            // weapons.addWeapon(pickup.weapon);
           }
           break;
 
@@ -160,8 +161,13 @@ export class PickupSystem extends System {
           stats.applyIncrement('pickupRangeMultiplier', pickup.value);
           break;
 
-        case 'specialEffect':
+        case 'globalPull':
           this.triggerGlobalItemPull(player);
+          SoundManager.playSound(player, 'coin');
+          break;
+
+        case 'laserBurst':
+          this.triggerLaserBurst(player);
           SoundManager.playSound(player, 'coin');
           break;
       }
@@ -208,5 +214,11 @@ export class PickupSystem extends System {
         }),
       );
     }
+  }
+
+  private triggerLaserBurst(player: IEntity): void {
+    // add weapon. will attack once.
+    const weaponComponent = player.getComponent<WeaponComponent>(WeaponComponent.componentName);
+    weaponComponent.onceAttack(WeaponMap.LaserBurst);
   }
 }

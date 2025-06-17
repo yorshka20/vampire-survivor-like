@@ -7,7 +7,7 @@ import {
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
-import { LaserWeapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
+import { LaserWeapon } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -241,7 +241,7 @@ export class DamageSystem extends System {
     }
     // Get weapon configuration
     const weapon = damageComponent.weapon;
-    if (!weapon || weapon.type !== WeaponType.LASER) {
+    if (!weapon || !damageComponent.isLaser()) {
       return;
     }
 

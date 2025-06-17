@@ -92,7 +92,7 @@ export class DamageComponent extends Component {
   }
 
   isLaser(): boolean {
-    return this.weapon?.type === WeaponType.LASER;
+    return this.weapon?.type === WeaponType.LASER || this.weapon?.type === WeaponType.LASER_BURST;
   }
 
   getLaser(): { aim: Point } | undefined {

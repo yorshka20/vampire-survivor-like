@@ -1,6 +1,7 @@
 import {
   AreaWeapon,
   BombWeapon,
+  LaserBurstWeapon,
   LaserWeapon,
   MeleeWeapon,
   RangedWeapon,
@@ -178,6 +179,21 @@ const Laser: LaserWeapon = {
   laserDuration: 800,
 };
 
+const LaserBurst: LaserBurstWeapon = {
+  name: 'Laser Burst',
+  damage: 100,
+  attackSpeed: 1,
+  attackCooldown: 0,
+  beamCount: 10,
+  rotationSpeed: 180,
+  type: WeaponType.LASER_BURST,
+  range: 400,
+  laserLength: 2000,
+  laserWidth: 50,
+  color: { r: 255, g: 255, b: 233, a: 0.7 },
+  laserDuration: 3000,
+};
+
 export const WeaponList: Weapon[] = [
   RapidFire,
   HeavyShot,
@@ -189,6 +205,7 @@ export const WeaponList: Weapon[] = [
   SpiralOrb,
   Bomb,
   Laser,
+  LaserBurst,
 ];
 
 export const WeaponMap = {
@@ -202,4 +219,5 @@ export const WeaponMap = {
   SpiralOrb: SpiralOrb,
   Bomb: Bomb,
   Laser: Laser,
+  LaserBurst: LaserBurst,
 } as const;

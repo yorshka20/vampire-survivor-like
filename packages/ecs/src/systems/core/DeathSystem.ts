@@ -32,6 +32,10 @@ export class DeathSystem extends System {
         rate: ItemDropRate.GLOBAL_PULL,
         create: (position) => this.createGlobalPullPickup(position[0], position[1]),
       },
+      {
+        rate: ItemDropRate.LASER_BURST,
+        create: (position) => this.createLaserBurstPickup(position[0], position[1]),
+      },
     ];
   }
 
@@ -162,7 +166,18 @@ export class DeathSystem extends System {
   private createGlobalPullPickup(x: number, y: number): void {
     const pickup = createItemEntity(this.world, {
       position: [x, y],
-      type: 'specialEffect',
+      type: 'globalPull',
+      size: [40, 40],
+      pullable: false,
+    });
+
+    this.world.addEntity(pickup);
+  }
+
+  private createLaserBurstPickup(x: number, y: number): void {
+    const pickup = createItemEntity(this.world, {
+      position: [x, y],
+      type: 'laserBurst',
       size: [40, 40],
       pullable: false,
     });
