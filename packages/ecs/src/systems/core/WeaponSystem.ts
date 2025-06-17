@@ -564,13 +564,13 @@ export class WeaponSystem extends System {
       weapon: currentWeapon,
       color: currentWeapon.color,
       laser: {
-        aim: [...enemyPos],
+        aim: [enemyPos[0], enemyPos[1]], // Create new array explicitly
         duration: currentWeapon.laserDuration,
         laserWidth: currentWeapon.laserWidth,
         laserLength: currentWeapon.laserLength,
       },
     });
-    console.log('aim', enemyPos);
+    
     this.world.addEntity(effect);
     weapon.updateAttackTime(currentTime, weaponIndex);
   }

@@ -443,8 +443,9 @@ export class DamageSystem extends System {
         // Check if area effect is still valid
         if (damageComponent.isAoe() && !damageComponent.isExpired()) {
           this.processContinuousDamage(damageSource, enemy, damageComponent, health, position);
-        } else if (damageComponent.isLaser()) {
+        } else if (damageComponent.isLaser() && !damageComponent.laserProcessed) {
           this.processLaserDamage(damageSource, damageComponent);
+          damageComponent.laserProcessed = true;
         }
       } else if (isProjectile1 || isProjectile2) {
         // For projectiles, only process damage if not a trigger

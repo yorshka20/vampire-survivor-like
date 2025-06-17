@@ -31,6 +31,7 @@ export class DamageComponent extends Component {
   laser?: {
     aim: Point;
   };
+  laserProcessed: boolean;
 
   constructor(props: DamageProps) {
     super('Damage');
@@ -44,7 +45,11 @@ export class DamageComponent extends Component {
     this.startTime = Date.now();
     this.hitEntities = new Set();
     this.weapon = props.weapon;
-    this.laser = props.laser;
+    // Deep copy laser to avoid reference sharing
+    this.laser = props.laser ? {
+      aim: [props.laser.aim[0], props.laser.aim[1]]
+    } : undefined;
+    this.laserProcessed = false;
   }
 
   recordHit(entityId: string): void {
@@ -119,6 +124,7 @@ export class DamageComponent extends Component {
     this.hitEntities.clear();
     this.lastTickTime = Date.now();
     this.startTime = Date.now();
+    this.laserProcessed = false;
   }
 
   recreate(props: DamageProps): void {
@@ -128,5 +134,11 @@ export class DamageComponent extends Component {
     this.penetration = props.penetration ?? 1;
     this.tickRate = props.tickRate;
     this.duration = props.duration;
+    this.weapon = props.weapon;
+    // Deep copy laser to avoid reference sharing
+    this.laser = props.laser ? {
+      aim: [props.laser.aim[0], props.laser.aim[1]]
+    } : undefined;
+    this.laserProcessed = false;
   }
 }

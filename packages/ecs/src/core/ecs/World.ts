@@ -122,6 +122,12 @@ export class World implements IWorld {
   }
 
   createEntity(type: EntityType): Entity {
+    // For areaEffect entities (which include lasers), always create new entities
+    // to ensure unique IDs, since multiple laser effects may exist simultaneously
+    if (type === 'areaEffect') {
+      return new Entity(generateEntityId(type), type);
+    }
+    
     const entity = this.poolManager.getEntityFromPool(type);
     if (entity) {
       return entity;
