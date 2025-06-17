@@ -63,4 +63,51 @@ export class RenderUtils {
     // Render pattern image
     ctx.drawImage(patternImage, x, y, drawWidth, drawHeight);
   }
+
+  static drawLaser(
+    ctx: CanvasRenderingContext2D,
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    color: Color,
+  ): void {
+    // Calculate laser lifetime (0 to 1)
+    const lifeTime = (Date.now() % 1000) / 1000; // Animation cycle of 1 second
+    const opacity = Math.sin(lifeTime * Math.PI); // Sine wave for smooth animation
+
+    // Draw outer glow
+    ctx.beginPath();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = this.colorToString(color);
+    ctx.lineWidth = 20;
+    ctx.globalAlpha = 0.3 * opacity;
+    ctx.strokeStyle = this.colorToString(color);
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Draw middle layer
+    ctx.beginPath();
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 15;
+    ctx.globalAlpha = 0.5 * opacity;
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Draw core
+    ctx.beginPath();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = opacity;
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Reset context properties
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.closePath();
+  }
 }

@@ -15,6 +15,7 @@ import { Game } from '@ecs/core/game/Game';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
 import { CollisionSystem } from '../physics/CollisionSystem';
+import { GridDebugLayer } from '../rendering';
 import { RenderSystem } from '../rendering/RenderSystem';
 
 // Performance monitoring thresholds
@@ -29,6 +30,8 @@ export class DamageSystem extends System {
   private lastPerformanceCheck: number = 0;
   private performanceCheckInterval: number = 1000; // Check every second
   private isInPerformanceMode: boolean = false;
+
+  private highlightedCells: string[] = [];
 
   constructor() {
     super('DamageSystem', SystemPriorities.DAMAGE, 'logic');
@@ -228,6 +231,9 @@ export class DamageSystem extends System {
   }
 
   private processLaserDamage(damageSource: Entity, damageComponent: DamageComponent): void {
+    // laser only attack once because it's aoe
+    if (damageComponent.laserProcessed) return;
+
     const { damage, isCritical } = damageComponent.getDamage();
     const laser = damageComponent.getLaser();
     if (!laser) {
@@ -268,10 +274,7 @@ export class DamageSystem extends System {
     }
 
     // Highlight cells in debug layer
-    const gridDebugLayer = this.getRenderSystem().getGridDebugLayer();
-    if (gridDebugLayer) {
-      gridDebugLayer.setHighlightedCells(cells);
-    }
+    this.collectHighlightedCells(cells);
 
     const hitEnemies: Entity[] = [];
     const processedEnemies = new Set<string>(); // Track processed enemies to avoid duplicates
@@ -344,6 +347,9 @@ export class DamageSystem extends System {
         enemy.addComponent(this.world.createComponent(DeathMarkComponent, undefined));
       }
     }
+
+    // mark laser as processed
+    damageComponent.laserProcessed = true;
   }
 
   // Helper method to calculate distance from a point to a ray
@@ -379,6 +385,32 @@ export class DamageSystem extends System {
     const dy = y - closestY;
 
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private getGridDebugLayer(): GridDebugLayer {
+    const gridDebugLayer = this.getRenderSystem().getGridDebugLayer();
+    if (!gridDebugLayer) {
+      throw new Error('GridDebugLayer not found');
+    }
+    return gridDebugLayer;
+  }
+
+  private collectHighlightedCells(cells: string[]): void {
+    const gridDebugLayer = this.getGridDebugLayer();
+    if (!gridDebugLayer) {
+      throw new Error('GridDebugLayer not found');
+    }
+    this.highlightedCells.push(...cells);
+  }
+
+  private sendHighlightedCells(): void {
+    const gridDebugLayer = this.getGridDebugLayer();
+    if (!gridDebugLayer) {
+      throw new Error('GridDebugLayer not found');
+    }
+    if (this.highlightedCells.length === 0) return;
+    gridDebugLayer.setHighlightedCells(this.highlightedCells);
+    this.highlightedCells.length = 0;
   }
 
   update(deltaTime: number): void {
@@ -443,9 +475,8 @@ export class DamageSystem extends System {
         // Check if area effect is still valid
         if (damageComponent.isAoe() && !damageComponent.isExpired()) {
           this.processContinuousDamage(damageSource, enemy, damageComponent, health, position);
-        } else if (damageComponent.isLaser() && !damageComponent.laserProcessed) {
+        } else if (damageComponent.isLaser()) {
           this.processLaserDamage(damageSource, damageComponent);
-          damageComponent.laserProcessed = true;
         }
       } else if (isProjectile1 || isProjectile2) {
         // For projectiles, only process damage if not a trigger
@@ -480,5 +511,7 @@ export class DamageSystem extends System {
     for (const entity of entitiesToRemove) {
       this.world.removeEntity(entity);
     }
+
+    this.sendHighlightedCells();
   }
 }

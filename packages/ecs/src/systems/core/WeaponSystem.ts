@@ -70,69 +70,69 @@ export class WeaponSystem extends System {
         const attackInterval = TimeUtil.toMilliseconds(1) / effectiveAttackSpeed;
         const lastAttackTime = weapon.lastAttackTimes[i] ?? 0;
 
-        if (currentTime - lastAttackTime >= attackInterval) {
-          const position = transform.getPosition();
-          const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
+        if (currentTime - lastAttackTime < attackInterval) continue;
 
-          const baseParameters = {
-            weaponEntity,
-            weapon,
-            position,
-            effectiveDamage,
-            currentTime,
-            weaponIndex: i,
-          };
+        const position = transform.getPosition();
+        const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
 
-          switch (currentWeapon.type) {
-            case WeaponType.RANGED_AUTO_AIM:
-              this.handleRangedAutoAim({
-                ...baseParameters,
-                currentWeapon: currentWeapon as RangedWeapon,
-              });
-              break;
-            case WeaponType.RANGED_FIXED:
-              this.handleRangedFixed({
-                ...baseParameters,
-                currentWeapon: currentWeapon as RangedWeapon,
-              });
-              break;
-            case WeaponType.MELEE:
-              this.handleMelee({
-                ...baseParameters,
-                currentWeapon: currentWeapon as MeleeWeapon,
-              });
-              break;
-            case WeaponType.AREA:
-              this.handleArea({
-                ...baseParameters,
-                currentWeapon: currentWeapon as AreaWeapon,
-              });
-              break;
-            case WeaponType.SPIRAL:
-              this.handleSpiral({
-                ...baseParameters,
-                currentWeapon: currentWeapon as SpiralWeapon,
-              });
-              break;
-            case WeaponType.SPINNING:
-              this.handleSpinning({
-                ...baseParameters,
-                currentWeapon: currentWeapon as SpinningWeapon,
-              });
-              break;
-            case WeaponType.BOMB:
-              this.handleBomb({
-                ...baseParameters,
-                currentWeapon: currentWeapon as BombWeapon,
-              });
-              break;
-            case WeaponType.LASER:
-              this.handleLaser({
-                ...baseParameters,
-                currentWeapon: currentWeapon as LaserWeapon,
-              });
-              break;
-          }
+        const baseParameters = {
+          weaponEntity,
+          weapon,
+          position,
+          effectiveDamage,
+          currentTime,
+          weaponIndex: i,
+        };
+
+        switch (currentWeapon.type) {
+          case WeaponType.RANGED_AUTO_AIM:
+            this.handleRangedAutoAim({
+              ...baseParameters,
+              currentWeapon: currentWeapon as RangedWeapon,
+            });
+            break;
+          case WeaponType.RANGED_FIXED:
+            this.handleRangedFixed({
+              ...baseParameters,
+              currentWeapon: currentWeapon as RangedWeapon,
+            });
+            break;
+          case WeaponType.MELEE:
+            this.handleMelee({
+              ...baseParameters,
+              currentWeapon: currentWeapon as MeleeWeapon,
+            });
+            break;
+          case WeaponType.AREA:
+            this.handleArea({
+              ...baseParameters,
+              currentWeapon: currentWeapon as AreaWeapon,
+            });
+            break;
+          case WeaponType.SPIRAL:
+            this.handleSpiral({
+              ...baseParameters,
+              currentWeapon: currentWeapon as SpiralWeapon,
+            });
+            break;
+          case WeaponType.SPINNING:
+            this.handleSpinning({
+              ...baseParameters,
+              currentWeapon: currentWeapon as SpinningWeapon,
+            });
+            break;
+          case WeaponType.BOMB:
+            this.handleBomb({
+              ...baseParameters,
+              currentWeapon: currentWeapon as BombWeapon,
+            });
+            break;
+          case WeaponType.LASER:
+            this.handleLaser({
+              ...baseParameters,
+              currentWeapon: currentWeapon as LaserWeapon,
+            });
+            break;
         }
       }
     }
@@ -570,7 +570,7 @@ export class WeaponSystem extends System {
         laserLength: currentWeapon.laserLength,
       },
     });
-    
+
     this.world.addEntity(effect);
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
