@@ -462,7 +462,11 @@ export class DamageSystem extends System {
       }
 
       // Handle projectile removal
-      if (!damageComponent.canHitMore() || damageComponent.isExpired()) {
+      if (
+        (!damageComponent.canHitMore() || damageComponent.isExpired()) &&
+        // some damageSource should not be removed by attack, it will be removed by lifeCycleSystem
+        damageComponent.shouldRemoveAfterAttack()
+      ) {
         entitiesToRemove.push(damageSource);
 
         // trigger onDestroyed callback if the damageSource is removed by damageSystem

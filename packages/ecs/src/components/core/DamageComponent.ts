@@ -46,9 +46,11 @@ export class DamageComponent extends Component {
     this.hitEntities = new Set();
     this.weapon = props.weapon;
     // Deep copy laser to avoid reference sharing
-    this.laser = props.laser ? {
-      aim: [props.laser.aim[0], props.laser.aim[1]]
-    } : undefined;
+    this.laser = props.laser
+      ? {
+          aim: [props.laser.aim[0], props.laser.aim[1]],
+        }
+      : undefined;
     this.laserProcessed = false;
   }
 
@@ -62,6 +64,10 @@ export class DamageComponent extends Component {
 
   canHitMore(): boolean {
     return this.penetration === -1 || this.hitEntities.size < this.penetration;
+  }
+
+  shouldRemoveAfterAttack(): boolean {
+    return this.weapon?.type !== WeaponType.LASER;
   }
 
   isExpired(): boolean {
@@ -136,9 +142,11 @@ export class DamageComponent extends Component {
     this.duration = props.duration;
     this.weapon = props.weapon;
     // Deep copy laser to avoid reference sharing
-    this.laser = props.laser ? {
-      aim: [props.laser.aim[0], props.laser.aim[1]]
-    } : undefined;
+    this.laser = props.laser
+      ? {
+          aim: [props.laser.aim[0], props.laser.aim[1]],
+        }
+      : undefined;
     this.laserProcessed = false;
   }
 }

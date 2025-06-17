@@ -72,18 +72,17 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
       source: props.source,
       penetration: -1, // Infinite penetration for area effects
       tickRate: props.area?.tickRate ?? 100,
-      duration: props.type === 'laser' ? (props.laser?.duration ?? 400) : (props.area?.duration ?? 400),
+      duration:
+        props.type === 'laser' ? (props.laser?.duration ?? 200) : (props.area?.duration ?? 400),
       laser: props.laser,
       weapon: props.weapon,
     }),
   );
 
-
-
   effect.addComponent(
     world.createComponent(
       LifecycleComponent,
-      props.type === 'laser' ? (props.laser?.duration ?? 400) : (props.area?.duration ?? 400),
+      props.type === 'laser' ? (props.laser?.duration ?? 200) : (props.area?.duration ?? 400),
     ),
   );
 

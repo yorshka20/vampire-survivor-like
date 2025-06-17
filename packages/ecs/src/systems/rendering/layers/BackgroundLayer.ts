@@ -149,12 +149,42 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
           const endX = startX + dirX * 2000; // Use a large number for "infinite" length
           const endY = startY + dirY * 2000;
 
+          // Calculate laser lifetime (0 to 1)
+          const lifeTime = (Date.now() % 1000) / 1000; // Animation cycle of 1 second
+          const opacity = Math.sin(lifeTime * Math.PI); // Sine wave for smooth animation
+
+          // Draw outer glow
           this.ctx.beginPath();
-          this.ctx.lineWidth = 10;
+          this.ctx.shadowBlur = 20;
+          this.ctx.shadowColor = this.colorToString(color);
+          this.ctx.lineWidth = 20;
+          this.ctx.globalAlpha = 0.3 * opacity;
           this.ctx.strokeStyle = this.colorToString(color);
           this.ctx.moveTo(startX, startY);
           this.ctx.lineTo(endX, endY);
           this.ctx.stroke();
+
+          // Draw middle layer
+          this.ctx.beginPath();
+          this.ctx.shadowBlur = 10;
+          this.ctx.lineWidth = 15;
+          this.ctx.globalAlpha = 0.5 * opacity;
+          this.ctx.moveTo(startX, startY);
+          this.ctx.lineTo(endX, endY);
+          this.ctx.stroke();
+
+          // Draw core
+          this.ctx.beginPath();
+          this.ctx.shadowBlur = 0;
+          this.ctx.lineWidth = 5;
+          this.ctx.globalAlpha = opacity;
+          this.ctx.moveTo(startX, startY);
+          this.ctx.lineTo(endX, endY);
+          this.ctx.stroke();
+
+          // Reset context properties
+          this.ctx.globalAlpha = 1;
+          this.ctx.shadowBlur = 0;
           this.ctx.closePath();
           break;
       }

@@ -169,13 +169,13 @@ const Laser: LaserWeapon = {
   name: 'Laser',
   damage: 100,
   attackSpeed: 1,
-  attackCooldown: 100,
+  attackCooldown: 0,
   type: WeaponType.LASER,
   range: 400,
   laserLength: 2000,
   laserWidth: 50,
   color: { r: 255, g: 255, b: 233, a: 0.7 },
-  laserDuration: 400,
+  laserDuration: 800,
 };
 
 export const WeaponList: Weapon[] = [
