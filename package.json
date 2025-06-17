@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @brotov2/web-client dev",
     "build": "pnpm --filter @brotov2/web-client build",
+    "preview": "pnpm --filter @brotov2/web-client preview",
     "typecheck": "pnpm --filter * typecheck",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",

@@ -7,9 +7,6 @@ import { GameStore } from '@ecs/core/store/GameStore';
 import { createEnemyEntity } from '@ecs/entities/Enemy';
 
 export class SpawnSystem extends System {
-  name = 'SpawnSystem';
-  priority = SystemPriorities.SPAWN;
-
   private gameStore: GameStore;
 
   private lastSpawnTime: number = 0;

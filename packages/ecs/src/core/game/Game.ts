@@ -1,4 +1,5 @@
 import { ResourceManager } from '@ecs';
+import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import {
   initAudioAssets,
@@ -83,7 +84,10 @@ export class Game {
       try {
         console.log('Initializing game...');
 
-        const renderSystem = this.world.systems.get(RenderSystem.name);
+        const renderSystem = this.world.getSystem<RenderSystem>(
+          RenderSystem.name,
+          SystemPriorities.RENDER,
+        );
         if (!renderSystem) {
           throw new Error('RenderSystem not found');
         }
