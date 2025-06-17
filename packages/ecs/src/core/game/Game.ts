@@ -85,7 +85,7 @@ export class Game {
         console.log('Initializing game...');
 
         const renderSystem = this.world.getSystem<RenderSystem>(
-          RenderSystem.name,
+          'RenderSystem',
           SystemPriorities.RENDER,
         );
         if (!renderSystem) {
