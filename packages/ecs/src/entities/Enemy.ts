@@ -80,8 +80,8 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
 
   enemy.addComponent(
     world.createComponent(ColliderComponent, {
-      type: 'circle',
-      size: props.size ?? [30, 30],
+      type: 'rect',
+      size: props.size ?? [16, 16],
       offset: [0, 0],
     }),
   );

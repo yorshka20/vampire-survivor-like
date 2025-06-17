@@ -36,7 +36,8 @@ export class TransformComponent extends Component {
 
   reset(): void {
     super.reset();
-    this.position = [0, 0];
+    this.position[0] = 0;
+    this.position[1] = 0;
     this.rotation = 0;
     this.scale = 1;
   }

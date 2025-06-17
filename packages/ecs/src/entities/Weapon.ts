@@ -148,6 +148,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         laserLength: finalProps.laserWeapon?.laserLength ?? 100,
         laserWidth: finalProps.laserWeapon?.laserWidth ?? 10,
         color: finalProps.laserWeapon?.color ?? color,
+        laserDuration: finalProps.laserWeapon?.laserDuration ?? 1000,
       };
       break;
   }

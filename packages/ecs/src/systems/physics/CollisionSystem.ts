@@ -272,33 +272,33 @@ export class CollisionSystem extends System {
 
     const laser = laserCollider.getCollider().laser;
     if (!laser) {
-      console.log('[CollisionSystem] No laser data found in collider');
       return null;
     }
 
-    // Calculate laser direction
+    // Calculate laser direction vector
     const dx = laser.aim[0] - laserPos[0];
     const dy = laser.aim[1] - laserPos[1];
     const length = Math.sqrt(dx * dx + dy * dy);
     const dirX = dx / length;
     const dirY = dy / length;
 
-    // Calculate distance from enemy to laser line
+    // Calculate vector from laser start to enemy
     const px = enemyPos[0] - laserPos[0];
     const py = enemyPos[1] - laserPos[1];
+
+    // Calculate projection of enemy position onto laser direction
     const proj = px * dirX + py * dirY;
 
     // If projection is negative, enemy is behind laser start
     if (proj < 0) {
-      console.log('[CollisionSystem] Enemy behind laser start');
       return null;
     }
 
-    // Calculate closest point on laser line
+    // Calculate closest point on laser line to enemy
     const closestX = laserPos[0] + dirX * proj;
     const closestY = laserPos[1] + dirY * proj;
 
-    // Calculate distance from enemy to closest point
+    // Calculate distance from enemy to closest point on laser
     const dx2 = enemyPos[0] - closestX;
     const dy2 = enemyPos[1] - closestY;
     const distance = Math.sqrt(dx2 * dx2 + dy2 * dy2);
@@ -307,15 +307,12 @@ export class CollisionSystem extends System {
     const enemySize = enemyCollider.size;
     const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
 
-    // Get laser width
-    const laserWidth = laserCollider.size[0];
-
     // Check if enemy is within laser width
-    if (distance <= laserWidth + enemyRadius) {
+    if (distance <= laser.laserWidth / 2 + enemyRadius) {
       return {
         entity1,
         entity2,
-        overlapX: laserWidth,
+        overlapX: laser.laserWidth,
         overlapY: enemyRadius,
         collisionArea1: area1,
         collisionArea2: area2,

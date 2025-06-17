@@ -27,12 +27,7 @@ export interface BaseWeapon {
 }
 
 export interface RangedWeapon extends BaseWeapon {
-  type:
-    | WeaponType.RANGED_AUTO_AIM
-    | WeaponType.RANGED_FIXED
-    | WeaponType.SPIRAL
-    | WeaponType.SPINNING
-    | WeaponType.BOMB;
+  type: WeaponType.RANGED_AUTO_AIM | WeaponType.RANGED_FIXED;
   maxProjectileCount?: number;
   projectileSpeed: number;
   projectileSize: [number, number];
@@ -56,8 +51,14 @@ export interface AreaWeapon extends BaseWeapon {
   color: Color;
 }
 
-export interface SpiralWeapon extends RangedWeapon {
+export interface SpiralWeapon extends BaseWeapon {
   type: WeaponType.SPIRAL;
+  maxProjectileCount?: number;
+  projectileSpeed: number;
+  projectileSize: [number, number];
+  projectileColor: Color;
+  projectileCount: number;
+  projectileLifetime: number;
   followPlayer?: boolean;
   spiralSpeed: number; // Rotation speed in degree per second
   spiralRadius: number; // Initial radius of the spiral
@@ -65,8 +66,14 @@ export interface SpiralWeapon extends RangedWeapon {
   initialAngle?: number; // Initial angle for spiral movement
 }
 
-export interface SpinningWeapon extends RangedWeapon {
+export interface SpinningWeapon extends BaseWeapon {
   type: WeaponType.SPINNING;
+  maxProjectileCount?: number;
+  projectileSpeed: number;
+  projectileSize: [number, number];
+  projectileColor: Color;
+  projectileCount: number;
+  projectileLifetime: number;
   spinSpeed: number; // Rotation speed in degree per second
   spinRadius: number; // Initial radius of the spin
   spinCount: number;
@@ -74,8 +81,14 @@ export interface SpinningWeapon extends RangedWeapon {
   followPlayer?: boolean;
 }
 
-export interface BombWeapon extends RangedWeapon {
+export interface BombWeapon extends BaseWeapon {
   type: WeaponType.BOMB;
+  maxProjectileCount?: number;
+  projectileSpeed: number;
+  projectileSize: [number, number];
+  projectileColor: Color;
+  projectileCount: number;
+  projectileLifetime: number;
   explosionRadius: number; // Radius of the explosion effect
   explosionDuration: number; // Duration of the explosion effect in milliseconds
   explosionColor: Color; // Color of the explosion effect

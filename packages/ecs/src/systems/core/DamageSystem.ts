@@ -393,14 +393,17 @@ export class DamageSystem extends System {
 
       if (!entity1 || !entity2) continue;
 
-      // Skip if either entity is marked for removal or dead
+      // Skip invalid pairs
       if (
         entity1.toRemove ||
         entity2.toRemove ||
         entity1.hasComponent(DeathMarkComponent.componentName) ||
         entity2.hasComponent(DeathMarkComponent.componentName) ||
         !entity1.hasComponent(ColliderComponent.componentName) ||
-        !entity2.hasComponent(ColliderComponent.componentName)
+        !entity2.hasComponent(ColliderComponent.componentName) ||
+        entity1.isType('player') ||
+        entity2.isType('player') ||
+        (entity1.isType('enemy') && entity2.isType('enemy'))
       ) {
         continue;
       }
@@ -410,12 +413,9 @@ export class DamageSystem extends System {
       const isProjectile2 = entity2.isType('projectile');
       const isAreaEffect1 = entity1.isType('areaEffect');
       const isAreaEffect2 = entity2.isType('areaEffect');
-      const isEnemy1 = entity1.isType('enemy');
-      const isEnemy2 = entity2.isType('enemy');
 
       // Skip invalid collision types
-      if ((isProjectile1 && isProjectile2) || (isEnemy1 && isEnemy2)) continue;
-      if (entity1.isType('player') || entity2.isType('player')) continue;
+      if ((isProjectile1 && isProjectile2) || (isAreaEffect1 && isAreaEffect2)) continue;
 
       const damageSource = isProjectile1 ? entity1 : isAreaEffect1 ? entity1 : entity2;
       const enemy = isProjectile1 || isAreaEffect1 ? entity2 : entity1;
@@ -424,9 +424,6 @@ export class DamageSystem extends System {
         // invalid enemy
         !enemy.hasComponent(HealthComponent.componentName) ||
         !enemy.hasComponent(TransformComponent.componentName) ||
-        // already dead
-        enemy.toRemove ||
-        enemy.hasComponent(DeathMarkComponent.componentName) ||
         // invalid damage source
         !damageSource.hasComponent(DamageComponent.componentName)
       ) {
@@ -434,15 +431,12 @@ export class DamageSystem extends System {
       }
 
       const health = enemy.getComponent<HealthComponent>(HealthComponent.componentName);
-      const enemyTransform = enemy.getComponent<TransformComponent>(
-        TransformComponent.componentName,
-      );
+      const position = enemy
+        .getComponent<TransformComponent>(TransformComponent.componentName)
+        .getPosition();
       const damageComponent = damageSource.getComponent<DamageComponent>(
         DamageComponent.componentName,
       );
-
-      // Process damage based on collision tier
-      const position = enemyTransform.getPosition();
 
       // For area effects (which are triggers), always process continuous damage
       if (isAreaEffect1 || isAreaEffect2) {

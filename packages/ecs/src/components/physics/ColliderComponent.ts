@@ -9,6 +9,8 @@ export interface ColliderProps {
   isTrigger?: boolean; // Whether this collider should only trigger events without physical collision
   laser?: {
     aim: Point;
+    laserWidth: number;
+    laserLength: number;
   };
 }
 
@@ -22,6 +24,8 @@ export class ColliderComponent extends Component {
   private collidingEntities: Set<string> = new Set(); // Set of entity IDs that are currently colliding with this collider
   private laser?: {
     aim: Point;
+    laserWidth: number;
+    laserLength: number;
   };
 
   constructor(props: ColliderProps) {
@@ -55,57 +59,36 @@ export class ColliderComponent extends Component {
 
   getCollisionArea(position: Point, out?: RectArea): RectArea {
     const [x, y] = position;
+
+    switch (this.type) {
+      case 'rect':
+        return this.getRectCollisionArea(x, y, out);
+      case 'circle':
+        return this.getCircleCollisionArea(x, y, out);
+      case 'laser':
+        return this.getLaserCollisionArea(x, y, out);
+      default:
+        return out ?? [0, 0, 0, 0];
+    }
+  }
+
+  private getRectCollisionArea(x: number, y: number, out?: RectArea): RectArea {
     const [width, height] = this.size;
     const [offsetX = 0, offsetY = 0] = this.offset || [0, 0];
-
-    if (this.type === 'circle') {
-      const radius = Math.max(width, height) / 2;
-      if (out) {
-        out[0] = x + offsetX - radius;
-        out[1] = y + offsetY - radius;
-        out[2] = radius * 2;
-        out[3] = radius * 2;
-        return out;
-      }
-      return [x + offsetX - radius, y + offsetY - radius, radius * 2, radius * 2];
+    const radius = Math.max(width, height) / 2;
+    if (out) {
+      out[0] = x + offsetX - radius;
+      out[1] = y + offsetY - radius;
+      out[2] = radius * 2;
+      out[3] = radius * 2;
+      return out;
     }
+    return [x + offsetX - radius, y + offsetY - radius, radius * 2, radius * 2];
+  }
 
-    if (this.type === 'laser' && this.laser) {
-      // For laser, we create a bounding box that encompasses the entire laser path
-      const dx = this.laser.aim[0] - x;
-      const dy = this.laser.aim[1] - y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const dirX = dx / length;
-      const dirY = dy / length;
-
-      // Calculate the bounding box that encompasses the laser path
-      const halfWidth = width / 2;
-      const halfHeight = height / 2;
-
-      // Calculate the four corners of the bounding box
-      const corners = [
-        [x - halfWidth, y - halfHeight],
-        [x + halfWidth, y - halfHeight],
-        [x + halfWidth, y + halfHeight],
-        [x - halfWidth, y + halfHeight],
-      ];
-
-      // Project corners onto the laser direction
-      const minX = Math.min(...corners.map((c) => c[0]));
-      const maxX = Math.max(...corners.map((c) => c[0]));
-      const minY = Math.min(...corners.map((c) => c[1]));
-      const maxY = Math.max(...corners.map((c) => c[1]));
-
-      if (out) {
-        out[0] = minX;
-        out[1] = minY;
-        out[2] = maxX - minX;
-        out[3] = maxY - minY;
-        return out;
-      }
-      return [minX, minY, maxX - minX, maxY - minY];
-    }
-
+  private getCircleCollisionArea(x: number, y: number, out?: RectArea): RectArea {
+    const [width, height] = this.size;
+    const [offsetX = 0, offsetY = 0] = this.offset || [0, 0];
     if (out) {
       out[0] = x + offsetX - width / 2;
       out[1] = y + offsetY - height / 2;
@@ -114,6 +97,47 @@ export class ColliderComponent extends Component {
       return out;
     }
     return [x + offsetX - width / 2, y + offsetY - height / 2, width, height];
+  }
+
+  private getLaserCollisionArea(x: number, y: number, out?: RectArea): RectArea {
+    if (!this.laser) {
+      return out ?? [0, 0, 0, 0];
+    }
+    const [width, height] = this.size;
+
+    // For laser, we create a bounding box that encompasses the entire laser path
+    const dx = this.laser.aim[0] - x;
+    const dy = this.laser.aim[1] - y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / length;
+    const dirY = dy / length;
+
+    // Calculate the bounding box that encompasses the laser path
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+
+    // Calculate the four corners of the bounding box
+    const corners = [
+      [x - halfWidth, y - halfHeight],
+      [x + halfWidth, y - halfHeight],
+      [x + halfWidth, y + halfHeight],
+      [x - halfWidth, y + halfHeight],
+    ];
+
+    // Project corners onto the laser direction
+    const minX = Math.min(...corners.map((c) => c[0]));
+    const maxX = Math.max(...corners.map((c) => c[0]));
+    const minY = Math.min(...corners.map((c) => c[1]));
+    const maxY = Math.max(...corners.map((c) => c[1]));
+
+    if (out) {
+      out[0] = minX;
+      out[1] = minY;
+      out[2] = maxX - minX;
+      out[3] = maxY - minY;
+      return out;
+    }
+    return [minX, minY, maxX - minX, maxY - minY];
   }
 
   isTriggerOnly(): boolean {
@@ -142,8 +166,10 @@ export class ColliderComponent extends Component {
   reset(): void {
     super.reset();
     this.type = 'circle';
-    this.size = [0, 0];
-    this.offset = [0, 0];
+    this.size[0] = 0;
+    this.size[1] = 0;
+    this.offset[0] = 0;
+    this.offset[1] = 0;
     this.isTrigger = false;
     this.isColliding = false;
     this.collidingEntities.clear();

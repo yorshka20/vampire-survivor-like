@@ -14,6 +14,7 @@ import {
   RangedWeapon,
   SpinningWeapon,
   SpiralWeapon,
+  Weapon,
   WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -23,6 +24,16 @@ import { Game } from '@ecs/core/game/Game';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
 import { Point } from '@ecs/utils/types';
+
+type WeaponParameters<T extends Weapon> = {
+  weaponEntity: Entity;
+  weapon: WeaponComponent;
+  currentWeapon: T;
+  position: Point;
+  effectiveDamage: number;
+  currentTime: number;
+  weaponIndex: number;
+};
 
 export class WeaponSystem extends System {
   private maxAreaEffects = 10;
@@ -63,109 +74,79 @@ export class WeaponSystem extends System {
           const position = transform.getPosition();
           const effectiveDamage = currentWeapon.damage * (stats?.damageMultiplier ?? 1);
 
+          const baseParameters = {
+            weaponEntity,
+            weapon,
+            position,
+            effectiveDamage,
+            currentTime,
+            weaponIndex: i,
+          };
+
           switch (currentWeapon.type) {
             case WeaponType.RANGED_AUTO_AIM:
-              this.handleRangedAutoAim(
-                weaponEntity,
-                weapon,
-                currentWeapon as RangedWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleRangedAutoAim({
+                ...baseParameters,
+                currentWeapon: currentWeapon as RangedWeapon,
+              });
               break;
             case WeaponType.RANGED_FIXED:
-              this.handleRangedFixed(
-                weaponEntity,
-                weapon,
-                currentWeapon as RangedWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleRangedFixed({
+                ...baseParameters,
+                currentWeapon: currentWeapon as RangedWeapon,
+              });
               break;
             case WeaponType.MELEE:
-              this.handleMelee(
-                weaponEntity,
-                weapon,
-                currentWeapon as MeleeWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleMelee({
+                ...baseParameters,
+                currentWeapon: currentWeapon as MeleeWeapon,
+              });
               break;
             case WeaponType.AREA:
-              this.handleArea(
-                weaponEntity,
-                weapon,
-                currentWeapon as AreaWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleArea({
+                ...baseParameters,
+                currentWeapon: currentWeapon as AreaWeapon,
+              });
               break;
             case WeaponType.SPIRAL:
-              this.handleSpiral(
-                weaponEntity,
-                weapon,
-                currentWeapon as SpiralWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleSpiral({
+                ...baseParameters,
+                currentWeapon: currentWeapon as SpiralWeapon,
+              });
               break;
             case WeaponType.SPINNING:
-              this.handleSpinning(
-                weaponEntity,
-                weapon,
-                currentWeapon as SpinningWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleSpinning({
+                ...baseParameters,
+                currentWeapon: currentWeapon as SpinningWeapon,
+              });
               break;
             case WeaponType.BOMB:
-              this.handleBomb(
-                weaponEntity,
-                weapon,
-                currentWeapon as BombWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleBomb({
+                ...baseParameters,
+                currentWeapon: currentWeapon as BombWeapon,
+              });
               break;
             case WeaponType.LASER:
-              this.handleLaser(
-                weaponEntity,
-                weapon,
-                currentWeapon as LaserWeapon,
-                position,
-                effectiveDamage,
-                currentTime,
-                i,
-              );
+              this.handleLaser({
+                ...baseParameters,
+                currentWeapon: currentWeapon as LaserWeapon,
+              });
+              break;
           }
         }
       }
     }
   }
 
-  private handleRangedAutoAim(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: RangedWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleRangedAutoAim({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<RangedWeapon>): void {
     // Find nearest enemy
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) return;
@@ -201,38 +182,38 @@ export class WeaponSystem extends System {
       const dirX = dx / distance;
       const dirY = dy / distance;
 
-      this.createProjectile(entity, currentWeapon, position, dirX, dirY, effectiveDamage);
+      this.createProjectile(weaponEntity, currentWeapon, position, dirX, dirY, effectiveDamage);
       weapon.updateAttackTime(currentTime, weaponIndex);
     }
   }
 
-  private handleRangedFixed(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: RangedWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleRangedFixed({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<RangedWeapon>): void {
     // Convert angle to radians
     const angleRad = ((currentWeapon.fixedAngle ?? 0) * Math.PI) / 180;
     const dirX = Math.cos(angleRad);
     const dirY = Math.sin(angleRad);
 
-    this.createProjectile(entity, currentWeapon, position, dirX, dirY, effectiveDamage);
+    this.createProjectile(weaponEntity, currentWeapon, position, dirX, dirY, effectiveDamage);
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
-  private handleMelee(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: MeleeWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleMelee({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<MeleeWeapon>): void {
     // Find enemies in melee range
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) return;
@@ -285,15 +266,15 @@ export class WeaponSystem extends System {
     ];
   }
 
-  private handleArea(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: AreaWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleArea({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<AreaWeapon>): void {
     if (this.areaEffects.length >= this.maxAreaEffects) {
       return;
     }
@@ -311,7 +292,7 @@ export class WeaponSystem extends System {
         tickRate: currentWeapon.tickRate,
       },
       damage: effectiveDamage,
-      source: entity.id,
+      source: weaponEntity.id,
       weapon: currentWeapon,
     });
 
@@ -329,7 +310,7 @@ export class WeaponSystem extends System {
   private createProjectile(
     entity: Entity,
     weapon: RangedWeapon,
-    position: [number, number],
+    position: Point,
     dirX: number,
     dirY: number,
     damage: number,
@@ -350,15 +331,15 @@ export class WeaponSystem extends System {
     this.world.addEntity(projectile);
   }
 
-  private handleSpiral(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: SpiralWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleSpiral({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<SpiralWeapon>): void {
     // Calculate positions around the player
     const angleStep = (2 * Math.PI) / currentWeapon.projectileCount;
 
@@ -371,7 +352,7 @@ export class WeaponSystem extends System {
       const projectile = createProjectileEntity(this.world, {
         position: [spawnX, spawnY],
         damage: effectiveDamage,
-        source: entity.id,
+        source: weaponEntity.id,
         size: currentWeapon.projectileSize,
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
@@ -399,15 +380,15 @@ export class WeaponSystem extends System {
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
-  private handleSpinning(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: SpinningWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleSpinning({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<SpinningWeapon>): void {
     // Calculate positions around the player
     const angleStep = (2 * Math.PI) / currentWeapon.spinCount;
 
@@ -423,7 +404,7 @@ export class WeaponSystem extends System {
         position: [spawnX, spawnY],
         size: currentWeapon.projectileSize,
         damage: effectiveDamage,
-        source: entity.id,
+        source: weaponEntity.id,
         penetration: currentWeapon.penetration,
         lifetime: currentWeapon.spinLifetime,
         type: 'spinning',
@@ -469,15 +450,15 @@ export class WeaponSystem extends System {
     weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
-  private handleBomb(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: BombWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleBomb({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<BombWeapon>): void {
     // Find nearest enemy to aim
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) return;
@@ -517,7 +498,7 @@ export class WeaponSystem extends System {
         position: [position[0], position[1]],
         velocity: [dirX * currentWeapon.projectileSpeed, dirY * currentWeapon.projectileSpeed],
         damage: effectiveDamage,
-        source: entity.id,
+        source: weaponEntity.id,
         size: currentWeapon.projectileSize,
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
@@ -549,21 +530,22 @@ export class WeaponSystem extends System {
     }
   }
 
-  private handleLaser(
-    entity: Entity,
-    weapon: WeaponComponent,
-    currentWeapon: LaserWeapon,
-    position: [number, number],
-    effectiveDamage: number,
-    currentTime: number,
-    weaponIndex: number,
-  ): void {
+  private handleLaser({
+    weaponEntity,
+    weapon,
+    currentWeapon,
+    position,
+    effectiveDamage,
+    currentTime,
+    weaponIndex,
+  }: WeaponParameters<LaserWeapon>): void {
     // Find nearest enemy
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) {
       return;
     }
 
+    // find a random enemy
     const enemy = this.world.getEntityById(enemyIds[Math.floor(Math.random() * enemyIds.length)]);
     if (!enemy?.isType('enemy')) {
       return;
@@ -578,7 +560,7 @@ export class WeaponSystem extends System {
       position,
       type: 'laser',
       damage: effectiveDamage,
-      source: entity.id,
+      source: weaponEntity.id,
       weapon: currentWeapon,
       color: currentWeapon.color,
       laser: {
@@ -588,7 +570,7 @@ export class WeaponSystem extends System {
         laserLength: currentWeapon.laserLength,
       },
     });
-
+    console.log('aim', enemyPos);
     this.world.addEntity(effect);
     weapon.updateAttackTime(currentTime, weaponIndex);
   }

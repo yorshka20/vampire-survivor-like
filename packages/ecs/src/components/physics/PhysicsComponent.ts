@@ -65,7 +65,8 @@ export class PhysicsComponent extends Component {
   }
 
   stop(): void {
-    this.velocity = [0, 0];
+    this.velocity[0] = 0;
+    this.velocity[1] = 0;
   }
 
   handleCollision(collisionNormal: { x: number; y: number }): void {
@@ -125,7 +126,8 @@ export class PhysicsComponent extends Component {
   reset(): void {
     super.reset();
     // Reset velocity properties
-    this.velocity = [0, 0];
+    this.velocity[0] = 0;
+    this.velocity[1] = 0;
     this.isBlocked = false;
     this.blockedTimer = 0;
     this.friction = 1;
