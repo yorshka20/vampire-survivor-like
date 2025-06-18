@@ -594,12 +594,20 @@ export class WeaponSystem extends System {
     currentTime,
     weaponIndex,
   }: WeaponParameters<LaserBurstWeapon>): void {
+    // Calculate base rotation based on time
+    const startTime = weapon.lastAttackTimes[weaponIndex] ?? currentTime;
+    const elapsedTime = (currentTime - startTime) / 1000; // Convert to seconds
+    const baseRotation = (elapsedTime * currentWeapon.rotationSpeed) % 360;
+
     // Create multiple lasers
     for (let i = 0; i < currentWeapon.beamCount; i++) {
-      const angle = (i / currentWeapon.beamCount) * (2 * Math.PI);
+      // Calculate angle for each beam, including the time-based rotation
+      const beamAngle = (i / currentWeapon.beamCount) * (2 * Math.PI);
+      const rotationRad = (baseRotation * Math.PI) / 180; // Convert rotation to radians
+      const finalAngle = beamAngle + rotationRad;
 
-      const aimX = position[0] + Math.cos(angle) * currentWeapon.laserLength;
-      const aimY = position[1] + Math.sin(angle) * currentWeapon.laserLength;
+      const aimX = position[0] + Math.cos(finalAngle) * currentWeapon.laserLength;
+      const aimY = position[1] + Math.sin(finalAngle) * currentWeapon.laserLength;
 
       // Create laser effect
       const effect = createAreaEffectEntity(this.world, {
@@ -616,6 +624,12 @@ export class WeaponSystem extends System {
           laserLength: currentWeapon.laserLength,
         },
       });
+
+      // Add transform component with rotation
+      const transform = effect.getComponent<TransformComponent>(TransformComponent.componentName);
+      if (transform) {
+        transform.rotation = (finalAngle * 180) / Math.PI; // Convert back to degrees for transform
+      }
 
       this.world.addEntity(effect);
     }

@@ -21,12 +21,16 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   }
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
-    this.renderBackground(viewport, cameraOffset);
-    this.renderPickupRange(viewport, cameraOffset);
-    this.renderEffects(viewport, cameraOffset);
+    this.renderBackground(deltaTime, viewport, cameraOffset);
+    this.renderPickupRange(deltaTime, viewport, cameraOffset);
+    this.renderEffects(deltaTime, viewport, cameraOffset);
   }
 
-  private renderBackground(viewport: RectArea, cameraOffset: [number, number]): void {
+  private renderBackground(
+    deltaTime: number,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+  ): void {
     if (!this.bgImage || !this.bgImage.complete) return;
 
     const dpr = this.renderSystem!.getDevicePixelRatio();
@@ -40,6 +44,8 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     // Calculate tile dimensions maintaining aspect ratio
     const tileWidth = this.bgImage.width;
     const tileHeight = this.bgImage.height;
+
+    console.log(tileWidth, tileHeight);
 
     // Calculate how many tiles we need to cover the viewport
     const tilesX = Math.ceil(visibleWidth / tileWidth) + 2; // Add extra tiles to prevent gaps
@@ -75,7 +81,11 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     }
   }
 
-  private renderPickupRange(viewport: RectArea, cameraOffset: [number, number]): void {
+  private renderPickupRange(
+    deltaTime: number,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+  ): void {
     const player = this.getWorld().getEntitiesByType('player')[0];
     if (!player) return;
 
@@ -100,7 +110,11 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     this.ctx.restore();
   }
 
-  private renderEffects(viewport: RectArea, cameraOffset: [number, number]): void {
+  private renderEffects(
+    deltaTime: number,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+  ): void {
     const effects = this.getWorld().getEntitiesByCondition(
       (entity) =>
         (entity.isType('effect') || entity.isType('areaEffect')) &&
@@ -137,16 +151,37 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
             continue;
           }
 
-          // Calculate laser direction vector
-          const dx = laser.aim[0] - pos[0];
-          const dy = laser.aim[1] - pos[1];
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const dirX = dx / length;
-          const dirY = dy / length;
+          // Get rotation from transform component
+          const rotation = transform.rotation * deltaTime * (Math.PI / 180); // Convert to radians
 
-          // Calculate start and end points with camera offset
+          // Calculate start point with camera offset
           const startX = pos[0] + cameraOffset[0];
           const startY = pos[1] + cameraOffset[1];
+
+          // Calculate laser direction vector, considering rotation
+          let dirX, dirY;
+          if (laser.aim) {
+            // If we have an aim point, use it to calculate direction
+            const dx = laser.aim[0] - pos[0];
+            const dy = laser.aim[1] - pos[1];
+            const length = Math.sqrt(dx * dx + dy * dy);
+            dirX = dx / length;
+            dirY = dy / length;
+          } else {
+            // If no aim point, use rotation directly
+            dirX = Math.cos(rotation);
+            dirY = Math.sin(rotation);
+          }
+
+          // Apply rotation to the direction vector if we have an aim point
+          if (laser.aim) {
+            const currentAngle = Math.atan2(dirY, dirX);
+            const finalAngle = currentAngle + rotation;
+            dirX = Math.cos(finalAngle);
+            dirY = Math.sin(finalAngle);
+          }
+
+          // Calculate end point
           const endX = startX + dirX * 2000; // Use a large number for "infinite" length
           const endY = startY + dirY * 2000;
 
