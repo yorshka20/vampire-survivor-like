@@ -2,6 +2,7 @@ import { InputComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { isMobileDevice } from '@ecs/utils/platform';
 
 const KEY_MAP = {
   ArrowUp: 'up',
@@ -37,23 +38,7 @@ export class InputSystem extends System {
   constructor() {
     super('InputSystem', SystemPriorities.INPUT, 'logic');
     // check if the device is mobile
-    this.isMobileDevice = this.checkIsMobileDevice();
-  }
-
-  private checkIsMobileDevice(): boolean {
-    // check if the device has touch event
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-    // check if the user agent is mobile
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
-      userAgent,
-    );
-
-    // check if the screen is small
-    const isSmallScreen = window.innerWidth <= 768;
-
-    return hasTouch && (isMobile || isSmallScreen);
+    this.isMobileDevice = isMobileDevice();
   }
 
   init(): void {

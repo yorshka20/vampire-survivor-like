@@ -7,6 +7,7 @@ import {
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
+import { isMobileDevice } from '@ecs/utils/platform';
 
 interface TransformData {
   targetRotation?: number;
@@ -16,13 +17,19 @@ interface TransformData {
 }
 
 export class TransformSystem extends System {
-  static scale = 0.6;
+  // Default scale for desktop
+  static scale = 1;
+  // Scale for mobile devices (smaller to fit more content on screen)
+  static mobileScale = 0.6;
+
+  private isMobileDevice: boolean = false;
 
   // Map to store transform data for entities
   private transformData: Map<string, TransformData> = new Map();
 
   constructor() {
     super('TransformSystem', SystemPriorities.TRANSFORM, 'render');
+    this.isMobileDevice = isMobileDevice();
   }
 
   update(deltaTime: number): void {
@@ -57,7 +64,8 @@ export class TransformSystem extends System {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (!transform) continue;
 
-      transform.scale = TransformSystem.scale;
+      // Apply scale based on platform
+      transform.scale = this.isMobileDevice ? TransformSystem.mobileScale : TransformSystem.scale;
 
       this.handleTransformations(entity.id, transform, deltaTime);
     }
