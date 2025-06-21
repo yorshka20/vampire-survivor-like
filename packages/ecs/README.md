@@ -81,3 +81,69 @@ Build for production:
 ```bash
 pnpm build
 ```
+
+# ECS Package
+
+Entity Component System (ECS) implementation for the vampire survivor-like game.
+
+## Testing
+
+This package uses Vitest for testing. To run tests:
+
+### Install Dependencies
+
+First, install the test dependencies:
+
+```bash
+pnpm install
+```
+
+### Run Tests
+
+```bash
+# Run tests in watch mode (development)
+pnpm test
+
+# Run tests once
+pnpm test:run
+
+# Run tests with UI
+pnpm test:ui
+
+# Run tests with coverage report
+pnpm test:coverage
+```
+
+### From Root Directory
+
+You can also run tests from the root directory:
+
+```bash
+# Run all tests
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+```
+
+## Test Structure
+
+- `src/core/pool/__tests__/` - Object pool memory leak tests
+- `src/test/setup.ts` - Global test setup
+
+## Test Coverage
+
+The tests cover:
+
+- Entity pool reuse and ID uniqueness
+- Component pool reuse and state isolation
+- Memory leak prevention
+- Object pool consistency
+
+## Debugging Tests
+
+To see console output during tests, set the `VITEST_VERBOSE` environment variable:
+
+```bash
+VITEST_VERBOSE=true pnpm test
+```

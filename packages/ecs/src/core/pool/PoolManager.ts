@@ -78,8 +78,6 @@ export class PoolManager {
       return undefined;
     }
     const component = pool.get(props);
-    // just recreate, no need to reset
-    component.recreate(props);
     return component as T;
   }
 
@@ -101,8 +99,8 @@ export class PoolManager {
       console.warn(`Component pool ${ComponentClass.name} does not exist`);
       return;
     }
-    component.reset();
-    // ensure to detach the entity from the component
+    // Don't reset component immediately - let ObjectPool handle it when retrieved
+    // component.reset();
     pool.return(component);
   }
 

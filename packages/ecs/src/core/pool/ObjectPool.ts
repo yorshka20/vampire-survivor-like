@@ -18,6 +18,7 @@ export class ObjectPool<T extends IPoolable> {
   get(props?: ComponentProps<T>): T {
     if (this.pool.length > 0) {
       const obj = this.pool.pop()!;
+      obj.reset();
       obj.recreate(props);
       return obj;
     }

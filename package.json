@@ -12,7 +12,10 @@
     "build": "pnpm --filter @brotov2/web-client build",
     "preview": "pnpm --filter @brotov2/web-client preview",
     "typecheck": "pnpm --filter * typecheck",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "pnpm --filter @brotov2/ecs test",
+    "test:run": "pnpm --filter @brotov2/ecs test:run",
+    "test:ui": "pnpm --filter @brotov2/ecs test:ui",
+    "test:coverage": "pnpm --filter @brotov2/ecs test:coverage",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "format": "prettier --write ."
   },
