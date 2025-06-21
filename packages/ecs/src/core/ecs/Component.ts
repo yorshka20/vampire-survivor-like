@@ -42,7 +42,13 @@ export abstract class Component implements IComponent {
   }
 
   recreate(props: any): void {
+    // Reset component first to clear any previous state
+    this.reset();
+
     // Copy all properties from props to this instance
-    Object.assign(this, props);
+    // Use structured clone to avoid reference issues
+    if (props) {
+      Object.assign(this, JSON.parse(JSON.stringify(props)));
+    }
   }
 }

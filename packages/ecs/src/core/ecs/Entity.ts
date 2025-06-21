@@ -1,3 +1,4 @@
+import { generateEntityId } from '../../utils/name';
 import { IPoolableConfig } from '../pool/IPoolable';
 import { Component } from './Component';
 import { EntityType, IEntity } from './types';
@@ -12,7 +13,7 @@ export class Entity implements IEntity {
   };
 
   static nextNumericId = 1;
-  public readonly numericId: number;
+  public numericId: number; // Changed from readonly to allow recreation
 
   active: boolean = true;
   toRemove: boolean = false;
@@ -24,8 +25,8 @@ export class Entity implements IEntity {
   private onDestroyedCallbacks: ((id: string) => void)[] = [];
 
   constructor(
-    public readonly id: string,
-    public readonly type: EntityType,
+    public id: string, // Changed from readonly to allow recreation
+    public type: EntityType, // Changed from readonly to allow recreation
   ) {
     this.numericId = Entity.nextNumericId++;
   }
@@ -102,7 +103,29 @@ export class Entity implements IEntity {
     this.components.clear();
     this.onRemovedCallbacks.length = 0;
     this.onDestroyedCallbacks.length = 0;
+    // Note: id, type, and numericId are not reset here
+    // They will be set in recreate() method when the entity is reused
   }
 
-  recreate(props: any): void {}
+  /**
+   * Recreate the entity with new properties when retrieved from pool
+   * @param props - Object containing new entity properties
+   */
+  recreate(props?: { id?: string; type?: EntityType }): void {
+    props = props || {};
+    // Generate new ID if not provided
+    if (props.id) {
+      this.id = props.id;
+    } else {
+      this.id = generateEntityId(props.type || this.type);
+    }
+    // Set new type if provided
+    if (props.type) {
+      this.type = props.type;
+    }
+    // Generate new numeric ID for uniqueness
+    this.numericId = Entity.nextNumericId++;
+    // Reset entity state
+    this.reset();
+  }
 }

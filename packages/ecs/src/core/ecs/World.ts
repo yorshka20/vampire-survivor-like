@@ -98,15 +98,19 @@ export class World implements IWorld {
 
     // Clean up components when the entity is actually removed
     entity.components.forEach((component) => {
-      // just return, DO NOT reset.
+      // Detach component from entity first
       component.onDetach();
+      // Return component to pool (component will be reset when retrieved)
       this.poolManager.returnComponentToPool(
         component.constructor as ComponentConstructor<Component>,
         component,
       );
     });
 
-    // Reset entity
+    // Clear entity's component map before reset
+    entity.components.clear();
+
+    // Reset entity (this will clear callbacks and set default state)
     entity.reset();
 
     this.entities.delete(entity);
@@ -124,6 +128,8 @@ export class World implements IWorld {
   createEntity(type: EntityType): Entity {
     const entity = this.poolManager.getEntityFromPool(type);
     if (entity) {
+      // Recreate the entity with new properties when retrieved from pool
+      entity.recreate({ type });
       return entity;
     }
     // Fallback to creating new entity if pool is empty

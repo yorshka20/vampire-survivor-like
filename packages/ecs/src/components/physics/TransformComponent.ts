@@ -10,13 +10,14 @@ interface TransformProps {
 export class TransformComponent extends Component {
   static componentName = 'Transform';
 
-  position: Point;
+  position: Point = [0, 0];
   rotation: number;
   scale: number;
 
   constructor(props: TransformProps) {
     super('Transform');
-    this.position = props.position;
+    this.position[0] = props.position[0];
+    this.position[1] = props.position[1];
     this.rotation = props.rotation ?? 0;
     this.scale = props.scale ?? 1;
   }
@@ -26,7 +27,8 @@ export class TransformComponent extends Component {
   }
 
   setPosition(position: Point): void {
-    this.position = position;
+    this.position[0] = position[0];
+    this.position[1] = position[1];
   }
 
   move(dx: number, dy: number): void {
@@ -36,8 +38,8 @@ export class TransformComponent extends Component {
 
   reset(): void {
     super.reset();
-    this.position[0] = 0;
-    this.position[1] = 0;
+    // use new array to avoid reference issues
+    this.position = [0, 0];
     this.rotation = 0;
     this.scale = 1;
   }
