@@ -1,4 +1,4 @@
-export { createAreaEffectEntity } from './AreaEffect';
+export { createAreaEffectEntity } from './areaEffects';
 export { createDamageTextEntity } from './DamageText';
 export { createEffectEntity } from './Effect';
 export { createEnemyEntity } from './Enemy';

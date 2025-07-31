@@ -10,7 +10,7 @@ import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Color, Point } from '@ecs/utils/types';
-import { randomRgb } from './utils/rgb';
+import { randomRgb } from '../utils/rgb';
 
 export interface AreaEffectProps {
   position: Point;

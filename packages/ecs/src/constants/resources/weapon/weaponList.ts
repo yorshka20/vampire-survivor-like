@@ -185,7 +185,7 @@ const LaserBurst: LaserBurstWeapon = {
   attackSpeed: 1,
   attackCooldown: 0,
   beamCount: 10,
-  rotationSpeed: 180,
+  rotationSpeed: 30,
   type: WeaponType.LASER_BURST,
   range: 400,
   laserLength: 2000,

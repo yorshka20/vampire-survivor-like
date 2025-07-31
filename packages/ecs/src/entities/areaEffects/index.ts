@@ -1,0 +1,1 @@
+export { createAreaEffectEntity } from './AreaEffect';
