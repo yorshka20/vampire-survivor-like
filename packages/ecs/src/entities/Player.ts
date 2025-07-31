@@ -87,9 +87,9 @@ export function createPlayerEntity(
     // WeaponMap.SpiralOrb,
     // WeaponMap.Aura,
     // WeaponMap.RapidFire,
-    // WeaponMap.SpiralShot,
-    // WeaponMap.Bomb,
-    WeaponMap.Laser,
+    WeaponMap.SpiralShot,
+    WeaponMap.Bomb,
+    // WeaponMap.Laser,
   ];
 
   player.addComponent(

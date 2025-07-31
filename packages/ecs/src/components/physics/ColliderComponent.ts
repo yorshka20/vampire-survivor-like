@@ -26,6 +26,10 @@ export class ColliderComponent extends Component {
     aim: Point;
     laserWidth: number;
     laserLength: number;
+    // Cached direction and length for performance optimization
+    cachedDirection?: [number, number];
+    cachedLength?: number;
+    cachedLengthSquared?: number;
   };
 
   constructor(props: ColliderProps) {
@@ -35,6 +39,50 @@ export class ColliderComponent extends Component {
     this.offset = props.offset || [0, 0];
     this.isTrigger = props.isTrigger || false;
     this.laser = props.laser;
+
+    // Pre-calculate laser direction if laser is provided
+    if (this.laser) {
+      this.updateLaserDirection([0, 0]); // Initial calculation with dummy position
+    }
+  }
+
+  /**
+   * Update laser direction cache for performance optimization
+   * This method should be called whenever the laser aim or position changes
+   */
+  updateLaserDirection(position: Point): void {
+    if (!this.laser) return;
+
+    const dx = this.laser.aim[0] - position[0];
+    const dy = this.laser.aim[1] - position[1];
+    const lengthSquared = dx * dx + dy * dy;
+    const length = Math.sqrt(lengthSquared);
+
+    // Cache the direction vector and length
+    this.laser.cachedDirection = [dx / length, dy / length];
+    this.laser.cachedLength = length;
+    this.laser.cachedLengthSquared = lengthSquared;
+  }
+
+  /**
+   * Get cached laser direction for performance optimization
+   */
+  getCachedLaserDirection(): [number, number] | undefined {
+    return this.laser?.cachedDirection;
+  }
+
+  /**
+   * Get cached laser length for performance optimization
+   */
+  getCachedLaserLength(): number | undefined {
+    return this.laser?.cachedLength;
+  }
+
+  /**
+   * Get cached laser length squared for performance optimization
+   */
+  getCachedLaserLengthSquared(): number | undefined {
+    return this.laser?.cachedLengthSquared;
   }
 
   getBounds(): { x: number; y: number; width: number; height: number } {
@@ -105,12 +153,18 @@ export class ColliderComponent extends Component {
     }
     const [width, height] = this.size;
 
-    // For laser, we create a bounding box that encompasses the entire laser path
-    const dx = this.laser.aim[0] - x;
-    const dy = this.laser.aim[1] - y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const dirX = dx / length;
-    const dirY = dy / length;
+    // Use cached direction if available, otherwise calculate
+    let dirX: number, dirY: number;
+    if (this.laser.cachedDirection) {
+      [dirX, dirY] = this.laser.cachedDirection;
+    } else {
+      // Fallback to calculation if cache is not available
+      const dx = this.laser.aim[0] - x;
+      const dy = this.laser.aim[1] - y;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      dirX = dx / length;
+      dirY = dy / length;
+    }
 
     // Calculate the bounding box that encompasses the laser path
     const halfWidth = width / 2;

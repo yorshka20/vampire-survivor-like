@@ -47,14 +47,19 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
       ? [props.laser?.laserWidth ?? 0, props.laser?.laserLength ?? 0]
       : [props.area?.radius ?? 0, props.area?.radius ?? 0];
 
-  effect.addComponent(
-    world.createComponent(ColliderComponent, {
-      type: props.type === 'laser' ? 'laser' : 'circle',
-      size,
-      isTrigger: true,
-      laser: props.type === 'laser' ? props.laser : undefined,
-    }),
-  );
+  const colliderComponent = world.createComponent(ColliderComponent, {
+    type: props.type === 'laser' ? 'laser' : 'circle',
+    size,
+    isTrigger: true,
+    laser: props.type === 'laser' ? props.laser : undefined,
+  }) as ColliderComponent;
+
+  effect.addComponent(colliderComponent);
+
+  // Update laser direction cache with actual position for better performance
+  if (props.type === 'laser' && props.laser) {
+    colliderComponent.updateLaserDirection(props.position);
+  }
 
   effect.addComponent(
     world.createComponent(RenderComponent, {

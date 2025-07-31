@@ -2,9 +2,21 @@ import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
 import { Point } from '@ecs/utils/types';
 
+/**
+ * Grid cell with pre-classified entity storage for better performance
+ * Each entity type is stored separately to avoid runtime filtering
+ */
 interface GridCell {
+  // Legacy storage for backward compatibility
   entities: Set<string>;
-  entityTypes: Map<string, EntityType>; // Add entity type mapping
+  entityTypes: Map<string, EntityType>;
+
+  // Pre-classified storage for better performance
+  enemies: Set<string>;
+  projectiles: Set<string>;
+  pickups: Set<string>;
+  players: Set<string>;
+  areaEffects: Set<string>;
 }
 
 /**
@@ -19,7 +31,7 @@ interface GridCell {
 export type SpatialQueryType = 'collision' | 'damage' | 'collision-distant' | 'pickup';
 
 interface CacheEntry {
-  entities: Set<string>;
+  entities: string[]; // Changed from Set<string> to string[] for better performance
   timestamp: number;
 }
 
@@ -36,7 +48,7 @@ export class SpatialGridComponent extends Component {
   public cellSize: number;
   private worldSize: { width: number; height: number };
 
-  // Cache system
+  // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
   private readonly cacheConfigs: Map<SpatialQueryType, CacheConfig> = new Map();
   private lastCacheUpdate: number = 0;
@@ -103,32 +115,129 @@ export class SpatialGridComponent extends Component {
     };
   }
 
+  /**
+   * Create a new grid cell with pre-classified entity storage
+   */
+  private createGridCell(): GridCell {
+    return {
+      entities: new Set(),
+      entityTypes: new Map(),
+      enemies: new Set(),
+      projectiles: new Set(),
+      pickups: new Set(),
+      players: new Set(),
+      areaEffects: new Set(),
+    };
+  }
+
+  /**
+   * Get the appropriate entity set based on entity type
+   */
+  private getEntitySetByType(cell: GridCell, entityType: EntityType): Set<string> {
+    switch (entityType) {
+      case 'enemy':
+        return cell.enemies;
+      case 'projectile':
+        return cell.projectiles;
+      case 'pickup':
+        return cell.pickups;
+      case 'player':
+        return cell.players;
+      case 'areaEffect':
+        return cell.areaEffects;
+      default:
+        return cell.entities; // Fallback to legacy storage
+    }
+  }
+
+  /**
+   * Invalidate cache for a specific cell and its neighbors (3x3 grid)
+   * This is the key optimization: only invalidate affected cells instead of all caches
+   */
+  private invalidateCacheForCell(cellKey: string): void {
+    const [cellX, cellY] = cellKey.split(',').map(Number);
+
+    // Invalidate the target cell and its 8 neighbors (3x3 grid)
+    for (let x = cellX - 1; x <= cellX + 1; x++) {
+      for (let y = cellY - 1; y <= cellY + 1; y++) {
+        const neighborKey = `${x},${y}`;
+        this.caches.forEach((cache) => {
+          cache.delete(neighborKey);
+        });
+      }
+    }
+  }
+
+  /**
+   * Insert entity into grid with pre-classified storage
+   */
   insert(entityId: string, position: Point, entityType: EntityType): void {
     const cellKey = this.getCellKey(position[0], position[1]);
     if (!this.grid.has(cellKey)) {
-      this.grid.set(cellKey, { entities: new Set(), entityTypes: new Map() });
+      this.grid.set(cellKey, this.createGridCell());
     }
     const cell = this.grid.get(cellKey)!;
+
+    // Add to legacy storage for backward compatibility
     cell.entities.add(entityId);
     cell.entityTypes.set(entityId, entityType);
 
-    // Invalidate caches when grid changes
-    this.invalidateCaches();
+    // Add to pre-classified storage for better performance
+    const entitySet = this.getEntitySetByType(cell, entityType);
+    entitySet.add(entityId);
+
+    // Local cache invalidation instead of global invalidation
+    this.invalidateCacheForCell(cellKey);
   }
 
+  /**
+   * Remove entity from grid
+   */
   remove(entityId: string, position: Point): void {
     const cellKey = this.getCellKey(position[0], position[1]);
     const cell = this.grid.get(cellKey);
     if (cell) {
+      // Remove from legacy storage
       cell.entities.delete(entityId);
+      const entityType = cell.entityTypes.get(entityId);
       cell.entityTypes.delete(entityId);
+
+      // Remove from pre-classified storage
+      if (entityType) {
+        const entitySet = this.getEntitySetByType(cell, entityType);
+        entitySet.delete(entityId);
+      }
+
       if (cell.entities.size === 0) {
         this.grid.delete(cellKey);
       }
 
-      // Invalidate caches when grid changes
-      this.invalidateCaches();
+      // Local cache invalidation instead of global invalidation
+      this.invalidateCacheForCell(cellKey);
     }
+  }
+
+  /**
+   * Optimized position update method - only updates grid when crossing cell boundaries
+   * This is the second key optimization: avoid unnecessary remove/insert calls
+   */
+  updatePosition(
+    entityId: string,
+    oldPosition: Point,
+    newPosition: Point,
+    entityType: EntityType,
+  ): void {
+    const oldCellKey = this.getCellKey(oldPosition[0], oldPosition[1]);
+    const newCellKey = this.getCellKey(newPosition[0], newPosition[1]);
+
+    // Only update grid if entity crossed cell boundary
+    if (oldCellKey !== newCellKey) {
+      // Remove from old cell
+      this.remove(entityId, oldPosition);
+      // Insert into new cell
+      this.insert(entityId, newPosition, entityType);
+    }
+    // If same cell, no grid update needed - this is the performance gain
   }
 
   getNearbyEntities(
@@ -158,10 +267,10 @@ export class SpatialGridComponent extends Component {
         const adjustedRadius = radius * config.radiusMultiplier;
         const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
 
-        // Update cache
+        // Update cache with string array instead of Set
         if (result.length > 0) {
           cache.set(cellKey, {
-            entities: new Set(result),
+            entities: result, // Direct array assignment, no Array.from() needed
             timestamp: currentTime,
           });
         }
@@ -169,13 +278,13 @@ export class SpatialGridComponent extends Component {
         return result;
       }
 
-      return Array.from(cachedEntry.entities);
+      return cachedEntry.entities; // Direct return, no Array.from() needed
     }
 
     // If not time to update, return cached result if available
     const cachedEntry = cache.get(cellKey);
-    if (cachedEntry && cachedEntry.entities.size > 0) {
-      return Array.from(cachedEntry.entities);
+    if (cachedEntry && cachedEntry.entities.length > 0) {
+      return cachedEntry.entities; // Direct return, no Array.from() needed
     }
 
     // If no cache available, calculate and cache
@@ -183,7 +292,7 @@ export class SpatialGridComponent extends Component {
     const result = this.calculateNearbyEntities(position, adjustedRadius, queryType);
     if (result.length > 0) {
       cache.set(cellKey, {
-        entities: new Set(result),
+        entities: result, // Direct array assignment
         timestamp: currentTime,
       });
     }
@@ -209,13 +318,31 @@ export class SpatialGridComponent extends Component {
         if (!cell) {
           continue;
         }
-        cell.entities.forEach((entityId) => {
-          result.push(...this.filterEntityByQueryType(cell, entityId, queryType));
-        });
+
+        // Use pre-classified storage for better performance
+        result.push(...this.getEntitiesByQueryType(cell, queryType));
       }
     }
 
     return result;
+  }
+
+  /**
+   * Get entities by query type using pre-classified storage
+   * This replaces filterEntityByQueryType for better performance
+   */
+  private getEntitiesByQueryType(cell: GridCell, queryType: SpatialQueryType): string[] {
+    switch (queryType) {
+      case 'collision-distant':
+      case 'collision':
+        return [...cell.enemies, ...cell.players, ...cell.projectiles, ...cell.areaEffects];
+      case 'damage':
+        return [...cell.enemies, ...cell.projectiles, ...cell.areaEffects];
+      case 'pickup':
+        return [...cell.pickups];
+      default:
+        return [];
+    }
   }
 
   private updateCaches(): void {
@@ -319,14 +446,14 @@ export class SpatialGridComponent extends Component {
     const cell = this.grid.get(cellKey);
     if (!cell) return [];
 
-    const result: string[] = [];
-    cell.entities.forEach((entityId) => {
-      result.push(...this.filterEntityByQueryType(cell, entityId, queryType));
-    });
-
-    return result;
+    // Use pre-classified storage for better performance
+    return this.getEntitiesByQueryType(cell, queryType);
   }
 
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use getEntitiesByQueryType instead for better performance
+   */
   private filterEntityByQueryType(
     cell: GridCell,
     entityId: string,

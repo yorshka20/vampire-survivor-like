@@ -39,12 +39,21 @@ export class CollisionSystem extends System {
   private readonly tempPairKey: Uint32Array = new Uint32Array(2);
   private tempNearbyEntities: string[] = [];
 
-  // Distance thresholds for different collision tiers
-  private readonly TIER_DISTANCES = {
-    [CollisionTier.CRITICAL]: 100, // 100 units
-    [CollisionTier.NORMAL]: 300, // 300 units
-    [CollisionTier.DISTANT]: 500, // 500 units
+  // Distance thresholds for different collision tiers (squared values for performance)
+  private readonly TIER_DISTANCES_SQUARED = {
+    [CollisionTier.CRITICAL]: 100 * 100, // 100^2 = 10,000
+    [CollisionTier.NORMAL]: 300 * 300, // 300^2 = 90,000
+    [CollisionTier.DISTANT]: 500 * 500, // 500^2 = 250,000
   };
+
+  // Performance profiling
+  private performanceStats = {
+    distanceCalculation: 0,
+    spatialQuery: 0,
+    collisionDetection: 0,
+    totalFrames: 0,
+  };
+  private static readonly PERFORMANCE_LOG_INTERVAL = 60; // Log every 60 frames
 
   constructor() {
     super('CollisionSystem', SystemPriorities.COLLISION, 'logic');
@@ -56,6 +65,9 @@ export class CollisionSystem extends System {
     this.checkedPairs.clear();
     this.damageCollisionResults.length = 0;
 
+    // Performance profiling start
+    const updateStart = performance.now();
+
     // Get all entities with colliders
     const entities = this.world.getEntitiesWithComponents([ColliderComponent]);
     const player = this.getPlayer();
@@ -65,33 +77,47 @@ export class CollisionSystem extends System {
       .getComponent<TransformComponent>(TransformComponent.componentName)
       .getPosition();
 
+    // Performance profiling: distance calculation phase
+    const distanceStart = performance.now();
+
     // Process entities based on their distance from player
     for (const entity of entities) {
       const position = entity
         .getComponent<TransformComponent>(TransformComponent.componentName)
         .getPosition();
 
-      // Calculate distance from player using reusable array
+      // Calculate squared distance from player using reusable array (avoid Math.sqrt)
       this.tempPosition[0] = position[0] - playerPos[0];
       this.tempPosition[1] = position[1] - playerPos[1];
-      const distance = Math.sqrt(
-        this.tempPosition[0] * this.tempPosition[0] + this.tempPosition[1] * this.tempPosition[1],
-      );
+      const distanceSquared =
+        this.tempPosition[0] * this.tempPosition[0] + this.tempPosition[1] * this.tempPosition[1];
 
-      // Determine collision tier
-      const tier = this.getCollisionTier(distance);
+      // Determine collision tier using squared distance
+      const tier = this.getCollisionTier(distanceSquared);
 
       // Check if we should process this entity based on its tier
       if (this.shouldProcessTier(tier)) {
         this.processEntityCollisions(entity, tier);
       }
     }
+
+    // Performance profiling: distance calculation end
+    this.performanceStats.distanceCalculation += performance.now() - distanceStart;
+
+    // Performance profiling: total update time
+    this.performanceStats.totalFrames++;
+    const totalTime = performance.now() - updateStart;
+
+    // Log performance statistics every PERFORMANCE_LOG_INTERVAL frames
+    if (this.frameCount % CollisionSystem.PERFORMANCE_LOG_INTERVAL === 0) {
+      this.logPerformanceStats();
+    }
   }
 
-  private getCollisionTier(distance: number): CollisionTier {
-    if (distance <= this.TIER_DISTANCES[CollisionTier.CRITICAL]) {
+  private getCollisionTier(distanceSquared: number): CollisionTier {
+    if (distanceSquared <= this.TIER_DISTANCES_SQUARED[CollisionTier.CRITICAL]) {
       return CollisionTier.CRITICAL;
-    } else if (distance <= this.TIER_DISTANCES[CollisionTier.NORMAL]) {
+    } else if (distanceSquared <= this.TIER_DISTANCES_SQUARED[CollisionTier.NORMAL]) {
       return CollisionTier.NORMAL;
     } else {
       return CollisionTier.DISTANT;
@@ -130,6 +156,9 @@ export class CollisionSystem extends System {
     const baseRadius = Math.max(collisionArea[2], collisionArea[3]) * 2;
     const searchRadius = this.getTierSearchRadius(baseRadius, tier);
 
+    // Performance profiling: spatial query phase
+    const spatialStart = performance.now();
+
     // Get nearby entities using spatial grid with tier-specific cache
     this.tempNearbyEntities.length = 0;
     this.tempNearbyEntities = this.gridComponent.getNearbyEntities(
@@ -137,6 +166,12 @@ export class CollisionSystem extends System {
       searchRadius,
       this.getCacheTypeForTier(tier),
     );
+
+    // Performance profiling: spatial query end
+    this.performanceStats.spatialQuery += performance.now() - spatialStart;
+
+    // Performance profiling: collision detection phase
+    const collisionStart = performance.now();
 
     for (const nearbyId of this.tempNearbyEntities) {
       const nearbyEntity = this.world.getEntityById(nearbyId);
@@ -179,6 +214,9 @@ export class CollisionSystem extends System {
 
       this.checkedPairs.add(pairKey);
     }
+
+    // Performance profiling: collision detection end
+    this.performanceStats.collisionDetection += performance.now() - collisionStart;
   }
 
   private getTierSearchRadius(baseRadius: number, tier: CollisionTier): number {
@@ -275,12 +313,21 @@ export class CollisionSystem extends System {
       return null;
     }
 
-    // Calculate laser direction vector
-    const dx = laser.aim[0] - laserPos[0];
-    const dy = laser.aim[1] - laserPos[1];
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const dirX = dx / length;
-    const dirY = dy / length;
+    // Use cached direction if available for better performance
+    let dirX: number, dirY: number;
+    const cachedDirection = laserCollider.getCachedLaserDirection();
+
+    if (cachedDirection) {
+      // Use cached direction (performance optimization)
+      [dirX, dirY] = cachedDirection;
+    } else {
+      // Fallback to calculation if cache is not available
+      const dx = laser.aim[0] - laserPos[0];
+      const dy = laser.aim[1] - laserPos[1];
+      const length = Math.sqrt(dx * dx + dy * dy);
+      dirX = dx / length;
+      dirY = dy / length;
+    }
 
     // Calculate vector from laser start to enemy
     const px = enemyPos[0] - laserPos[0];
@@ -298,17 +345,21 @@ export class CollisionSystem extends System {
     const closestX = laserPos[0] + dirX * proj;
     const closestY = laserPos[1] + dirY * proj;
 
-    // Calculate distance from enemy to closest point on laser
+    // Calculate squared distance from enemy to closest point on laser (avoid Math.sqrt)
     const dx2 = enemyPos[0] - closestX;
     const dy2 = enemyPos[1] - closestY;
-    const distance = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+    const distanceSquared = dx2 * dx2 + dy2 * dy2;
 
     // Get enemy size
     const enemySize = enemyCollider.size;
     const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
+    const enemyRadiusSquared = enemyRadius * enemyRadius;
 
-    // Check if enemy is within laser width
-    if (distance <= laser.laserWidth / 2 + enemyRadius) {
+    // Check if enemy is within laser width using squared distance
+    const laserWidthHalf = laser.laserWidth / 2;
+    const totalRadiusSquared = (laserWidthHalf + enemyRadius) * (laserWidthHalf + enemyRadius);
+
+    if (distanceSquared <= totalRadiusSquared) {
       return {
         entity1,
         entity2,
@@ -447,6 +498,36 @@ export class CollisionSystem extends System {
     const damping = 0.8; // Adjust this value to control damping
     velocity1.setVelocity([newVel1X * damping, newVel1Y * damping]);
     velocity2.setVelocity([newVel2X * damping, newVel2Y * damping]);
+  }
+
+  /**
+   * Log performance statistics for debugging and optimization
+   */
+  private logPerformanceStats(): void {
+    const avgDistance =
+      this.performanceStats.distanceCalculation / this.performanceStats.totalFrames;
+    const avgSpatial = this.performanceStats.spatialQuery / this.performanceStats.totalFrames;
+    const avgCollision =
+      this.performanceStats.collisionDetection / this.performanceStats.totalFrames;
+    const totalAvg = avgDistance + avgSpatial + avgCollision;
+
+    console.log(`[CollisionSystem] Performance Stats (Frame ${this.frameCount}):`);
+    console.log(
+      `  Distance Calculation: ${avgDistance.toFixed(2)}ms (${((avgDistance / totalAvg) * 100).toFixed(1)}%)`,
+    );
+    console.log(
+      `  Spatial Query: ${avgSpatial.toFixed(2)}ms (${((avgSpatial / totalAvg) * 100).toFixed(1)}%)`,
+    );
+    console.log(
+      `  Collision Detection: ${avgCollision.toFixed(2)}ms (${((avgCollision / totalAvg) * 100).toFixed(1)}%)`,
+    );
+    console.log(`  Total Average: ${totalAvg.toFixed(2)}ms`);
+
+    // Reset stats for next interval
+    this.performanceStats.distanceCalculation = 0;
+    this.performanceStats.spatialQuery = 0;
+    this.performanceStats.collisionDetection = 0;
+    this.performanceStats.totalFrames = 0;
   }
 
   getCollisionResults(): CollisionResult[] {

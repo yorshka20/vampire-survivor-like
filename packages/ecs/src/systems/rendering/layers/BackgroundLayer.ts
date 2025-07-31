@@ -45,8 +45,6 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     const tileWidth = this.bgImage.width;
     const tileHeight = this.bgImage.height;
 
-    console.log(tileWidth, tileHeight);
-
     // Calculate how many tiles we need to cover the viewport
     const tilesX = Math.ceil(visibleWidth / tileWidth) + 2; // Add extra tiles to prevent gaps
     const tilesY = Math.ceil(visibleHeight / tileHeight) + 2;
