@@ -387,10 +387,10 @@ export class DamageSystem extends System {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  private getGridDebugLayer(): GridDebugLayer {
+  private getGridDebugLayer(): GridDebugLayer | null {
     const gridDebugLayer = this.getRenderSystem().getGridDebugLayer();
     if (!gridDebugLayer) {
-      throw new Error('GridDebugLayer not found');
+      return null;
     }
     return gridDebugLayer;
   }
@@ -398,7 +398,7 @@ export class DamageSystem extends System {
   private collectHighlightedCells(cells: string[]): void {
     const gridDebugLayer = this.getGridDebugLayer();
     if (!gridDebugLayer) {
-      throw new Error('GridDebugLayer not found');
+      return;
     }
     this.highlightedCells.push(...cells);
   }
@@ -406,7 +406,7 @@ export class DamageSystem extends System {
   private sendHighlightedCells(): void {
     const gridDebugLayer = this.getGridDebugLayer();
     if (!gridDebugLayer) {
-      throw new Error('GridDebugLayer not found');
+      return;
     }
     if (this.highlightedCells.length === 0) return;
     gridDebugLayer.setHighlightedCells(this.highlightedCells);

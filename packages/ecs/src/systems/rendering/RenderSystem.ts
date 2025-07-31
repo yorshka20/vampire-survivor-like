@@ -54,7 +54,7 @@ export class RenderSystem extends System {
       new ProjectileRenderLayer(this.mainCanvas, this.mainCtx),
       new BackgroundRenderLayer(this.mainCanvas, this.mainCtx, bgImage),
       // Debug layers
-      new GridDebugLayer(this.mainCanvas, this.mainCtx, 100), // 100 is the cell size
+      // new GridDebugLayer(this.mainCanvas, this.mainCtx, 100), // 100 is the cell size
       // UI layers with their own canvas
       new DamageTextLayer(rootElement),
     ];
