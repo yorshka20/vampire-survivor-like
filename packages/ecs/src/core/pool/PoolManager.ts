@@ -1,6 +1,5 @@
-import { Component } from '../ecs/Component';
 import { Entity } from '../ecs/Entity';
-import { ComponentConstructor, ComponentFactory, ComponentProps } from '../ecs/types';
+import { ComponentConstructor, ComponentFactory, ComponentProps, IComponent } from '../ecs/types';
 import { ObjectPool } from './ObjectPool';
 
 export class PoolManager {
@@ -32,7 +31,7 @@ export class PoolManager {
     this.entityPools.set(name, new ObjectPool(factory, initialSize, maxSize));
   }
 
-  createComponentPool<T extends Component>(
+  createComponentPool<T extends IComponent>(
     ComponentClass: ComponentConstructor<T>,
     factory: ComponentFactory<T>,
     initialSize: number = 0,
@@ -68,7 +67,7 @@ export class PoolManager {
    * @param props - The props to recreate the component with
    * @returns
    */
-  getComponentFromPool<T extends Component, C extends ComponentConstructor<T>>(
+  getComponentFromPool<T extends IComponent, C extends ComponentConstructor<T>>(
     ComponentClass: C,
     props: ComponentProps<C>,
   ): T | undefined {
@@ -90,7 +89,7 @@ export class PoolManager {
     pool.return(entity);
   }
 
-  returnComponentToPool<T extends Component>(
+  returnComponentToPool<T extends IComponent>(
     ComponentClass: ComponentConstructor<T>,
     component: T,
   ): void {

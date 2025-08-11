@@ -1,7 +1,6 @@
 import { generateEntityId } from '../../utils/name';
 import { IPoolableConfig } from '../pool/IPoolable';
-import { Component } from './Component';
-import { EntityType, IEntity } from './types';
+import { EntityType, IComponent, IEntity } from './types';
 
 /**
  * Base Entity class that implements the Entity interface
@@ -17,7 +16,7 @@ export class Entity implements IEntity {
 
   active: boolean = true;
   toRemove: boolean = false;
-  components: Map<string, Component> = new Map();
+  components: Map<string, IComponent> = new Map();
 
   // onRemove will be called when the entity is removed from the world
   private onRemovedCallbacks: ((id: string) => void)[] = [];
@@ -31,7 +30,7 @@ export class Entity implements IEntity {
     this.numericId = Entity.nextNumericId++;
   }
 
-  addComponent(component: Component): void {
+  addComponent(component: IComponent): void {
     if (this.components.has(component.name)) {
       console.warn(`Component ${component.name} already exists on entity ${this.id}`);
       return;
@@ -49,7 +48,7 @@ export class Entity implements IEntity {
     }
   }
 
-  getComponent<T extends Component>(componentName: string): T {
+  getComponent<T extends IComponent>(componentName: string): T {
     if (!this.components.has(componentName)) {
       throw new Error(`Component ${componentName} does not exist on entity ${this.id}`);
     }
@@ -100,9 +99,17 @@ export class Entity implements IEntity {
   reset(): void {
     this.active = true;
     this.toRemove = false;
+
+    // Fix: Properly clean up components to prevent object pool reuse issues
+    // Detach all components before clearing to ensure proper cleanup
+    this.components.forEach((component) => {
+      component.onDetach();
+    });
     this.components.clear();
+
     this.onRemovedCallbacks.length = 0;
     this.onDestroyedCallbacks.length = 0;
+
     // Note: id, type, and numericId are not reset here
     // They will be set in recreate() method when the entity is reused
   }

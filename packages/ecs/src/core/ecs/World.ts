@@ -1,11 +1,17 @@
 import { generateEntityId } from '../../utils/name';
 import { ComponentPoolList, EntityPoolList } from '../pool/constants';
 import { PoolManager } from '../pool/PoolManager';
-import { Component } from './Component';
 import { Entity } from './Entity';
 import { EventEmitter } from './EventEmitter';
 import { System } from './System';
-import { ComponentConstructor, ComponentProps, EntityType, ISystem, IWorld } from './types';
+import {
+  ComponentConstructor,
+  ComponentProps,
+  EntityType,
+  IComponent,
+  ISystem,
+  IWorld,
+} from './types';
 
 /**
  * World class that manages all entities and systems
@@ -102,7 +108,7 @@ export class World implements IWorld {
       component.onDetach();
       // Return component to pool (component will be reset when retrieved)
       this.poolManager.returnComponentToPool(
-        component.constructor as ComponentConstructor<Component>,
+        component.constructor as ComponentConstructor<IComponent>,
         component,
       );
     });
@@ -136,7 +142,7 @@ export class World implements IWorld {
     return new Entity(generateEntityId(type), type);
   }
 
-  createComponent<T extends Component, C extends ComponentConstructor<T>>(
+  createComponent<T extends IComponent, C extends ComponentConstructor<T>>(
     ComponentClass: C,
     props: ComponentProps<C>,
   ): T {

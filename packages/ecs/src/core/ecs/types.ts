@@ -1,10 +1,9 @@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { IPoolable, IPoolableConfig } from '../pool/IPoolable';
-import { Component } from './Component';
 import { World } from './World';
 
 // define component constructor type
-export type ComponentConstructor<T extends Component> = {
+export type ComponentConstructor<T extends IComponent> = {
   new (...args: any[]): T;
   poolConfig: IPoolableConfig;
 };
@@ -12,7 +11,7 @@ export type ComponentConstructor<T extends Component> = {
 // define component props type extraction
 export type ComponentProps<T> = T extends new (props: infer P) => any ? P : never;
 
-export type ComponentFactory<T extends Component> = (props?: ComponentProps<T>) => T;
+export type ComponentFactory<T extends IComponent> = (props?: ComponentProps<T>) => T;
 
 /**
  * Entity interface
@@ -102,7 +101,7 @@ export interface IWorld {
   addEntity(entity: IEntity): void;
   removeEntity(entity: IEntity): void;
   createEntity(type: EntityType): IEntity;
-  createComponent<T extends Component, C extends ComponentConstructor<T>>(
+  createComponent<T extends IComponent, C extends ComponentConstructor<T>>(
     ComponentClass: C,
     props: ComponentProps<C>,
   ): T;

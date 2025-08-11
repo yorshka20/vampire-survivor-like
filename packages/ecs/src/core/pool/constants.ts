@@ -20,8 +20,7 @@ import {
   TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
-import { Component } from '../ecs/Component';
-import { ComponentConstructor, EntityType } from '../ecs/types';
+import { ComponentConstructor, EntityType, IComponent } from '../ecs/types';
 
 export const EntityPoolList: EntityType[] = [
   'player',
@@ -35,7 +34,7 @@ export const EntityPoolList: EntityType[] = [
   'other',
 ];
 
-export const ComponentPoolList: ComponentConstructor<Component>[] = [
+export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
   RenderComponent,
   HealthComponent,
   AIComponent,

@@ -18,6 +18,7 @@ export class LifecycleComponent extends Component {
   }
 
   isExpired(): boolean {
+    // -1 means infinite lifetime
     if (this.lifetime === -1) return false;
     return this.remainingTime <= 0;
   }

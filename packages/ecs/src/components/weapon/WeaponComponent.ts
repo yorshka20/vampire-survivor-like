@@ -46,8 +46,12 @@ export class WeaponComponent extends Component {
 
   clearOnceWeapon(): void {
     this.onceWeapons.forEach((weapon) => {
-      this.weapons.splice(this.weapons.indexOf(weapon), 1);
-      this.lastAttackTimes.splice(this.weapons.indexOf(weapon), 1);
+      const weaponIndex = this.weapons.indexOf(weapon);
+      if (weaponIndex !== -1) {
+        // Remove weapon and corresponding lastAttackTime at the same index
+        this.weapons.splice(weaponIndex, 1);
+        this.lastAttackTimes.splice(weaponIndex, 1);
+      }
     });
     this.onceWeapons.length = 0;
   }
@@ -92,8 +96,11 @@ export class WeaponComponent extends Component {
 
   reset(): void {
     super.reset();
+
     this.weapons.length = 0;
     this.currentWeaponIndex = 0;
     this.lastAttackTimes.length = 0;
+    this.onceWeapons.length = 0;
+    this.attackCooldown = 200;
   }
 }
