@@ -18,16 +18,16 @@ import {
   TransformSystem,
   WeaponSystem,
 } from '@ecs';
-import { RectArea } from '@ecs/utils/types';
+import { Viewport } from '@ecs/utils/types';
 
 export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance
   const game = new Game();
   const world = game.getWorld();
-  const viewport: RectArea = [0, 0, window.innerWidth, window.innerHeight];
+  const viewport: Viewport = [0, 0, window.innerWidth, window.innerHeight];
 
   // Add all systems in the correct order
-  world.addSystem(new SpatialGridSystem());
+  world.addSystem(new SpatialGridSystem(viewport));
   world.addSystem(new LifecycleSystem());
   world.addSystem(new PhysicsSystem());
   world.addSystem(new TransformSystem());

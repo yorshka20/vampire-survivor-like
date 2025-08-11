@@ -17,18 +17,9 @@ import { CollisionSystem } from '../physics/CollisionSystem';
 import { GridDebugLayer } from '../rendering';
 import { RenderSystem } from '../rendering/RenderSystem';
 
-// Performance monitoring thresholds
-const PERFORMANCE_THRESHOLDS = {
-  CRITICAL: 30, // FPS threshold for critical performance mode
-  NORMAL: 45, // FPS threshold for normal performance mode
-};
-
 export class DamageSystem extends System {
   private collisionSystem: CollisionSystem | null = null;
   private renderSystem: RenderSystem | null = null;
-  private lastPerformanceCheck: number = 0;
-  private performanceCheckInterval: number = 1000; // Check every second
-  private isInPerformanceMode: boolean = false;
 
   private highlightedCells: string[] = [];
 
@@ -65,15 +56,6 @@ export class DamageSystem extends System {
       throw new Error('RenderSystem not found');
     }
     return this.renderSystem;
-  }
-
-  private checkPerformance(): void {
-    const currentTime = Date.now();
-    if (currentTime - this.lastPerformanceCheck >= this.performanceCheckInterval) {
-      // Temporarily removed FPS check - can be reimplemented through GameStore or other means
-      this.isInPerformanceMode = false;
-      this.lastPerformanceCheck = currentTime;
-    }
   }
 
   private processDamage(
@@ -413,8 +395,6 @@ export class DamageSystem extends System {
   }
 
   update(deltaTime: number): void {
-    this.checkPerformance();
-
     const collisionResults = this.getCollisionSystem().getCollisionResults();
     const entitiesToRemove: Entity[] = [];
 

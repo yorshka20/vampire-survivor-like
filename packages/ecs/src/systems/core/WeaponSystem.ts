@@ -24,6 +24,7 @@ import { System } from '@ecs/core/ecs/System';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
 import { Point } from '@ecs/utils/types';
+import { SpatialGridSystem } from '../physics';
 
 type WeaponParameters<T extends Weapon> = {
   weaponEntity: Entity;
@@ -258,9 +259,11 @@ export class WeaponSystem extends System {
   }
 
   private getRandomPositionInViewport(position: Point): Point {
-    // Temporarily use fixed viewport size - can be passed as parameter or retrieved from RenderSystem
-    const viewportWidth = 800;
-    const viewportHeight = 600;
+    const viewport = this.world.getSystem<SpatialGridSystem>('SpatialGridSystem', 0)?.getViewport();
+    if (!viewport) return position;
+
+    const viewportWidth = viewport[2];
+    const viewportHeight = viewport[3];
     const padding = 50; // Padding from viewport edges
     const [px, py] = position;
 

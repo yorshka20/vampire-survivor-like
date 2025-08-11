@@ -1,4 +1,4 @@
-import { type PerformanceSystem, ResourceManager } from '@ecs';
+import { type PerformanceSystem, ResourceManager, SpatialGridSystem } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import {
@@ -9,14 +9,8 @@ import {
 } from '@ecs/core/resources/loader';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
+import { Viewport } from '@ecs/utils/types';
 import { GameLoop } from './GameLoop';
-
-export interface Viewport {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 /**
  * Game class that initializes and manages the game
@@ -27,12 +21,7 @@ export class Game {
   private world: World;
   private gameLoop: GameLoop;
   private store: GameStore;
-  private viewport: Viewport = {
-    x: 0,
-    y: 0,
-    width: 800,
-    height: 600,
-  };
+
   private initialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
 
@@ -162,17 +151,13 @@ export class Game {
   }
 
   /**
-   * Get the game viewport
-   */
-  getViewport(): Viewport {
-    return this.viewport;
-  }
-
-  /**
    * Set the game viewport
    */
   setViewport(viewport: Viewport): void {
-    this.viewport = viewport;
+    const spatialGridSystem = this.world.getSystem<SpatialGridSystem>('SpatialGridSystem', 0);
+    if (spatialGridSystem) {
+      spatialGridSystem.setViewport(viewport);
+    }
   }
 
   private getPerformanceSystem() {

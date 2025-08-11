@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point } from '@ecs/utils/types';
+import { Point, Viewport } from '@ecs/utils/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance
@@ -46,7 +46,7 @@ export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
   private grid: Map<string, GridCell> = new Map();
   public cellSize: number;
-  private worldSize: { width: number; height: number };
+  private viewport: Viewport;
 
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
@@ -56,10 +56,10 @@ export class SpatialGridComponent extends Component {
   private lastCacheCleanupFrame: number = 0;
   private static readonly CACHE_CLEANUP_INTERVAL = 60;
 
-  constructor(cellSize: number, worldSize: { width: number; height: number }) {
+  constructor(cellSize: number, viewport: Viewport) {
     super(SpatialGridComponent.componentName);
     this.cellSize = cellSize;
-    this.worldSize = worldSize;
+    this.viewport = viewport;
 
     // Initialize caches and their configurations
     this.initializeCaches();
@@ -361,6 +361,10 @@ export class SpatialGridComponent extends Component {
     this.frameCount++;
   }
 
+  setViewport(viewport: Viewport): void {
+    this.viewport = viewport;
+  }
+
   clear(): void {
     this.grid.clear();
     this.invalidateCaches();
@@ -370,7 +374,7 @@ export class SpatialGridComponent extends Component {
     super.reset();
     this.grid.clear();
     this.cellSize = 0;
-    this.worldSize = { width: 0, height: 0 };
+    this.viewport = [0, 0, 0, 0];
     this.invalidateCaches();
     this.frameCount = 0;
   }
@@ -448,45 +452,5 @@ export class SpatialGridComponent extends Component {
 
     // Use pre-classified storage for better performance
     return this.getEntitiesByQueryType(cell, queryType);
-  }
-
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use getEntitiesByQueryType instead for better performance
-   */
-  private filterEntityByQueryType(
-    cell: GridCell,
-    entityId: string,
-    queryType: SpatialQueryType,
-  ): string[] {
-    const result: string[] = [];
-    switch (queryType) {
-      case 'collision-distant':
-      case 'collision':
-        if (
-          cell.entityTypes.get(entityId) === 'enemy' ||
-          cell.entityTypes.get(entityId) === 'player' ||
-          cell.entityTypes.get(entityId) === 'projectile' ||
-          cell.entityTypes.get(entityId) === 'areaEffect'
-        ) {
-          result.push(entityId);
-        }
-        break;
-      case 'damage':
-        if (
-          cell.entityTypes.get(entityId) === 'enemy' ||
-          cell.entityTypes.get(entityId) === 'projectile' ||
-          cell.entityTypes.get(entityId) === 'areaEffect'
-        ) {
-          result.push(entityId);
-        }
-        break;
-      case 'pickup':
-        if (cell.entityTypes.get(entityId) === 'pickup') {
-          result.push(entityId);
-        }
-        break;
-    }
-    return result;
   }
 }

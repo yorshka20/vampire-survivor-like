@@ -12,6 +12,7 @@ export type Point = [number, number];
  */
 export type Size = [number, number];
 
+export type Viewport = RectArea;
 /**
  * Represents a rectangular area with [x, y, width, height]
  */
