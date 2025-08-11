@@ -472,13 +472,18 @@ export class WeaponSystem extends System {
     currentTime,
     weaponIndex,
   }: WeaponParameters<BombWeapon>): void {
-    // Find nearest enemy to aim
+    // Find nearest enemies up to projectileCount using efficient single-pass algorithm
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
     if (!enemyIds || enemyIds.length === 0) return;
 
-    let nearestEnemy: Entity | null = null;
-    let nearestDistance = Infinity;
-    let nearestEnemyPosition: [number, number] | null = null;
+    // Use a min-heap approach to find top N nearest enemies in single pass
+    // For small N (typically < 10), this is more efficient than full sorting
+    const maxTargets = currentWeapon.projectileCount;
+    const nearestEnemies: Array<{
+      enemy: Entity;
+      position: [number, number];
+      distance: number;
+    }> = [];
 
     for (const enemyId of enemyIds) {
       const enemy = this.world.getEntityById(enemyId);
@@ -487,21 +492,39 @@ export class WeaponSystem extends System {
       const enemyPos = enemy
         .getComponent<TransformComponent>(TransformComponent.componentName)
         .getPosition();
-      const distance = Math.sqrt(
-        (enemyPos[0] - position[0]) ** 2 + (enemyPos[1] - position[1]) ** 2,
-      );
 
-      if (distance < nearestDistance && distance <= currentWeapon.range) {
-        nearestDistance = distance;
-        nearestEnemy = enemy;
-        nearestEnemyPosition = enemyPos;
+      // Use squared distance to avoid expensive sqrt calculation during comparison
+      const dx = enemyPos[0] - position[0];
+      const dy = enemyPos[1] - position[1];
+      const distanceSquared = dx * dx + dy * dy;
+
+      // Early exit if enemy is out of range
+      if (distanceSquared > currentWeapon.range * currentWeapon.range) continue;
+
+      // Insert into nearest enemies array maintaining sorted order
+      const enemyData = { enemy, position: enemyPos, distance: Math.sqrt(distanceSquared) };
+
+      if (nearestEnemies.length < maxTargets) {
+        // If we haven't reached max targets, just add it
+        nearestEnemies.push(enemyData);
+        // Keep array sorted by distance (insertion sort for small arrays is efficient)
+        nearestEnemies.sort((a, b) => a.distance - b.distance);
+      } else if (
+        distanceSquared <
+        nearestEnemies[maxTargets - 1].distance * nearestEnemies[maxTargets - 1].distance
+      ) {
+        // If this enemy is closer than the farthest in our list, replace it
+        nearestEnemies[maxTargets - 1] = enemyData;
+        // Re-sort only the last few elements (more efficient than full sort)
+        nearestEnemies.sort((a, b) => a.distance - b.distance);
       }
     }
 
-    if (nearestEnemy && nearestEnemyPosition) {
-      // Calculate direction
-      const dx = nearestEnemyPosition[0] - position[0];
-      const dy = nearestEnemyPosition[1] - position[1];
+    // Create bomb projectiles for each nearest enemy
+    for (const enemyData of nearestEnemies) {
+      // Calculate direction to enemy (reuse already calculated dx, dy)
+      const dx = enemyData.position[0] - position[0];
+      const dy = enemyData.position[1] - position[1];
       const distance = Math.sqrt(dx * dx + dy * dy);
       const dirX = dx / distance;
       const dirY = dy / distance;
@@ -512,11 +535,12 @@ export class WeaponSystem extends System {
         velocity: [dirX * currentWeapon.projectileSpeed, dirY * currentWeapon.projectileSpeed],
         damage: effectiveDamage,
         source: weaponEntity.id,
-        size: currentWeapon.projectileSize,
+        size: [...currentWeapon.projectileSize], // fix array copy bug in objectPool
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
         type: 'bomb',
         lifetime: currentWeapon.projectileLifetime,
+        penetration: currentWeapon.penetration,
       });
 
       // Add onDestroyed handler to create explosion when projectile is destroyed
@@ -526,10 +550,12 @@ export class WeaponSystem extends System {
           .getComponent<TransformComponent>(TransformComponent.componentName)
           .getPosition();
         // Create a visual-only explosion effect
+        const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
+        const explosionSize = currentWeapon.explosionRadius * 2 * (stats?.damageMultiplier ?? 1);
         const explosion = createEffectEntity(this.world, {
           position: [projectilePos[0], projectilePos[1]],
           // circle so use 2x radius
-          size: [currentWeapon.explosionRadius * 2, currentWeapon.explosionRadius * 2],
+          size: [explosionSize, explosionSize],
           type: 'explosion',
           duration: currentWeapon.explosionDuration,
           color: currentWeapon.explosionColor,
@@ -539,8 +565,9 @@ export class WeaponSystem extends System {
       });
 
       this.world.addEntity(projectile);
-      weapon.updateAttackTime(currentTime, weaponIndex);
     }
+
+    weapon.updateAttackTime(currentTime, weaponIndex);
   }
 
   private handleLaser({
