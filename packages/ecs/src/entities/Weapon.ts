@@ -151,6 +151,24 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
         laserDuration: finalProps.laserWeapon?.laserDuration ?? 1000,
       };
       break;
+    case WeaponType.SPINNING:
+      weaponData = {
+        name: 'Spinning Weapon',
+        type: WeaponType.SPINNING,
+        damage: finalProps.damage,
+        attackSpeed: finalProps.attackSpeed,
+        range: finalProps.range,
+        spinCount: finalProps.spinningWeapon?.spinCount ?? 1,
+        spinRadius: finalProps.spinningWeapon?.spinRadius ?? 10,
+        spinSpeed: finalProps.spinningWeapon?.spinSpeed ?? 10,
+        spinLifetime: finalProps.spinningWeapon?.spinLifetime ?? 1000,
+        projectileSpeed: finalProps.spinningWeapon?.projectileSpeed ?? projectileSpeed,
+        projectileSize: finalProps.spinningWeapon?.projectileSize ?? projectileSize,
+        projectileColor: finalProps.spinningWeapon?.projectileColor ?? color,
+        projectileCount: finalProps.spinningWeapon?.projectileCount ?? 1,
+        projectileLifetime: finalProps.spinningWeapon?.projectileLifetime ?? projectileLifetime,
+      };
+      break;
   }
 
   // Add components

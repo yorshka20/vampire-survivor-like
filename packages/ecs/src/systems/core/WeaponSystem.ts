@@ -69,7 +69,7 @@ export class WeaponSystem extends System {
         const effectiveAttackSpeed =
           currentWeapon.attackSpeed * (stats?.attackSpeedMultiplier ?? 1);
         const attackInterval = TimeUtil.toMilliseconds(1) / effectiveAttackSpeed;
-        const lastAttackTime = weapon.lastAttackTimes[i] ?? 0;
+        const lastAttackTime = weapon.lastAttackTimes[currentWeapon.name] ?? 0;
 
         if (currentTime - lastAttackTime < attackInterval) continue;
 
@@ -366,7 +366,7 @@ export class WeaponSystem extends System {
         position: [spawnX, spawnY],
         damage: effectiveDamage,
         source: weaponEntity.id,
-        size: currentWeapon.projectileSize,
+        size: [...currentWeapon.projectileSize], // fix array copy bug in objectPool
         color: currentWeapon.projectileColor,
         weapon: currentWeapon,
         penetration: currentWeapon.penetration,
@@ -415,7 +415,7 @@ export class WeaponSystem extends System {
       // Create projectile with spiral trajectory
       const projectile = createProjectileEntity(this.world, {
         position: [spawnX, spawnY],
-        size: currentWeapon.projectileSize,
+        size: [...currentWeapon.projectileSize], // fix array copy bug in objectPool
         damage: effectiveDamage,
         source: weaponEntity.id,
         penetration: currentWeapon.penetration,
@@ -443,7 +443,7 @@ export class WeaponSystem extends System {
         // Add StatsComponent first
         projectile.addComponent(
           this.world.createComponent(StatsComponent, {
-            damageMultiplier: 1,
+            damageMultiplier: 1.05,
             attackSpeedMultiplier: 1,
           }),
         );

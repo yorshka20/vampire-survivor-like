@@ -14,7 +14,7 @@ export class WeaponComponent extends Component {
 
   weapons: Weapon[];
   currentWeaponIndex: number;
-  lastAttackTimes: number[] = [];
+  lastAttackTimes: Record<string, number> = {};
   attackCooldown: number = 200;
   onceWeapons: Weapon[] = [];
 
@@ -23,7 +23,7 @@ export class WeaponComponent extends Component {
     this.weapons = props.weapons;
     this.currentWeaponIndex = props.currentWeaponIndex ?? 0;
     this.attackCooldown = props.attackCooldown ?? 0;
-    this.weapons.forEach(() => this.lastAttackTimes.push(0));
+    this.weapons.forEach((weapon) => (this.lastAttackTimes[weapon.name] = 0));
   }
 
   getCurrentWeapon(): Weapon | null {
@@ -33,25 +33,21 @@ export class WeaponComponent extends Component {
   addWeapon(weapon: Weapon): void {
     if (this.weapons.length >= WeaponComponent.maxWeapons) return;
     this.weapons.push(weapon);
-    this.lastAttackTimes.push(0);
+    this.lastAttackTimes[weapon.name] = 0;
   }
 
   onceAttack(weapon: Weapon): void {
+    // todo: fix temporary weapon attack logic
     this.weapons.push(weapon);
-    this.lastAttackTimes.push(0);
-
-    this.onceWeapons.push(weapon);
     // remove the weapon after attack
+    this.onceWeapons.push(weapon);
+    this.lastAttackTimes[weapon.name] = 0;
   }
 
   clearOnceWeapon(): void {
     this.onceWeapons.forEach((weapon) => {
-      const weaponIndex = this.weapons.indexOf(weapon);
-      if (weaponIndex !== -1) {
-        // Remove weapon and corresponding lastAttackTime at the same index
-        this.weapons.splice(weaponIndex, 1);
-        this.lastAttackTimes.splice(weaponIndex, 1);
-      }
+      this.weapons.splice(this.weapons.indexOf(weapon), 1);
+      delete this.lastAttackTimes[weapon.name];
     });
     this.onceWeapons.length = 0;
   }
@@ -66,7 +62,7 @@ export class WeaponComponent extends Component {
     const weapon = this.weapons[weaponIndex];
     if (!weapon) return false;
 
-    return currentTime - this.lastAttackTimes[weaponIndex] < this.attackCooldown;
+    return currentTime - this.lastAttackTimes[weapon.name] < this.attackCooldown;
   }
 
   canAttack(currentTime: number, weaponIndex: number): boolean {
@@ -79,7 +75,7 @@ export class WeaponComponent extends Component {
     }
 
     const attackInterval = TimeUtil.toMilliseconds(1) / weapon.attackSpeed;
-    return currentTime - this.lastAttackTimes[weaponIndex] >= attackInterval;
+    return currentTime - this.lastAttackTimes[weapon.name] >= attackInterval;
   }
 
   isAoe(weaponIndex: number): boolean {
@@ -89,9 +85,10 @@ export class WeaponComponent extends Component {
   }
 
   updateAttackTime(currentTime: number, weaponIndex: number): void {
-    if (weaponIndex >= 0 && weaponIndex < this.lastAttackTimes.length) {
-      this.lastAttackTimes[weaponIndex] = currentTime;
-    }
+    const weapon = this.weapons[weaponIndex];
+    if (!weapon) return;
+
+    this.lastAttackTimes[weapon.name] = currentTime;
   }
 
   reset(): void {

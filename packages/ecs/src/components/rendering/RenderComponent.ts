@@ -37,24 +37,37 @@ export interface RenderProperties {
 
 export class RenderComponent extends Component {
   static componentName = 'Render';
-  private properties: RenderProperties;
+
   private patternImage: HTMLImageElement | null = null;
   private patternManager: PatternAssetManager;
 
+  private size: Size;
+  private visible: boolean;
+  private rotation: number;
+  private scale: number;
+  private offset: Point;
+  private layer: RenderLayerIdentifier;
+  private laser: { aim: Point } | undefined;
+  private shape: ShapeType;
+  private patternType: RenderPatternType;
+  private color: Color;
+
   constructor(properties: RenderProperties) {
     super('Render');
-    this.properties = {
-      ...properties,
-      visible: properties.visible ?? true,
-      rotation: properties.rotation ?? 0,
-      scale: properties.scale ?? 1,
-      offset: properties.offset ?? [0, 0],
-      layer: properties.layer ?? RenderLayerIdentifier.ENTITY,
-    };
+    this.shape = properties.shape;
+    this.patternType = properties.patternType ?? 'circle';
+    this.color = properties.color;
+    this.size = [...properties.size];
+    this.visible = properties.visible ?? true;
+    this.rotation = properties.rotation ?? 0;
+    this.scale = properties.scale ?? 1;
+    this.offset = properties.offset ?? [0, 0];
+    this.layer = properties.layer ?? RenderLayerIdentifier.ENTITY;
+    this.laser = properties.laser;
 
     this.patternManager = PatternAssetManager.getInstance();
 
-    if (properties.patternType) {
+    if (!!properties.patternType) {
       this.loadPatternImage(properties.patternType);
     }
   }
@@ -72,93 +85,90 @@ export class RenderComponent extends Component {
     state: PatternState = 'normal',
     effect: PatternEffect = 'whiteSilhouette',
   ): HTMLImageElement | null {
-    if (!this.properties.patternType) return null;
+    if (!this.patternType) return null;
 
     if (state === 'normal') {
       return this.patternImage;
     }
 
-    return this.patternManager.getPatternWithState(this.properties.patternType, state, effect);
+    return this.patternManager.getPatternWithState(this.patternType, state, effect);
   }
 
   recreate(properties: RenderProperties): void {
-    this.properties = {
-      ...this.properties,
-      ...properties,
-    };
+    this.size = [...properties.size];
+    this.visible = properties.visible ?? true;
+    this.rotation = properties.rotation ?? 0;
+    this.scale = properties.scale ?? 1;
+    this.offset = [...(properties.offset ?? [0, 0])];
+    this.layer = properties.layer ?? RenderLayerIdentifier.ENTITY;
+    this.laser = properties.laser;
+    this.shape = properties.shape;
+    this.patternType = properties.patternType ?? 'circle';
+    this.color = properties.color;
 
-    if (properties.patternType) {
+    if (!!properties.patternType) {
       this.loadPatternImage(properties.patternType);
     }
   }
 
   getProperties(): RenderProperties {
-    return { ...this.properties };
-  }
-
-  getPropertyByName(name: keyof RenderProperties): any {
-    return this.properties[name];
-  }
-
-  setProperties(properties: Partial<RenderProperties>): void {
-    this.properties = {
-      ...this.properties,
-      ...properties,
+    return {
+      shape: this.shape,
+      patternType: this.patternType,
+      size: this.size,
+      color: this.color,
+      offset: this.offset,
+      rotation: this.rotation,
+      scale: this.scale,
+      visible: this.visible,
+      layer: this.layer,
+      laser: this.laser,
     };
-
-    if (properties.patternType) {
-      this.loadPatternImage(properties.patternType);
-    }
   }
 
   isVisible(): boolean {
-    return this.properties.visible ?? false;
-  }
-
-  setVisible(visible: boolean): void {
-    this.properties.visible = visible;
+    return this.visible;
   }
 
   getShape(): ShapeType {
-    return this.properties.shape;
+    return this.shape;
   }
 
   getSize(): Size {
-    return this.properties.size;
+    return this.size;
   }
 
   getLaser(): { aim: Point } | undefined {
-    return this.properties.laser;
+    return this.laser;
   }
 
   getColor(): Color {
-    return this.properties.color;
+    return this.color;
   }
 
   getOffset(): Point {
-    return this.properties.offset || [0, 0];
+    return this.offset;
   }
 
   getRotation(): number {
-    return this.properties.rotation || 0;
+    return this.rotation;
   }
 
   getScale(): number {
-    return this.properties.scale || 1;
+    return this.scale;
   }
 
   reset(): void {
     super.reset();
+
     this.patternImage = null;
-    this.properties = {
-      shape: 'circle',
-      size: [0, 0],
-      color: { r: 0, g: 0, b: 0, a: 1 },
-      visible: true,
-      rotation: 0,
-      scale: 1,
-      offset: [0, 0],
-      layer: RenderLayerIdentifier.ENTITY,
-    };
+    this.size = [0, 0];
+    this.visible = true;
+    this.rotation = 0;
+    this.scale = 1;
+    this.offset = [0, 0];
+    this.layer = RenderLayerIdentifier.ENTITY;
+    this.laser = undefined;
+    this.shape = 'circle';
   }
 }

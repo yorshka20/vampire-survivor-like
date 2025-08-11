@@ -89,7 +89,7 @@ export function createPlayerEntity(
     // WeaponMap.Aura,
     // WeaponMap.RapidFire,
     // WeaponMap.SpiralShot,
-    // WeaponMap.Bomb,
+    WeaponMap.Bomb,
     // WeaponMap.Laser,
   ];
 
