@@ -1,3 +1,4 @@
+import { Game, createPlayerEntity } from '@brotov2/game';
 import {
   AISystem,
   AnimationSystem,
@@ -5,7 +6,6 @@ import {
   CollisionSystem,
   DamageSystem,
   DeathSystem,
-  Game,
   InputSystem,
   LifecycleSystem,
   PhysicsSystem,
@@ -16,7 +16,6 @@ import {
   StateEffectSystem,
   TransformSystem,
   WeaponSystem,
-  createPlayerEntity,
 } from '@ecs';
 import { RectArea } from '@ecs/utils/types';
 

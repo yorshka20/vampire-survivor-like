@@ -4,21 +4,30 @@ A modern implementation of a Vampire Survivors-like game using Entity Component 
 
 ## Project Structure
 
-The project is organized as a monorepo using pnpm workspaces, consisting of two main packages:
+The project is organized as a monorepo using pnpm workspaces, consisting of three main packages:
 
-- `@brotov2/ecs`: Core ECS implementation
+- `@brotov2/ecs`: Pure ECS engine (reusable game engine core)
+- `@brotov2/game`: Game-specific logic and entities
 - `@brotov2/web-client`: Game client implementation
 
-### ECS Package Structure
+### ECS Package Structure (Pure Engine)
 
 ```
 packages/ecs/
-├── components/    # Game entity components
-├── systems/       # Game systems
-├── entities/      # Entity definitions
+├── components/    # Generic ECS components
+├── systems/       # Generic ECS systems
 ├── core/          # Core ECS implementation
-├── constants/     # Game constants
-└── utils/         # Utility functions
+├── constants/     # Engine constants
+└── utils/         # Engine utilities
+```
+
+### Game Package Structure
+
+```
+packages/game/
+├── core/          # Game management (Game, GameLoop)
+├── entities/      # Game-specific entities
+└── utils/         # Game-specific utilities
 ```
 
 ### Web Client Structure
@@ -80,12 +89,35 @@ pnpm build
 
 ## Architecture
 
-The game is built using an Entity Component System (ECS) architecture, which provides:
+The project uses a layered architecture with clear separation of concerns:
+
+### ECS Engine Layer (@brotov2/ecs)
+
+- Pure Entity Component System implementation
+- Generic components, systems, and utilities
+- Reusable across different game projects
+- Focuses on performance and extensibility
+
+### Game Logic Layer (@brotov2/game)
+
+- Game-specific logic and entities
+- Uses ECS engine as foundation
+- Contains game mechanics and rules
+- Easy to modify for different game types
+
+### Client Layer (@brotov2/web-client)
+
+- Web-based game client
+- User interface and game presentation
+- Integrates with game logic layer
+
+This architecture provides:
 
 - Clear separation of concerns
 - Efficient game logic processing
 - Easy extensibility
 - Better performance through data-oriented design
+- Reusable engine components
 
 ## Contributing
 

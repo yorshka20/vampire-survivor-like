@@ -38,6 +38,7 @@
   ],
   "dependencies": {
     "@brotov2/ecs": "workspace:*",
+    "@brotov2/game": "workspace:*",
     "@brotov2/web-client": "workspace:*"
   }
 }

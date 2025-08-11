@@ -11,7 +11,6 @@ import { LaserWeapon } from '@ecs/components/weapon/WeaponTypes';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
-import { Game } from '@ecs/core/game/Game';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
 import { CollisionSystem } from '../physics/CollisionSystem';
@@ -71,8 +70,8 @@ export class DamageSystem extends System {
   private checkPerformance(): void {
     const currentTime = Date.now();
     if (currentTime - this.lastPerformanceCheck >= this.performanceCheckInterval) {
-      const fps = Game.getInstance().getFPS();
-      this.isInPerformanceMode = fps < PERFORMANCE_THRESHOLDS.CRITICAL;
+      // Temporarily removed FPS check - can be reimplemented through GameStore or other means
+      this.isInPerformanceMode = false;
       this.lastPerformanceCheck = currentTime;
     }
   }

@@ -1,7 +1,6 @@
 export { type Entity } from './core/ecs/Entity';
 export { System } from './core/ecs/System';
 export { World } from './core/ecs/World';
-export { Game } from './core/game/Game';
 export {
   initAudioAssets,
   initImageAssets,

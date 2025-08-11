@@ -21,7 +21,6 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
-import { Game } from '@ecs/core/game/Game';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
 import { Point } from '@ecs/utils/types';
@@ -259,16 +258,17 @@ export class WeaponSystem extends System {
   }
 
   private getRandomPositionInViewport(position: Point): Point {
-    const game = Game.getInstance();
-    const viewport = game.getViewport();
+    // Temporarily use fixed viewport size - can be passed as parameter or retrieved from RenderSystem
+    const viewportWidth = 800;
+    const viewportHeight = 600;
     const padding = 50; // Padding from viewport edges
     const [px, py] = position;
 
     // Calculate the actual visible area
-    const minX = px - viewport.width / 2 + padding;
-    const maxX = px + viewport.width / 2 - padding;
-    const minY = py - viewport.height / 2 + padding;
-    const maxY = py + viewport.height / 2 - padding;
+    const minX = px - viewportWidth / 2 + padding;
+    const maxX = px + viewportWidth / 2 - padding;
+    const minY = py - viewportHeight / 2 + padding;
+    const maxY = py + viewportHeight / 2 - padding;
 
     return [
       Math.random() * (maxX - minX - 2 * padding) + minX + padding,

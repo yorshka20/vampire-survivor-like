@@ -20,6 +20,7 @@ export interface Viewport {
 
 /**
  * Game class that initializes and manages the game
+ * This class is responsible for game initialization, asset loading, and game loop management
  */
 export class Game {
   private world: World;

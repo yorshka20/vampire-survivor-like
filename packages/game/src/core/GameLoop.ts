@@ -3,6 +3,7 @@ import { World } from '@ecs/core/ecs/World';
 
 /**
  * GameLoop class that manages the main game loop
+ * This class handles the game's main loop, including logic updates, rendering, and performance optimization
  */
 export class GameLoop {
   private isRunning: boolean = false;
@@ -44,8 +45,6 @@ export class GameLoop {
     this.lastFpsUpdate = this.lastTime;
     this.frameCount = 0;
     this.accumulator = 0;
-
-    // SoundManager.playBGM();
 
     // Start logic update loop
     this.startLogicLoop();

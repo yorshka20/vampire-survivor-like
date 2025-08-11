@@ -2,7 +2,6 @@ import { AIComponent, TransformComponent } from '@ecs/components';
 import { SPAWN_CONSTANTS } from '@ecs/constants/spawnConstants';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
-import { Game } from '@ecs/core/game/Game';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { createEnemyEntity } from '@ecs/entities/Enemy';
 
@@ -125,6 +124,7 @@ export class SpawnSystem extends System {
   }
 
   canInvoke(): boolean {
-    return Game.getInstance().getFPS() > 30;
+    // Temporarily removed FPS check - can be reimplemented through GameStore or other means
+    return true;
   }
 }

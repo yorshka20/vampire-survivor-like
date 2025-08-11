@@ -1,7 +1,7 @@
+import { Game } from '@brotov2/game';
 import {
   type Entity,
   ExperienceComponent,
-  Game,
   GameStore,
   HealthComponent,
   StatsComponent,
