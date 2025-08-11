@@ -4,6 +4,7 @@ export enum SystemPriorities {
 
   // Core game systems
   LIFECYCLE = 100, // Handle entity lifecycle
+  PERFORMANCE = 101, // Handle performance
   INPUT = 200, // Input systems (early processing)
 
   // Core game systems

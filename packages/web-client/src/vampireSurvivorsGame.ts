@@ -8,6 +8,7 @@ import {
   DeathSystem,
   InputSystem,
   LifecycleSystem,
+  PerformanceSystem,
   PhysicsSystem,
   PickupSystem,
   RenderSystem,
@@ -41,6 +42,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   world.addSystem(new CollisionSystem());
   world.addSystem(new StateEffectSystem());
   world.addSystem(new AnimationSystem());
+  world.addSystem(new PerformanceSystem());
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement, viewport);

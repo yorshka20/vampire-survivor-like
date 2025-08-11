@@ -1,4 +1,4 @@
-import { ResourceManager } from '@ecs';
+import { type PerformanceSystem, ResourceManager } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import {
@@ -21,6 +21,7 @@ export interface Viewport {
 /**
  * Game class that initializes and manages the game
  * This class is responsible for game initialization, asset loading, and game loop management
+ * Now uses PerformanceSystem from ECS for performance monitoring
  */
 export class Game {
   private world: World;
@@ -174,11 +175,41 @@ export class Game {
     this.viewport = viewport;
   }
 
+  private getPerformanceSystem() {
+    return this.world.getSystem<PerformanceSystem>('PerformanceSystem', 0);
+  }
+
   /**
-   * Get the current FPS
+   * Get the current FPS from PerformanceSystem
    */
   getFPS(): number {
-    return this.gameLoop.getFPS();
+    const performanceSystem = this.getPerformanceSystem();
+    if (performanceSystem) {
+      return performanceSystem.getFPS();
+    }
+    return 0;
+  }
+
+  /**
+   * Get performance metrics from PerformanceSystem
+   */
+  getPerformanceMetrics() {
+    const performanceSystem = this.getPerformanceSystem();
+    if (performanceSystem) {
+      return performanceSystem.getPerformanceMetrics();
+    }
+    return null;
+  }
+
+  /**
+   * Check if currently in performance mode
+   */
+  isPerformanceMode(): boolean {
+    const performanceSystem = this.getPerformanceSystem();
+    if (performanceSystem) {
+      return performanceSystem.isPerformanceMode();
+    }
+    return false;
   }
 
   /**
