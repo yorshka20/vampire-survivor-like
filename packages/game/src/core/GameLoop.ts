@@ -1,3 +1,4 @@
+import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import { PerformanceSystem } from '@ecs/systems/core/PerformanceSystem';
 
@@ -23,7 +24,10 @@ export class GameLoop {
   private readonly maxFramesToSkip: number = 3; // Maximum number of frames to skip in one update
 
   private get currentTimeStep(): number {
-    const performanceSystem = this.world.getSystem<PerformanceSystem>('PerformanceSystem', 0);
+    const performanceSystem = this.world.getSystem<PerformanceSystem>(
+      'PerformanceSystem',
+      SystemPriorities.PERFORMANCE,
+    );
     if (performanceSystem) {
       return performanceSystem.getCurrentTimeStep();
     }

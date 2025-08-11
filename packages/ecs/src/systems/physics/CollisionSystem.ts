@@ -109,7 +109,7 @@ export class CollisionSystem extends System {
     const totalTime = performance.now() - updateStart;
 
     // Log performance statistics every PERFORMANCE_LOG_INTERVAL frames
-    if (this.frameCount % CollisionSystem.PERFORMANCE_LOG_INTERVAL === 0) {
+    if (this.debug && this.frameCount % CollisionSystem.PERFORMANCE_LOG_INTERVAL === 0) {
       this.logPerformanceStats();
     }
   }
@@ -353,7 +353,6 @@ export class CollisionSystem extends System {
     // Get enemy size
     const enemySize = enemyCollider.size;
     const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
-    const enemyRadiusSquared = enemyRadius * enemyRadius;
 
     // Check if enemy is within laser width using squared distance
     const laserWidthHalf = laser.laserWidth / 2;

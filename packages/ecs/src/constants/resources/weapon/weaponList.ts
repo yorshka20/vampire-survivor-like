@@ -127,7 +127,7 @@ const SpiralOrb: SpinningWeapon = {
   penetration: -1,
   spinSpeed: 200, // degree/s
   spinRadius: 300,
-  spinCount: 1,
+  spinCount: 3,
   spinLifetime: 1000 * 5,
   followPlayer: true,
   childWeapon: {

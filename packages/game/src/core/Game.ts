@@ -154,14 +154,20 @@ export class Game {
    * Set the game viewport
    */
   setViewport(viewport: Viewport): void {
-    const spatialGridSystem = this.world.getSystem<SpatialGridSystem>('SpatialGridSystem', 0);
+    const spatialGridSystem = this.world.getSystem<SpatialGridSystem>(
+      'SpatialGridSystem',
+      SystemPriorities.SPATIAL_GRID,
+    );
     if (spatialGridSystem) {
       spatialGridSystem.setViewport(viewport);
     }
   }
 
   private getPerformanceSystem() {
-    return this.world.getSystem<PerformanceSystem>('PerformanceSystem', 0);
+    return this.world.getSystem<PerformanceSystem>(
+      'PerformanceSystem',
+      SystemPriorities.PERFORMANCE,
+    );
   }
 
   /**
