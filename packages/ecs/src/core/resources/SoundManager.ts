@@ -28,17 +28,17 @@ export class SoundManager {
     return SoundManager.instance;
   }
 
-  static playSound(entity: IEntity, sound: SoundType, volume: number = 0.5): void {
+  static playSound(entity: IEntity, sound: SoundType, volume?: number): void {
     if (!entity.hasComponent(SoundEffectComponent.componentName)) return;
 
     const soundManager = SoundManager.getInstance();
-    soundManager.play(sound, volume);
+    soundManager.play(sound, volume ?? soundManager.getVolume());
   }
 
-  static playBGM(pause: boolean = false, volume: number = 0.5): void {
+  static playBGM(pause: boolean = false, volume?: number): void {
     const bgm = ResourceManager.getInstance().getAudio('bgm');
     if (bgm) {
-      bgm.volume = volume;
+      bgm.volume = volume ?? bgm.volume;
       bgm.loop = true;
       if (pause) {
         bgm.pause();
@@ -84,7 +84,7 @@ export class SoundManager {
     };
   }
 
-  play(key: string, volume: number = 0.5): void {
+  play(key: string, volume?: number): void {
     // Check cooldown
     const lastPlayTime = this.lastPlayTimes.get(key) || 0;
     const currentTime = performance.now();
@@ -109,7 +109,7 @@ export class SoundManager {
 
     // Reset and play
     audio.currentTime = 0;
-    audio.volume = volume;
+    audio.volume = volume ?? audio.volume;
     audio.play().catch((err) => console.warn(`Failed to play sound ${key}:`, err));
 
     // Update last play time

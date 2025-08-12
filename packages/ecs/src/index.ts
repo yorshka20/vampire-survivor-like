@@ -6,6 +6,7 @@ export {
   initImageAssets,
   initSpriteSheetAssets,
   ResourceManager,
+  SoundManager,
 } from './core/resources';
 export { GameStore } from './core/store/GameStore';
 

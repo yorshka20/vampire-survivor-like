@@ -4,6 +4,7 @@ import {
   ExperienceComponent,
   GameStore,
   HealthComponent,
+  SoundManager,
   StatsComponent,
   TransformComponent,
   WeaponComponent,
@@ -17,6 +18,7 @@ interface GameState {
   gameTime: number; // Time elapsed in seconds
   speedMultiplier: number; // Add speed multiplier
   isInitialized: boolean;
+  soundMuted: boolean; // Sound effect mute state
   // Performance metrics
   performance: {
     fps: number;
@@ -61,6 +63,7 @@ function createGameStateStore() {
     gameTime: 0,
     speedMultiplier: 4,
     isInitialized: false,
+    soundMuted: false,
     performance: {
       fps: 0,
       frameTime: 0,
@@ -201,6 +204,15 @@ function createGameStateStore() {
         gameInstance.setSpeedMultiplier(multiplier);
         update((state) => ({ ...state, speedMultiplier: multiplier }));
       }
+    },
+    toggleSoundMute: () => {
+      update((state) => {
+        const newMutedState = !state.soundMuted;
+        // Update SoundManager volume based on mute state
+        const soundManager = SoundManager.getInstance();
+        soundManager.setVolume(newMutedState ? 0 : 0.2);
+        return { ...state, soundMuted: newMutedState };
+      });
     },
     setPlayer: (player: Entity) => {
       interval = setInterval(() => {
