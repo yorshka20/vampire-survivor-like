@@ -1,3 +1,4 @@
+import { WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { type EntityType } from '@ecs/core/ecs/types';
 
 export function generateEntityId(type: EntityType): string {
@@ -6,4 +7,8 @@ export function generateEntityId(type: EntityType): string {
   const random = Math.random().toString().slice(2, 9);
   // merge two number
   return `${type}-${milliseconds}${random}`;
+}
+
+export function generateWeaponId(weaponType: WeaponType): string {
+  return `${weaponType}-${Date.now().toString().slice(-4)}`;
 }

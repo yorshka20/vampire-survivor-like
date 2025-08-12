@@ -13,7 +13,7 @@ export enum WeaponType {
 }
 
 export interface BaseWeapon {
-  name: string;
+  id: string;
   damage: number;
   attackSpeed: number;
   attackCooldown?: number;

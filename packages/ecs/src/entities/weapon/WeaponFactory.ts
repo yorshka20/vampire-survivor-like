@@ -11,6 +11,7 @@ import {
   WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
 import { RgbaColor } from '@ecs/utils/color';
+import { generateWeaponId } from '@ecs/utils/name';
 import { WeaponProps } from './weapon';
 
 /**
@@ -32,7 +33,7 @@ type WeaponFactoryProps = WeaponProps;
  * Weapon factory configuration for creating different weapon types
  */
 export interface WeaponFactoryConfig {
-  name: string;
+  type: WeaponType;
   createWeapon: (props: WeaponFactoryProps, defaults: WeaponDefaults) => Weapon;
 }
 
@@ -43,10 +44,10 @@ function createRangedWeapon(
   props: WeaponFactoryProps,
   defaults: WeaponDefaults,
   type: WeaponType.RANGED_AUTO_AIM | WeaponType.RANGED_FIXED,
-  name: string,
+  id: string,
 ): RangedWeapon {
   return {
-    name,
+    id,
     type,
     damage: props.damage,
     attackSpeed: props.attackSpeed,
@@ -64,19 +65,29 @@ function createRangedWeapon(
  */
 export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
   [WeaponType.RANGED_AUTO_AIM]: {
-    name: 'Auto Aim Weapon',
+    type: WeaponType.RANGED_AUTO_AIM,
     createWeapon: (props, defaults) =>
-      createRangedWeapon(props, defaults, WeaponType.RANGED_AUTO_AIM, 'Auto Aim Weapon'),
+      createRangedWeapon(
+        props,
+        defaults,
+        WeaponType.RANGED_AUTO_AIM,
+        generateWeaponId(WeaponType.RANGED_AUTO_AIM),
+      ),
   },
   [WeaponType.RANGED_FIXED]: {
-    name: 'Fixed Direction Weapon',
+    type: WeaponType.RANGED_FIXED,
     createWeapon: (props, defaults) =>
-      createRangedWeapon(props, defaults, WeaponType.RANGED_FIXED, 'Fixed Direction Weapon'),
+      createRangedWeapon(
+        props,
+        defaults,
+        WeaponType.RANGED_FIXED,
+        generateWeaponId(WeaponType.RANGED_FIXED),
+      ),
   },
   [WeaponType.MELEE]: {
-    name: 'Melee Weapon',
+    type: WeaponType.MELEE,
     createWeapon: (props, defaults): MeleeWeapon => ({
-      name: 'Melee Weapon',
+      id: generateWeaponId(WeaponType.MELEE),
       type: WeaponType.MELEE,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -86,9 +97,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.AREA]: {
-    name: 'Area Weapon',
+    type: WeaponType.AREA,
     createWeapon: (props, defaults): AreaWeapon => ({
-      name: 'Area Weapon',
+      id: generateWeaponId(WeaponType.AREA),
       type: WeaponType.AREA,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -100,9 +111,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.SPIRAL]: {
-    name: 'Spiral Weapon',
+    type: WeaponType.SPIRAL,
     createWeapon: (props, defaults): SpiralWeapon => ({
-      name: 'Spiral Weapon',
+      id: generateWeaponId(WeaponType.SPIRAL),
       type: WeaponType.SPIRAL,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -118,9 +129,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.LASER]: {
-    name: 'Laser Weapon',
+    type: WeaponType.LASER,
     createWeapon: (props, defaults): LaserWeapon => ({
-      name: 'Laser Weapon',
+      id: generateWeaponId(WeaponType.LASER),
       type: WeaponType.LASER,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -132,9 +143,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.SPINNING]: {
-    name: 'Spinning Weapon',
+    type: WeaponType.SPINNING,
     createWeapon: (props, defaults): SpinningWeapon => ({
-      name: 'Spinning Weapon',
+      id: generateWeaponId(WeaponType.SPINNING),
       type: WeaponType.SPINNING,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -151,9 +162,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.BOMB]: {
-    name: 'Bomb Weapon',
+    type: WeaponType.BOMB,
     createWeapon: (props, defaults): BombWeapon => ({
-      name: 'Bomb Weapon',
+      id: generateWeaponId(WeaponType.BOMB),
       type: WeaponType.BOMB,
       damage: props.damage,
       attackSpeed: props.attackSpeed,
@@ -169,9 +180,9 @@ export const WEAPON_FACTORY_CONFIG: Record<WeaponType, WeaponFactoryConfig> = {
     }),
   },
   [WeaponType.LASER_BURST]: {
-    name: 'Laser Burst Weapon',
+    type: WeaponType.LASER_BURST,
     createWeapon: (props, defaults): LaserBurstWeapon => ({
-      name: 'Laser Burst Weapon',
+      id: generateWeaponId(WeaponType.LASER_BURST),
       type: WeaponType.LASER_BURST,
       damage: props.damage,
       attackSpeed: props.attackSpeed,

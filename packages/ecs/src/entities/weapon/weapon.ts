@@ -97,6 +97,7 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
 
   weapon.addComponent(
     world.createComponent(WeaponComponent, {
+      id: weaponData.id,
       weapons: [weaponData],
       attackCooldown: finalProps.attackCooldown,
     }),

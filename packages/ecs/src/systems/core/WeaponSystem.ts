@@ -69,7 +69,7 @@ export class WeaponSystem extends System {
         const effectiveAttackSpeed =
           currentWeapon.attackSpeed * (stats?.attackSpeedMultiplier ?? 1);
         const attackInterval = TimeUtil.toMilliseconds(1) / effectiveAttackSpeed;
-        const lastAttackTime = weapon.lastAttackTimes[currentWeapon.name] ?? 0;
+        const lastAttackTime = weapon.lastAttackTimes[currentWeapon.id] ?? 0;
 
         if (currentTime - lastAttackTime < attackInterval) continue;
 
@@ -451,6 +451,7 @@ export class WeaponSystem extends System {
         // Then add WeaponComponent
         projectile.addComponent(
           this.world.createComponent(WeaponComponent, {
+            id: currentWeapon.childWeapon.id,
             weapons: [currentWeapon.childWeapon],
             attackCooldown: currentWeapon.childWeaponAttackCooldown,
           }),
