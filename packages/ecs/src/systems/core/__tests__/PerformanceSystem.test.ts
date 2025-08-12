@@ -63,8 +63,8 @@ describe('PerformanceSystem', () => {
       performanceSystem.update(1 / 60);
 
       const metrics = performanceSystem.getPerformanceMetrics();
-      expect(metrics.systemPerformance.get('entityCount')).toBe(0);
-      expect(metrics.systemPerformance.get('systemCount')).toBe(1);
+      expect(metrics.memoryUsage?.entityCount).toBe(0);
+      expect(metrics.memoryUsage?.componentCount).toBe(0);
     });
   });
 
@@ -124,8 +124,8 @@ describe('PerformanceSystem', () => {
       expect(metrics).toHaveProperty('frameTime');
       expect(metrics).toHaveProperty('deltaTime');
       expect(metrics).toHaveProperty('isPerformanceMode');
-      expect(metrics).toHaveProperty('systemPerformance');
       expect(metrics).toHaveProperty('memoryUsage');
+      expect(metrics).toHaveProperty('poolStatistics');
     });
 
     it('should provide memory usage information', () => {
@@ -134,7 +134,6 @@ describe('PerformanceSystem', () => {
       const metrics = performanceSystem.getPerformanceMetrics();
       expect(metrics.memoryUsage).toBeDefined();
       expect(metrics.memoryUsage?.entityCount).toBe(0);
-      expect(metrics.memoryUsage?.systemCount).toBe(1);
       expect(metrics.memoryUsage?.componentCount).toBe(0);
     });
   });
@@ -195,6 +194,47 @@ describe('PerformanceSystem', () => {
 
         expect(performanceSystem.getPerformanceStatus()).toBe(testCase.expected);
       }
+    });
+  });
+
+  describe('pool statistics', () => {
+    it('should collect pool statistics', () => {
+      // Wait for pool check interval
+      vi.advanceTimersByTime(2000);
+      performanceSystem.update(1 / 60);
+
+      const poolStats = performanceSystem.getPoolStatistics();
+      expect(poolStats).toBeDefined();
+      expect(poolStats.entityPools).toBeInstanceOf(Map);
+      expect(poolStats.componentPools).toBeInstanceOf(Map);
+      expect(typeof poolStats.totalEntityPoolSize).toBe('number');
+      expect(typeof poolStats.totalComponentPoolSize).toBe('number');
+    });
+
+    it('should provide entity pool statistics', () => {
+      vi.advanceTimersByTime(2000);
+      performanceSystem.update(1 / 60);
+
+      const entityPools = performanceSystem.getEntityPoolStatistics();
+      expect(entityPools).toBeInstanceOf(Map);
+    });
+
+    it('should provide component pool statistics', () => {
+      vi.advanceTimersByTime(2000);
+      performanceSystem.update(1 / 60);
+
+      const componentPools = performanceSystem.getComponentPoolStatistics();
+      expect(componentPools).toBeInstanceOf(Map);
+    });
+
+    it('should include pool statistics in performance metrics', () => {
+      vi.advanceTimersByTime(2000);
+      performanceSystem.update(1 / 60);
+
+      const metrics = performanceSystem.getPerformanceMetrics();
+      expect(metrics.poolStatistics).toBeDefined();
+      expect(metrics.poolStatistics?.entityPools).toBeInstanceOf(Map);
+      expect(metrics.poolStatistics?.componentPools).toBeInstanceOf(Map);
     });
   });
 });

@@ -127,4 +127,59 @@ export class PoolManager {
     const pool = this.componentPools.get(ComponentClass);
     return pool ? pool.getSize() : 0;
   }
+
+  /**
+   * Get comprehensive statistics for all entity pools
+   */
+  getEntityPoolStatistics(): Map<string, number> {
+    const statistics = new Map<string, number>();
+
+    for (const [name, pool] of this.entityPools) {
+      statistics.set(name, pool.getSize());
+    }
+
+    return statistics;
+  }
+
+  /**
+   * Get comprehensive statistics for all component pools
+   */
+  getComponentPoolStatistics(): Map<string, number> {
+    const statistics = new Map<string, number>();
+
+    for (const [ComponentClass, pool] of this.componentPools) {
+      statistics.set(ComponentClass.name, pool.getSize());
+    }
+
+    return statistics;
+  }
+
+  /**
+   * Get total pool statistics including entity and component pools
+   */
+  getAllPoolStatistics(): {
+    entityPools: Map<string, number>;
+    componentPools: Map<string, number>;
+    totalEntityPoolSize: number;
+    totalComponentPoolSize: number;
+  } {
+    const entityPools = this.getEntityPoolStatistics();
+    const componentPools = this.getComponentPoolStatistics();
+
+    const totalEntityPoolSize = Array.from(entityPools.values()).reduce(
+      (sum, size) => sum + size,
+      0,
+    );
+    const totalComponentPoolSize = Array.from(componentPools.values()).reduce(
+      (sum, size) => sum + size,
+      0,
+    );
+
+    return {
+      entityPools,
+      componentPools,
+      totalEntityPoolSize,
+      totalComponentPoolSize,
+    };
+  }
 }

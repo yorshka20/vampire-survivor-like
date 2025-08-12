@@ -1,5 +1,6 @@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
+import { PoolManager } from '@ecs/core/pool/PoolManager';
 
 /**
  * Performance metrics interface
@@ -12,6 +13,12 @@ export interface PerformanceMetrics {
   memoryUsage?: {
     entityCount: number;
     componentCount: number;
+  };
+  poolStatistics?: {
+    entityPools: Map<string, number>;
+    componentPools: Map<string, number>;
+    totalEntityPoolSize: number;
+    totalComponentPoolSize: number;
   };
 }
 
@@ -58,6 +65,22 @@ export class PerformanceSystem extends System {
   private lastMemoryCheck: number = 0;
   private readonly memoryCheckInterval: number = 5000; // Check memory every 5 seconds
 
+  // Pool statistics tracking
+  private poolManager: PoolManager = PoolManager.getInstance();
+  private lastPoolCheck: number = 0;
+  private readonly poolCheckInterval: number = 2000; // Check pool statistics every 2 seconds
+  private currentPoolStatistics: {
+    entityPools: Map<string, number>;
+    componentPools: Map<string, number>;
+    totalEntityPoolSize: number;
+    totalComponentPoolSize: number;
+  } = {
+    entityPools: new Map(),
+    componentPools: new Map(),
+    totalEntityPoolSize: 0,
+    totalComponentPoolSize: 0,
+  };
+
   // Time step management (from GameLoop)
   private fixedTimeStep: number = 1 / 60; // 60 updates per second
   private currentTimeStep: number = this.fixedTimeStep;
@@ -97,6 +120,12 @@ export class PerformanceSystem extends System {
     if (currentTime - this.lastMemoryCheck >= this.memoryCheckInterval) {
       this.updateMemoryUsage();
       this.lastMemoryCheck = currentTime;
+    }
+
+    // Check pool statistics periodically
+    if (currentTime - this.lastPoolCheck >= this.poolCheckInterval) {
+      this.updatePoolStatistics();
+      this.lastPoolCheck = currentTime;
     }
   }
 
@@ -307,6 +336,13 @@ export class PerformanceSystem extends System {
   }
 
   /**
+   * Update pool statistics from PoolManager
+   */
+  private updatePoolStatistics(): void {
+    this.currentPoolStatistics = this.poolManager.getAllPoolStatistics();
+  }
+
+  /**
    * Notify other systems about performance mode changes
    */
   private notifyPerformanceModeChange(isPerformanceMode: boolean): void {
@@ -328,6 +364,7 @@ export class PerformanceSystem extends System {
         entityCount: this.systemPerformance.get('entityCount') || 0,
         componentCount: this.systemPerformance.get('componentCount') || 0,
       },
+      poolStatistics: this.currentPoolStatistics,
     };
   }
 
@@ -415,5 +452,31 @@ export class PerformanceSystem extends System {
   setFixedTimeStep(timeStep: number): void {
     this.fixedTimeStep = timeStep;
     this.currentTimeStep = timeStep;
+  }
+
+  /**
+   * Get current pool statistics
+   */
+  getPoolStatistics(): {
+    entityPools: Map<string, number>;
+    componentPools: Map<string, number>;
+    totalEntityPoolSize: number;
+    totalComponentPoolSize: number;
+  } {
+    return this.currentPoolStatistics;
+  }
+
+  /**
+   * Get entity pool statistics
+   */
+  getEntityPoolStatistics(): Map<string, number> {
+    return this.currentPoolStatistics.entityPools;
+  }
+
+  /**
+   * Get component pool statistics
+   */
+  getComponentPoolStatistics(): Map<string, number> {
+    return this.currentPoolStatistics.componentPools;
   }
 }

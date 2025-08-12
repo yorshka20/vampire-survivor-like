@@ -25,6 +25,12 @@ interface GameState {
     isPerformanceMode: boolean;
     entityCount: number;
     componentCount: number;
+    poolStatistics?: {
+      entityPools: Map<string, number>;
+      componentPools: Map<string, number>;
+      totalEntityPoolSize: number;
+      totalComponentPoolSize: number;
+    };
   };
   player: {
     health: number;
@@ -117,6 +123,7 @@ function createGameStateStore() {
               isPerformanceMode: metrics.isPerformanceMode,
               entityCount: metrics.memoryUsage?.entityCount || 0,
               componentCount: metrics.memoryUsage?.componentCount || 0,
+              poolStatistics: metrics.poolStatistics,
             }
           : state.performance,
       }));
@@ -142,7 +149,7 @@ function createGameStateStore() {
           exp: expComp.currentExp,
           level: expComp.level,
           expToNextLevel: expComp.expToNextLevel,
-          weapon: weaponComp.weapons.map((i) => i.name).join('/'),
+          weapon: weaponComp.weapons.map((i) => i.id).join('/'),
           stats: statsComp,
           position: transform?.getPosition() || state.player?.position || [0, 0],
         };

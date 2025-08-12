@@ -106,7 +106,6 @@ export class CollisionSystem extends System {
 
     // Performance profiling: total update time
     this.performanceStats.totalFrames++;
-    const totalTime = performance.now() - updateStart;
 
     // Log performance statistics every PERFORMANCE_LOG_INTERVAL frames
     if (this.debug && this.frameCount % CollisionSystem.PERFORMANCE_LOG_INTERVAL === 0) {

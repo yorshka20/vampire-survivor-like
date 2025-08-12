@@ -542,8 +542,7 @@ export class WeaponSystem extends System {
           .getComponent<TransformComponent>(TransformComponent.componentName)
           .getPosition();
         // Create a visual-only explosion effect
-        const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
-        const explosionSize = currentWeapon.explosionRadius * 2 * (stats?.damageMultiplier ?? 1);
+        const explosionSize = currentWeapon.explosionRadius * 2;
         const explosion = createEffectEntity(this.world, {
           position: [projectilePos[0], projectilePos[1]],
           // circle so use 2x radius

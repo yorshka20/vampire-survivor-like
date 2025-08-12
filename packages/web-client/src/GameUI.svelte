@@ -8,6 +8,7 @@
   const repoUrl = import.meta.env.VITE_REPO_URL;
   let isGameStarted = false;
   let isPaused = false;
+  let showDetailedPools = false;
 
   function toggleSpeed() {
     const currentIndex = speedOptions.indexOf(speedMultiplier);
@@ -81,15 +82,16 @@
     right: 10px;
     color: white;
     font-family: monospace;
-    font-size: 11px;
+    font-size: 13px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     background: rgba(0,0,0,0.8);
-    padding: 8px 10px;
+    padding: 10px 12px;
     border-radius: 4px;
-    pointer-events: none;
+    pointer-events: auto;
     z-index: 1000;
     border: 1px solid rgba(255,255,255,0.2);
-    min-width: 130px;
+    min-width: 160px;
+    max-width: 220px;
   }
   .performance-metrics {
     display: flex;
@@ -97,15 +99,67 @@
     gap: 2px;
   }
   .metric {
-    font-size: 11px;
+    font-size: 12px;
     opacity: 0.9;
-    line-height: 1.3;
+    line-height: 1.4;
   }
   .metric.entities {
     color: #45b7d1;
   }
   .metric.components {
     color: #96ceb4;
+  }
+  .pool-statistics {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .pool-header {
+    font-size: 12px;
+    font-weight: bold;
+    color: #ffd93d;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pool-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .metric.pool-total {
+    color: #ffd93d;
+    font-size: 11px;
+  }
+  .detailed-pools {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .pool-section {
+    margin-bottom: 6px;
+  }
+  .pool-section-header {
+    font-size: 11px;
+    font-weight: bold;
+    color: #ffd93d;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+  .pool-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+  .pool-name {
+    color: #ffffff;
+    opacity: 0.8;
+  }
+  .pool-size {
+    color: #ffd93d;
+    font-weight: bold;
   }
   .game-time {
     position: fixed;
@@ -282,6 +336,39 @@
     <div class="metric entities">Entities: {$gameState.performance.entityCount}</div>
     <div class="metric components">Components: {$gameState.performance.componentCount}</div>
   </div>
+  {#if $gameState.performance.poolStatistics}
+    <div class="pool-statistics">
+      <div class="pool-header" on:click={() => showDetailedPools = !showDetailedPools} style="cursor: pointer;">
+        Object Pools {showDetailedPools ? '▼' : '▶'}
+      </div>
+      <div class="pool-metrics">
+        <div class="metric pool-total">Total Entity Pool: {$gameState.performance.poolStatistics.totalEntityPoolSize}</div>
+        <div class="metric pool-total">Total Component Pool: {$gameState.performance.poolStatistics.totalComponentPoolSize}</div>
+      </div>
+      {#if showDetailedPools}
+        <div class="detailed-pools">
+          <div class="pool-section">
+            <div class="pool-section-header">Entity Pools:</div>
+            {#each Array.from($gameState.performance.poolStatistics.entityPools.entries()) as [entityType, size]}
+              <div class="pool-item">
+                <span class="pool-name">{entityType}:</span>
+                <span class="pool-size">{size}</span>
+              </div>
+            {/each}
+          </div>
+          <div class="pool-section">
+            <div class="pool-section-header">Component Pools:</div>
+            {#each Array.from($gameState.performance.poolStatistics.componentPools.entries()) as [componentName, size]}
+              <div class="pool-item">
+                <span class="pool-name">{componentName}:</span>
+                <span class="pool-size">{size}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <button class="speed-button" class:hidden={!isGameStarted} on:click={toggleSpeed}>
