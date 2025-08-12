@@ -5,7 +5,7 @@ import { Weapon, WeaponType } from './WeaponTypes';
 interface WeaponProps {
   id: string;
   weapons: Weapon[];
-  currentWeaponIndex?: number;
+  currentWeaponId: string;
   attackCooldown?: number;
 }
 
@@ -15,7 +15,7 @@ export class WeaponComponent extends Component {
 
   id: string;
   weapons: Weapon[];
-  currentWeaponIndex: number;
+  currentWeaponId: string;
   lastAttackTimes: Record<string, number> = {};
   attackCooldown: number = 200;
   onceWeapons: Weapon[] = [];
@@ -24,19 +24,26 @@ export class WeaponComponent extends Component {
     super('Weapon');
     this.id = props.id;
     this.weapons = props.weapons;
-    this.currentWeaponIndex = props.currentWeaponIndex ?? 0;
+    // Set current weapon ID - if not provided, use first weapon's ID, otherwise null
+    this.currentWeaponId = props.currentWeaponId;
     this.attackCooldown = props.attackCooldown ?? 0;
     this.weapons.forEach((weapon) => (this.lastAttackTimes[weapon.id] = 0));
   }
 
   getCurrentWeapon(): Weapon | null {
-    return this.weapons[this.currentWeaponIndex] || null;
+    if (!this.currentWeaponId) return null;
+    return this.weapons.find((weapon) => weapon.id === this.currentWeaponId) || null;
   }
 
   addWeapon(weapon: Weapon): void {
     if (this.weapons.length >= WeaponComponent.maxWeapons) return;
     this.weapons.push(weapon);
     this.lastAttackTimes[weapon.id] = 0;
+
+    // If no current weapon is set, set this as current
+    if (!this.currentWeaponId) {
+      this.currentWeaponId = weapon.id;
+    }
   }
 
   onceAttack(weapon: Weapon): void {
@@ -51,29 +58,45 @@ export class WeaponComponent extends Component {
     this.onceWeapons.forEach((weapon) => {
       this.weapons.splice(this.weapons.indexOf(weapon), 1);
       delete this.lastAttackTimes[weapon.id];
+
+      // If the removed weapon was the current weapon, reset current weapon
+      if (this.currentWeaponId === weapon.id) {
+        this.currentWeaponId = this.weapons[0]?.id || '';
+      }
     });
     this.onceWeapons.length = 0;
   }
 
-  switchWeapon(index: number): void {
-    if (index >= 0 && index < this.weapons.length) {
-      this.currentWeaponIndex = index;
+  switchWeapon(weaponId: string): void {
+    // Changed from index to weaponId parameter
+    const weaponExists = this.weapons.some((weapon) => weapon.id === weaponId);
+    if (weaponExists) {
+      this.currentWeaponId = weaponId;
     }
   }
 
-  private isWeaponOnCooldown(currentTime: number, weaponIndex: number): boolean {
-    const weapon = this.weapons[weaponIndex];
+  // Helper method to switch weapon by index (for backward compatibility)
+  switchWeaponByIndex(index: number): void {
+    if (index >= 0 && index < this.weapons.length) {
+      this.currentWeaponId = this.weapons[index].id;
+    }
+  }
+
+  private isWeaponOnCooldown(currentTime: number, weaponId: string): boolean {
+    // Changed from weaponIndex to weaponId parameter
+    const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon) return false;
 
     return currentTime - this.lastAttackTimes[weapon.id] < this.attackCooldown;
   }
 
-  canAttack(currentTime: number, weaponIndex: number): boolean {
-    const weapon = this.weapons[weaponIndex];
+  canAttack(currentTime: number, weaponId: string): boolean {
+    // Changed from weaponIndex to weaponId parameter
+    const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon) return false;
 
     // Check cooldown first
-    if (this.isWeaponOnCooldown(currentTime, weaponIndex)) {
+    if (this.isWeaponOnCooldown(currentTime, weaponId)) {
       return false;
     }
 
@@ -81,25 +104,48 @@ export class WeaponComponent extends Component {
     return currentTime - this.lastAttackTimes[weapon.id] >= attackInterval;
   }
 
-  isAoe(weaponIndex: number): boolean {
+  // Helper method for backward compatibility with index-based access
+  canAttackByIndex(currentTime: number, weaponIndex: number): boolean {
     const weapon = this.weapons[weaponIndex];
+    if (!weapon) return false;
+    return this.canAttack(currentTime, weapon.id);
+  }
+
+  isAoe(weaponId: string): boolean {
+    // Changed from weaponIndex to weaponId parameter
+    const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon) return false;
     return weapon.type === WeaponType.AREA || weapon.type === WeaponType.BOMB;
   }
 
-  updateAttackTime(currentTime: number, weaponIndex: number): void {
+  // Helper method for backward compatibility with index-based access
+  isAoeByIndex(weaponIndex: number): boolean {
     const weapon = this.weapons[weaponIndex];
+    if (!weapon) return false;
+    return this.isAoe(weapon.id);
+  }
+
+  updateAttackTime(currentTime: number, weaponId: string): void {
+    // Changed from weaponIndex to weaponId parameter
+    const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon) return;
 
     this.lastAttackTimes[weapon.id] = currentTime;
+  }
+
+  // Helper method for backward compatibility with index-based access
+  updateAttackTimeByIndex(currentTime: number, weaponIndex: number): void {
+    const weapon = this.weapons[weaponIndex];
+    if (!weapon) return;
+    this.updateAttackTime(currentTime, weapon.id);
   }
 
   reset(): void {
     super.reset();
 
     this.weapons.length = 0;
-    this.currentWeaponIndex = 0;
-    this.lastAttackTimes.length = 0;
+    this.currentWeaponId = '';
+    this.lastAttackTimes = {}; // Fixed: should be object, not array
     this.onceWeapons.length = 0;
     this.attackCooldown = 200;
   }

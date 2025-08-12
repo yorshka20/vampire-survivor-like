@@ -97,7 +97,7 @@ export function createPlayerEntity(
     world.createComponent(WeaponComponent, {
       id: 'initial-weapon',
       weapons,
-      currentWeaponIndex: 0,
+      currentWeaponId: weapons[0].id,
       attackCooldown: 200,
     }),
   );

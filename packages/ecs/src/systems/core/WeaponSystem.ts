@@ -33,7 +33,6 @@ type WeaponParameters<T extends Weapon> = {
   position: Point;
   effectiveDamage: number;
   currentTime: number;
-  weaponIndex: number;
 };
 
 export class WeaponSystem extends System {
@@ -58,12 +57,11 @@ export class WeaponSystem extends System {
       );
       const stats = weaponEntity.getComponent<StatsComponent>(StatsComponent.componentName);
 
-      // Process each weapon
-      for (let i = 0; i < weapon.weapons.length; i++) {
-        if (!weapon.canAttack(currentTime, i)) continue;
-
-        const currentWeapon = weapon.weapons[i];
+      // Process each weapon using weapon ID instead of index
+      for (const currentWeapon of weapon.weapons) {
         if (!currentWeapon) continue;
+
+        if (!weapon.canAttack(currentTime, currentWeapon.id)) continue;
 
         // Check if we can attack with this weapon
         const effectiveAttackSpeed =
@@ -82,7 +80,6 @@ export class WeaponSystem extends System {
           position,
           effectiveDamage,
           currentTime,
-          weaponIndex: i,
         };
 
         switch (currentWeapon.type) {
@@ -155,7 +152,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<RangedWeapon>): void {
     // Find nearest enemy
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
@@ -193,7 +189,7 @@ export class WeaponSystem extends System {
       const dirY = dy / distance;
 
       this.createProjectile(weaponEntity, currentWeapon, position, dirX, dirY, effectiveDamage);
-      weapon.updateAttackTime(currentTime, weaponIndex);
+      weapon.updateAttackTime(currentTime, currentWeapon.id);
     }
   }
 
@@ -204,7 +200,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<RangedWeapon>): void {
     // Convert angle to radians
     const angleRad = ((currentWeapon.fixedAngle ?? 0) * Math.PI) / 180;
@@ -212,7 +207,7 @@ export class WeaponSystem extends System {
     const dirY = Math.sin(angleRad);
 
     this.createProjectile(weaponEntity, currentWeapon, position, dirX, dirY, effectiveDamage);
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private handleMelee({
@@ -222,7 +217,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<MeleeWeapon>): void {
     // Find enemies in melee range
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
@@ -255,7 +249,7 @@ export class WeaponSystem extends System {
       }
     }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private getRandomPositionInViewport(position: Point): Point {
@@ -286,7 +280,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<AreaWeapon>): void {
     if (this.areaEffects.length >= this.maxAreaEffects) {
       return;
@@ -317,7 +310,7 @@ export class WeaponSystem extends System {
       this.areaEffects = this.areaEffects.filter((effect) => effect.id !== id);
     });
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private createProjectile(
@@ -351,7 +344,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<SpiralWeapon>): void {
     // Calculate positions around the player
     const angleStep = (2 * Math.PI) / currentWeapon.projectileCount;
@@ -390,7 +382,7 @@ export class WeaponSystem extends System {
       this.world.addEntity(projectile);
     }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private handleSpinning({
@@ -400,7 +392,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<SpinningWeapon>): void {
     // Calculate positions around the player
     const angleStep = (2 * Math.PI) / currentWeapon.spinCount;
@@ -454,6 +445,7 @@ export class WeaponSystem extends System {
             id: currentWeapon.childWeapon.id,
             weapons: [currentWeapon.childWeapon],
             attackCooldown: currentWeapon.childWeaponAttackCooldown,
+            currentWeaponId: currentWeapon.childWeapon.id,
           }),
         );
       }
@@ -461,7 +453,7 @@ export class WeaponSystem extends System {
       this.world.addEntity(projectile);
     }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private handleBomb({
@@ -471,7 +463,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<BombWeapon>): void {
     // Find nearest enemies up to projectileCount using efficient single-pass algorithm
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
@@ -568,7 +559,7 @@ export class WeaponSystem extends System {
       this.world.addEntity(projectile);
     }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private handleLaser({
@@ -578,7 +569,6 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<LaserWeapon>): void {
     // Find nearest enemy
     const enemyIds = this.gridComponent?.getNearbyEntities(position, currentWeapon.range, 'damage');
@@ -613,7 +603,7 @@ export class WeaponSystem extends System {
     });
 
     this.world.addEntity(effect);
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 
   private handleLaserBurst({
@@ -623,10 +613,9 @@ export class WeaponSystem extends System {
     position,
     effectiveDamage,
     currentTime,
-    weaponIndex,
   }: WeaponParameters<LaserBurstWeapon>): void {
     // Calculate base rotation based on time
-    const startTime = weapon.lastAttackTimes[weaponIndex] ?? currentTime;
+    const startTime = weapon.lastAttackTimes[currentWeapon.id] ?? currentTime;
     const elapsedTime = (currentTime - startTime) / 1000; // Convert to seconds
     const baseRotation = (elapsedTime * currentWeapon.rotationSpeed) % 360;
 
@@ -665,6 +654,6 @@ export class WeaponSystem extends System {
       this.world.addEntity(effect);
     }
 
-    weapon.updateAttackTime(currentTime, weaponIndex);
+    weapon.updateAttackTime(currentTime, currentWeapon.id);
   }
 }

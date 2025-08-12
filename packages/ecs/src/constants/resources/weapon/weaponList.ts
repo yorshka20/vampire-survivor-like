@@ -12,7 +12,7 @@ import {
 } from '@ecs/components/weapon/WeaponTypes';
 
 const RapidFire: RangedWeapon = {
-  name: 'Rapid Fire',
+  id: 'Rapid Fire',
   damage: 5,
   attackSpeed: 5,
   attackCooldown: 100,
@@ -26,7 +26,7 @@ const RapidFire: RangedWeapon = {
 };
 
 const HeavyShot: RangedWeapon = {
-  name: 'Heavy Shot',
+  id: 'Heavy Shot',
   damage: 20,
   attackSpeed: 1,
   attackCooldown: 1000,
@@ -40,7 +40,7 @@ const HeavyShot: RangedWeapon = {
 };
 
 const PiercingShot: RangedWeapon = {
-  name: 'Piercing Shot',
+  id: 'Piercing Shot',
   damage: 10,
   attackSpeed: 2,
   attackCooldown: 100,
@@ -55,7 +55,7 @@ const PiercingShot: RangedWeapon = {
 };
 
 const AutoAim: RangedWeapon = {
-  name: 'Auto Aim',
+  id: 'Auto Aim',
   damage: 10,
   attackSpeed: 2,
   attackCooldown: 200,
@@ -69,7 +69,7 @@ const AutoAim: RangedWeapon = {
 };
 
 const Aura: AreaWeapon = {
-  name: 'Area',
+  id: 'Area',
   damage: 10,
   attackSpeed: 1, // 2 shots per second
   attackCooldown: 1000,
@@ -82,7 +82,7 @@ const Aura: AreaWeapon = {
 };
 
 const Melee: MeleeWeapon = {
-  name: 'Melee',
+  id: 'Melee',
   damage: 10,
   attackSpeed: 1,
   attackCooldown: 1000,
@@ -93,7 +93,7 @@ const Melee: MeleeWeapon = {
 };
 
 const SpiralShot: SpiralWeapon = {
-  name: 'Spiral Shot',
+  id: 'Spiral Shot',
   damage: 5,
   attackSpeed: 5,
   attackCooldown: 50,
@@ -112,7 +112,7 @@ const SpiralShot: SpiralWeapon = {
 };
 
 const SpiralOrb: SpinningWeapon = {
-  name: 'Spiral Orb',
+  id: 'Spiral Orb',
   damage: 50,
   attackSpeed: 4,
   attackCooldown: 600,
@@ -131,7 +131,7 @@ const SpiralOrb: SpinningWeapon = {
   spinLifetime: 1000 * 5,
   followPlayer: true,
   childWeapon: {
-    name: 'Orb Spiral Shot',
+    id: 'Orb Spiral Shot',
     damage: 5,
     attackSpeed: 3,
     penetration: 1,
@@ -151,7 +151,7 @@ const SpiralOrb: SpinningWeapon = {
 };
 
 const Bomb: BombWeapon = {
-  name: 'Bomb',
+  id: 'Bomb',
   damage: 30,
   attackSpeed: 10,
   attackCooldown: 20,
@@ -169,7 +169,7 @@ const Bomb: BombWeapon = {
 };
 
 const Laser: LaserWeapon = {
-  name: 'Laser',
+  id: 'Laser',
   damage: 100,
   attackSpeed: 1,
   attackCooldown: 0,
@@ -182,7 +182,7 @@ const Laser: LaserWeapon = {
 };
 
 const LaserBurst: LaserBurstWeapon = {
-  name: 'Laser Burst',
+  id: 'Laser Burst',
   damage: 100,
   attackSpeed: 1,
   attackCooldown: 0,
