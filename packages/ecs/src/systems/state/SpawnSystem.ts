@@ -4,6 +4,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { createEnemyEntity } from '@ecs/entities/Enemy';
+import { PerformanceSystem } from '../core/PerformanceSystem';
 
 export class SpawnSystem extends System {
   private gameStore: GameStore;
@@ -49,7 +50,8 @@ export class SpawnSystem extends System {
       this.waveNumber++;
       this.enemiesPerWave = Math.floor(
         SPAWN_CONSTANTS.INITIAL_ENEMIES_PER_WAVE +
-          this.waveNumber * SPAWN_CONSTANTS.ENEMIES_PER_WAVE_INCREASE,
+          this.waveNumber * 10 +
+          SPAWN_CONSTANTS.ENEMIES_PER_WAVE_INCREASE,
       );
       this.spawnInterval = Math.max(
         SPAWN_CONSTANTS.MIN_SPAWN_INTERVAL,
@@ -84,7 +86,7 @@ export class SpawnSystem extends System {
     // Spawn enemies for current wave
     const remainingEnemies = this.enemiesPerWave - this.enemiesSpawnedThisWave;
     const enemiesToSpawn = Math.min(
-      Math.floor(this.waveNumber * SPAWN_CONSTANTS.WAVE_ENEMY_MULTIPLIER),
+      Math.floor(this.waveNumber * 10 * SPAWN_CONSTANTS.WAVE_ENEMY_MULTIPLIER),
       Math.min(remainingEnemies, this.maxEnemies - this.enemyCount),
     );
 
@@ -105,12 +107,12 @@ export class SpawnSystem extends System {
 
   private spawnEnemy(x: number, y: number, playerId: string): void {
     // Random enemy stats based on wave
-    const health = 100 + this.waveNumber * 5;
+    const health = 100 * (1 + this.waveNumber * 0.05);
     const speed = Math.max(
       SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
       SPAWN_CONSTANTS.MAX_ENEMY_SPEED,
     );
-    const size: [number, number] = [40 + Math.random() * 20, 40 + Math.random() * 20];
+    const size: [number, number] = [40, 40];
 
     const enemy = createEnemyEntity(this.world, {
       position: [x, y],
@@ -124,7 +126,13 @@ export class SpawnSystem extends System {
   }
 
   canInvoke(): boolean {
-    // Temporarily removed FPS check - can be reimplemented through GameStore or other means
+    const performance = this.world.getSystem<PerformanceSystem>(
+      PerformanceSystem.name,
+      SystemPriorities.SPAWN,
+    );
+    if (performance) {
+      return performance.isFPSAbove(30);
+    }
     return true;
   }
 }

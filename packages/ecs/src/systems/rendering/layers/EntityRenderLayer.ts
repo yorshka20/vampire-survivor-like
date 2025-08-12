@@ -49,7 +49,8 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
     const rotation = render.getRotation();
-    const scale = render.getScale();
+    // Use TransformComponent scale instead of RenderComponent scale for consistency
+    const scale = transform.scale;
 
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
@@ -131,6 +132,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     }
 
     // Draw the current animation frame for player/enemy (single row layout)
+    // Now that enemy sizes are consistent with sprite sheet, we can use the render size directly
     this.ctx.drawImage(
       spriteSheet.image,
       currentFrame * frameWidth, // Source x: multiply frame index by frame width
@@ -139,8 +141,8 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       frameHeight, // Source height: frame height
       -sizeX / 2, // Destination x: center the sprite
       -sizeY / 2, // Destination y: center the sprite
-      sizeX, // Destination width: entity size
-      sizeY, // Destination height: entity size
+      sizeX, // Destination width: use render size (now consistent with sprite sheet)
+      sizeY, // Destination height: use render size (now consistent with sprite sheet)
     );
   }
 

@@ -15,7 +15,6 @@ import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { WeaponMap } from '@ecs/constants/resources/weapon/weaponList';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
-import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
 import { Point } from '@ecs/utils/types';
 
 interface PlayerProps {
@@ -43,13 +42,6 @@ export function createPlayerEntity(
 ) {
   const player = new Entity(id, 'player');
 
-  // Load sprite sheet
-  const loader = SpriteSheetLoader.getInstance();
-  const spriteSheet = loader.getSpriteSheet('knight');
-  if (!spriteSheet) {
-    throw new Error('Knight sprite sheet not loaded');
-  }
-
   // Basic components
   player.addComponent(world.createComponent(InputComponent, {}));
   player.addComponent(
@@ -67,7 +59,7 @@ export function createPlayerEntity(
       layer: RenderLayerIdentifier.ENTITY,
     }),
   );
-  player.addComponent(world.createComponent(AnimationComponent, spriteSheet));
+  player.addComponent(world.createComponent(AnimationComponent, 'knight'));
 
   // Game-specific components
   player.addComponent(

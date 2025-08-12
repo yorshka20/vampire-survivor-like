@@ -35,6 +35,10 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
     throw new Error('Slime sprite sheet not loaded');
   }
 
+  // Use sprite sheet frame dimensions for consistent sizing
+  const spriteFrameSize: [number, number] = [spriteSheet.frameWidth, spriteSheet.frameHeight];
+  const enemySize = props.size ?? spriteFrameSize;
+
   // Add components
   enemy.addComponent(
     world.createComponent(TransformComponent, {
@@ -53,7 +57,7 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
     world.createComponent(RenderComponent, {
       shape: 'pattern',
       patternType: 'enemy',
-      size: props.size ?? [30, 30],
+      size: enemySize, // Use calculated enemy size
       color: props.color ?? randomRgb(1),
       visible: true,
       layer: RenderLayerIdentifier.ENTITY,
@@ -61,7 +65,7 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   );
 
   // Add animation component
-  enemy.addComponent(world.createComponent(AnimationComponent, spriteSheet));
+  enemy.addComponent(world.createComponent(AnimationComponent, 'slime_green'));
 
   enemy.addComponent(
     world.createComponent(HealthComponent, {
@@ -81,7 +85,7 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   enemy.addComponent(
     world.createComponent(ColliderComponent, {
       type: 'rect',
-      size: props.size ?? [16, 16],
+      size: enemySize, // Use same size as render component for consistency
       offset: [0, 0],
     }),
   );
