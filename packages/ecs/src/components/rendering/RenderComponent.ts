@@ -18,7 +18,8 @@ export type RenderPatternType =
   | 'exp'
   | 'magnet'
   | 'projectile'
-  | 'burst';
+  | 'burst'
+  | 'effect';
 
 export interface RenderProperties {
   shape: ShapeType;

@@ -1,12 +1,12 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { AnimationState, SpriteSheetData } from '@ecs/types/animation';
+import { SpriteSheetData } from '@ecs/types/animation';
 
 export class AnimationComponent extends Component {
   static componentName: string = 'AnimationComponent';
 
   private currentFrame: number = 0;
   private frameTime: number = 0;
-  private currentAnimation: AnimationState = 'idle';
+  private currentAnimation: string = 'idle';
   private spriteSheet: SpriteSheetData;
   private isPlaying: boolean = true;
 
@@ -41,7 +41,7 @@ export class AnimationComponent extends Component {
     return animation.frames[this.currentFrame];
   }
 
-  setAnimation(state: AnimationState, forceRestart: boolean = false): void {
+  setAnimation(state: string, forceRestart: boolean = false): void {
     if (this.currentAnimation === state && !forceRestart) return;
 
     if (this.spriteSheet.animations.has(state)) {
@@ -52,7 +52,7 @@ export class AnimationComponent extends Component {
     }
   }
 
-  getCurrentAnimation(): AnimationState {
+  getCurrentAnimation(): string {
     return this.currentAnimation;
   }
 

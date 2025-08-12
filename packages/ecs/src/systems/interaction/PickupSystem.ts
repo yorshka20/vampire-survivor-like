@@ -51,7 +51,7 @@ export class PickupSystem extends System {
     const entitiesToRemove: string[] = [];
     const componentsToPickup: PickupComponent[] = [];
 
-    const pickupRange = this.basePickupRange * (stats?.pickupRangeMultiplier ?? 1);
+    const pickupRange = Math.min(this.basePickupRange * (stats?.pickupRangeMultiplier ?? 1), 200);
 
     // Use 'pickup' query type for better cache performance
     const nearbyEntities = this.gridComponent.getNearbyEntities(playerPos, pickupRange, 'pickup');

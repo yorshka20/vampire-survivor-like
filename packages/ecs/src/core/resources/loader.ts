@@ -1,5 +1,10 @@
 import { RenderPatternType } from '@ecs/components';
-import { playerAnimations, slimeAnimations } from '@ecs/constants/resources/animation';
+import {
+  explosionEffectAnimations,
+  playerAnimations,
+  slimeAnimations,
+  spiritEffectAnimations,
+} from '@ecs/constants/resources/animation';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
 import { PatternAssetManager } from './PatternAssetManager';
 import { ResourceManager } from './ResourceManager';
@@ -63,6 +68,20 @@ export async function initSpriteSheetAssets() {
       frameWidth: 24,
       frameHeight: 24,
       animations: slimeAnimations,
+    },
+    {
+      name: 'fireball_effect',
+      url: '/assets/sprites/effects/04.png',
+      frameWidth: 54,
+      frameHeight: 54,
+      animations: spiritEffectAnimations,
+    },
+    {
+      name: 'explosion_effect',
+      url: '/assets/sprites/effects/03.png',
+      frameWidth: 64,
+      frameHeight: 64,
+      animations: explosionEffectAnimations,
     },
   ]);
 }

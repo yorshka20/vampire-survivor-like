@@ -94,7 +94,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     if (!playerPos) return;
 
     // todo: define base pickup range
-    const pickupRange = 50 * stats.pickupRangeMultiplier; // base is 50
+    const pickupRange = Math.min(50 * stats.pickupRangeMultiplier, 200); // base is 50
 
     this.ctx.save();
     // apply camera offset
