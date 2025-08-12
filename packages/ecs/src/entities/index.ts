@@ -5,4 +5,4 @@ export { createEnemyEntity } from './Enemy';
 export { createItemEntity } from './Item';
 export { createObstacleEntity } from './Obstacle';
 export { createProjectileEntity } from './Projectile';
-export { createWeaponEntity } from './Weapon';
+export { createWeaponEntity } from './weapon';

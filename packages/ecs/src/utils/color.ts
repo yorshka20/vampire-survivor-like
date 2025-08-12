@@ -5,7 +5,7 @@
  * @param l Lightness (0-100)
  * @returns RGB color object
  */
-export function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+export function hslToRgb(h: number, s: number, l: number): RgbColor {
   h = h / 360;
   s = s / 100;
   l = l / 100;
@@ -43,7 +43,7 @@ export function hslToRgb(h: number, s: number, l: number): { r: number; g: numbe
  * Generate a random color with high saturation and medium lightness
  * @returns RGB color object with alpha
  */
-export function generateRandomColor(): { r: number; g: number; b: number; a: number } {
+export function generateRandomColor(): RgbaColor {
   const hue = Math.random() * 360;
   const saturation = 80 + Math.random() * 20; // 80-100%
   const lightness = 50 + Math.random() * 10; // 50-60%
@@ -51,3 +51,13 @@ export function generateRandomColor(): { r: number; g: number; b: number; a: num
   const rgb = hslToRgb(hue, saturation, lightness);
   return { ...rgb, a: 1 };
 }
+
+export type RgbColor = {
+  r: number;
+  g: number;
+  b: number;
+};
+
+export type RgbaColor = RgbColor & {
+  a: number;
+};
