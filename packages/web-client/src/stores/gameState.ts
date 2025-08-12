@@ -14,10 +14,18 @@ interface GameState {
   wave: number;
   enemies: number;
   nextWave: number;
-  fps: number;
   gameTime: number; // Time elapsed in seconds
   speedMultiplier: number; // Add speed multiplier
   isInitialized: boolean;
+  // Performance metrics
+  performance: {
+    fps: number;
+    frameTime: number;
+    deltaTime: number;
+    isPerformanceMode: boolean;
+    entityCount: number;
+    componentCount: number;
+  };
   player: {
     health: number;
     maxHealth: number;
@@ -44,10 +52,17 @@ function createGameStateStore() {
     wave: 1,
     enemies: 0,
     nextWave: 0,
-    fps: 0,
     gameTime: 0,
     speedMultiplier: 4,
     isInitialized: false,
+    performance: {
+      fps: 0,
+      frameTime: 0,
+      deltaTime: 0,
+      isPerformanceMode: false,
+      entityCount: 0,
+      componentCount: 0,
+    },
     player: {
       health: 100,
       maxHealth: 100,
@@ -87,12 +102,23 @@ function createGameStateStore() {
     }));
   });
 
-  // Subscribe to FPS updates
-  const fpsInterval = setInterval(() => {
+  // Subscribe to performance updates
+  const performanceInterval = setInterval(() => {
     if (gameInstance) {
+      const metrics = gameInstance.getPerformanceMetrics();
+
       update((state) => ({
         ...state,
-        fps: gameInstance!.getFPS(),
+        performance: metrics
+          ? {
+              fps: metrics.fps,
+              frameTime: metrics.frameTime,
+              deltaTime: metrics.deltaTime,
+              isPerformanceMode: metrics.isPerformanceMode,
+              entityCount: metrics.memoryUsage?.entityCount || 0,
+              componentCount: metrics.memoryUsage?.componentCount || 0,
+            }
+          : state.performance,
       }));
     }
   }, 1000);
@@ -175,7 +201,7 @@ function createGameStateStore() {
       }, 300);
     },
     destroy: () => {
-      clearInterval(fpsInterval);
+      clearInterval(performanceInterval);
       if (interval) {
         clearInterval(interval);
       }

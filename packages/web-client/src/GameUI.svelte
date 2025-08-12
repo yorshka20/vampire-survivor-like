@@ -62,24 +62,50 @@
     font-size: 12px;
   }
   .fps {
-    position: fixed;
-    top: 10px;
-    right: 10px;
     color: white;
     font-family: monospace;
-    font-size: 14px;
+    font-size: 11px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    background: rgba(0,0,0,0.5);
-    padding: 5px 10px;
-    border-radius: 5px;
-    pointer-events: none;
-    z-index: 1000;
+    margin-bottom: 4px;
+    font-weight: bold;
   }
   .fps.warning {
     color: #ff6b6b;
   }
   .fps.critical {
     color: #ff0000;
+  }
+  .performance-panel {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    color: white;
+    font-family: monospace;
+    font-size: 11px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.8);
+    padding: 8px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.2);
+    min-width: 130px;
+  }
+  .performance-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .metric {
+    font-size: 11px;
+    opacity: 0.9;
+    line-height: 1.3;
+  }
+  .metric.entities {
+    color: #45b7d1;
+  }
+  .metric.components {
+    color: #96ceb4;
   }
   .game-time {
     position: fixed;
@@ -99,7 +125,7 @@
   .speed-button {
     position: fixed;
     top: 10px;
-    right: 100px;
+    right: 200px;
     color: white;
     font-family: monospace;
     font-size: 14px;
@@ -246,8 +272,16 @@
   {/if}
 </div>
 
-<div class="fps" class:hidden={!isGameStarted} class:warning={$gameState.fps < 45} class:critical={$gameState.fps < 30}>
-  FPS: {$gameState.fps}
+<div class="performance-panel" class:hidden={!isGameStarted}>
+  <div class="fps" class:warning={$gameState.performance.fps < 45} class:critical={$gameState.performance.fps < 30}>
+    FPS: {$gameState.performance.fps}
+  </div>
+  <div class="performance-metrics">
+    <div class="metric">Frame: {$gameState.performance.frameTime.toFixed(1)}ms</div>
+    <div class="metric">Delta: {$gameState.performance.deltaTime.toFixed(3)}s</div>
+    <div class="metric entities">Entities: {$gameState.performance.entityCount}</div>
+    <div class="metric components">Components: {$gameState.performance.componentCount}</div>
+  </div>
 </div>
 
 <button class="speed-button" class:hidden={!isGameStarted} on:click={toggleSpeed}>
