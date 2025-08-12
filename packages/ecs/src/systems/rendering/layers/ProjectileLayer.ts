@@ -46,9 +46,11 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
     const scale = render.getScale();
     const patternImage = render.getPatternImageForState();
 
+    const dx = cameraOffset[0] + position[0] + offsetX;
+    const dy = cameraOffset[1] + position[1] + offsetY;
+
     this.ctx.save();
-    this.ctx.translate(cameraOffset[0], cameraOffset[1]);
-    this.ctx.translate(position[0] + offsetX, position[1] + offsetY);
+    this.ctx.translate(dx, dy);
     this.ctx.rotate(rotation);
     this.ctx.scale(scale, scale);
 

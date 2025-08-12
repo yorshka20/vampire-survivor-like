@@ -9,6 +9,7 @@ export class DomRenderLayer extends BaseRenderLayer {
 
   protected container: HTMLDivElement;
   protected rootElement: HTMLElement;
+  private styleElement: HTMLStyleElement | null = null;
 
   constructor(
     identifier: RenderLayerIdentifier,
@@ -18,15 +19,59 @@ export class DomRenderLayer extends BaseRenderLayer {
     super(identifier, priority);
     this.container = document.createElement('div');
     this.container.id = identifier;
-    this.container.style.position = 'absolute';
-    this.container.style.zIndex = priority.toString();
-    this.container.style.top = '0';
-    this.container.style.left = '0';
-    this.container.style.width = '100%';
-    this.container.style.height = '100%';
-    this.container.style.pointerEvents = 'none';
+    this.container.className = 'dom-render-layer';
     this.rootElement = rootElement;
+
+    // Inject CSS styles for the render layer
+    this.injectStyles(identifier, priority);
+
     rootElement.appendChild(this.container);
+  }
+
+  /**
+   * Injects CSS styles for the render layer and its common elements
+   * @param identifier - The layer identifier used for CSS class names
+   * @param priority - The z-index priority for the layer
+   */
+  private injectStyles(identifier: RenderLayerIdentifier, priority: RenderLayerPriority): void {
+    // Check if styles already exist to avoid duplicates
+    const existingStyle = document.getElementById(`${identifier}-styles`);
+    if (existingStyle) {
+      return;
+    }
+
+    this.styleElement = document.createElement('style');
+    this.styleElement.id = `${identifier}-styles`;
+
+    const css = `
+      .dom-render-layer {
+        position: absolute;
+        z-index: ${priority};
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      
+      .damage-text-element {
+        position: absolute;
+        transition: opacity 0.016s linear;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        font-weight: 600;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-9999px, -9999px);
+      }
+      
+      .dom-element {
+        position: absolute;
+      }
+    `;
+
+    this.styleElement.textContent = css;
+    this.rootElement.appendChild(this.styleElement);
   }
 
   onResize(): void {
@@ -66,7 +111,11 @@ export class DomRenderLayer extends BaseRenderLayer {
     const [sizeX, sizeY] = render.getSize();
     const color = render.getColor();
     const element = document.createElement('div') as HTMLDivElement;
-    element.style.position = 'absolute';
+
+    // Use CSS class for common styles
+    element.className = 'dom-element';
+
+    // Set dynamic styles that can't be handled by CSS classes
     element.style.left = `${position[0] + offsetX}px`;
     element.style.top = `${position[1] + offsetY}px`;
     element.style.width = `${sizeX}px`;
@@ -79,5 +128,10 @@ export class DomRenderLayer extends BaseRenderLayer {
   onDestroy(): void {
     super.onDestroy();
     this.rootElement.removeChild(this.container);
+
+    // Remove the injected styles
+    if (this.styleElement && this.styleElement.parentNode) {
+      this.styleElement.parentNode.removeChild(this.styleElement);
+    }
   }
 }

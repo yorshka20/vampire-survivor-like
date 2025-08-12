@@ -22,18 +22,13 @@ export class DamageTextLayer extends DomRenderLayer {
       this.POOL_NAME,
       () => {
         const element = document.createElement('div');
-        element.style.position = 'absolute';
-        element.style.transition = 'opacity 0.016s linear';
-        element.style.transform = this.OFFSCREEN_POSITION;
-        element.style.fontFamily = 'Courier New, monospace';
-        element.style.fontSize = '18px';
-        element.style.fontWeight = '600';
-        element.style.opacity = '0';
+        // Use CSS class instead of inline styles
+        element.className = 'damage-text-element';
         this.container.appendChild(element);
         return element;
       },
       0, // Initial pool size - start with some pre-allocated elements
-      400, // Max pool size
+      1000, // Max pool size
     );
   }
 
@@ -54,6 +49,7 @@ export class DamageTextLayer extends DomRenderLayer {
           console.warn('Failed to get element from pool for damage text');
           continue;
         }
+        // Set dynamic styles that can't be handled by CSS classes
         newElement.element.style.color = damageText.color;
         newElement.element.textContent = damageText.text;
         newElement.element.style.opacity = '1';
