@@ -9,11 +9,9 @@ export interface PerformanceMetrics {
   frameTime: number;
   deltaTime: number;
   isPerformanceMode: boolean;
-  systemPerformance: Map<string, number>;
   memoryUsage?: {
     entityCount: number;
     componentCount: number;
-    systemCount: number;
   };
 }
 
@@ -67,7 +65,7 @@ export class PerformanceSystem extends System {
   private readonly maxTimeStep: number = 1 / 30; // Minimum 30 updates per second
 
   constructor() {
-    super('PerformanceSystem', SystemPriorities.PERFORMANCE, 'logic');
+    super('PerformanceSystem', SystemPriorities.PERFORMANCE, 'render');
   }
 
   update(deltaTime: number): void {
@@ -286,10 +284,8 @@ export class PerformanceSystem extends System {
     // This could be enhanced to track actual system performance
     // For now, we'll track basic metrics
     const entityCount = this.world.entities.size;
-    const systemCount = this.world.systems.size;
 
     this.systemPerformance.set('entityCount', entityCount);
-    this.systemPerformance.set('systemCount', systemCount);
   }
 
   /**
@@ -298,7 +294,6 @@ export class PerformanceSystem extends System {
   private updateMemoryUsage(): void {
     // Basic memory usage tracking
     const entityCount = this.world.entities.size;
-    const systemCount = this.world.systems.size;
 
     // Estimate component count (rough calculation)
     let componentCount = 0;
@@ -309,7 +304,6 @@ export class PerformanceSystem extends System {
 
     this.systemPerformance.set('entityCount', entityCount);
     this.systemPerformance.set('componentCount', componentCount);
-    this.systemPerformance.set('systemCount', systemCount);
   }
 
   /**
@@ -330,11 +324,9 @@ export class PerformanceSystem extends System {
       frameTime: this.frameTime,
       deltaTime: this.deltaTime,
       isPerformanceMode: this.isInPerformanceMode,
-      systemPerformance: new Map(this.systemPerformance),
       memoryUsage: {
         entityCount: this.systemPerformance.get('entityCount') || 0,
         componentCount: this.systemPerformance.get('componentCount') || 0,
-        systemCount: this.systemPerformance.get('systemCount') || 0,
       },
     };
   }
@@ -372,13 +364,6 @@ export class PerformanceSystem extends System {
    */
   setPerformanceThresholds(thresholds: Partial<PerformanceThresholds>): void {
     Object.assign(this.performanceThresholds, thresholds);
-  }
-
-  /**
-   * Get system performance data
-   */
-  getSystemPerformance(): Map<string, number> {
-    return new Map(this.systemPerformance);
   }
 
   /**
