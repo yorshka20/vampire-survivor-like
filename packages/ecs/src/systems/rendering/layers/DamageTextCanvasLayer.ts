@@ -58,11 +58,17 @@ export class DamageTextCanvasLayer extends CanvasRenderLayer {
     const [x, y] = dmg.position;
 
     // Fade opacity from 1 -> 0 over lifetime
-    const alpha = Math.max(0, 1 - dmg.elapsed / dmg.lifetime);
+    const progress = Math.min(1, dmg.elapsed / dmg.lifetime);
+    const alpha = Math.max(0, 1 - progress);
 
     // Choose font size/weight based on critical flag
     const fontSize = dmg.isCritical ? 20 : 16;
     const fontWeight = dmg.isCritical ? '700' : '600';
+
+    // Slight upward floating effect with ease-out so it slows near the end
+    const baseLift = dmg.isCritical ? 24 : 16; // pixels of total lift over lifetime
+    const easeOut = progress * (2 - progress);
+    const lift = baseLift * easeOut;
 
     this.ctx.save();
     try {
@@ -74,7 +80,7 @@ export class DamageTextCanvasLayer extends CanvasRenderLayer {
 
       // Position with camera offset so text follows the camera
       const dx = x + cameraOffset[0];
-      const dy = y + cameraOffset[1];
+      const dy = y - lift + cameraOffset[1];
 
       // Simple outline for readability over varied backgrounds
       this.ctx.lineWidth = 3;
