@@ -86,6 +86,7 @@ export function createPlayerEntity(
       explosionSound: 'explosion',
       jumpSound: 'jump',
       tapSound: 'tap',
+      burstSound: 'burst',
       volume: 0.5,
     }),
   );

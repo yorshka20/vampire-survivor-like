@@ -16,7 +16,8 @@ export type SoundType =
   | 'explosion'
   | 'jump'
   | 'power_up'
-  | 'tap';
+  | 'tap'
+  | 'burst';
 
 export class SoundManager {
   private static instance: SoundManager;

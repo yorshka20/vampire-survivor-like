@@ -169,7 +169,6 @@ export class PickupSystem extends System {
 
         case 'laserBurst':
           this.triggerLaserBurst(player);
-          SoundManager.playSound(player, 'explosion');
           break;
       }
     }

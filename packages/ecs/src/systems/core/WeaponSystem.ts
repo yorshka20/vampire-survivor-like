@@ -684,5 +684,7 @@ export class WeaponSystem extends System {
     }
 
     weapon.updateAttackTime(currentTime, currentWeapon.id);
+
+    SoundManager.playSound(weaponEntity, 'burst', 0.5);
   }
 }

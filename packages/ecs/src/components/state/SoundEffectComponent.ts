@@ -9,6 +9,7 @@ export interface SoundEffectConfig {
   explosionSound?: SoundType;
   jumpSound?: SoundType;
   tapSound?: SoundType;
+  burstSound?: SoundType;
   volume?: number;
 }
 
@@ -40,6 +41,8 @@ export class SoundEffectComponent extends Component {
         return this.config.jumpSound;
       case 'tap':
         return this.config.tapSound;
+      case 'burst':
+        return this.config.burstSound;
       default:
         return undefined;
     }
