@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { createSimulator } from './createSimulator';
   import { gameState } from './gameState';
-  import { createSimulator } from './main';
-  import './style.css';
   
   const repoUrl = import.meta.env.VITE_REPO_URL;
   let isGameStarted = false;
@@ -18,13 +17,16 @@
     }
   }
 
-  function startGame() {
+  async function startGame() {
     if (!isGameStarted) {
       isGameStarted = true;
       // Initialize resources first, then start the game
-      createSimulator().then(() => {
-        gameState.start();
-      });
+      const game = await createSimulator();
+      gameState.setGame(game);
+      gameState.start();
+
+      (window as any).game = game;
+      (window as any).gameState = gameState;
     }
   }
 
@@ -33,22 +35,31 @@
       gameState.destroy();
     };
   });
+
 </script>
 
 <style>
   .ui-container {
     position: fixed;
-    top: 10px;
-    left: 10px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     color: white;
     font-family: monospace;
     font-size: 16px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     pointer-events: none;
     z-index: 1000;
-    background: rgba(0,0,0,0.5);
-    padding: 10px;
-    border-radius: 5px;
+
+    box-sizing: border-box;
+    padding: 16px;
+  }
+
+  .canvas-wrapper {
+    width: 100%;
+    height: 100%;
+
+    border: 1px solid white;
   }
 
   .fps {
@@ -260,7 +271,7 @@
 
 
 <div class="ui-container" class:hidden={!isGameStarted}>
-
+  <div id="canvas-wrapper" class="canvas-wrapper"></div>
 </div>
 
 <div class="performance-panel" class:hidden={!isGameStarted}>
@@ -307,8 +318,6 @@
     </div>
   {/if}
 </div>
-
-
 
 <button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
   <svg class="pause-icon" viewBox="0 0 24 24">
