@@ -128,6 +128,7 @@ export class PickupSystem extends System {
           const expGain = pickup.value * (stats?.expGainMultiplier ?? 1);
           const exp = player.getComponent<ExperienceComponent>(ExperienceComponent.componentName);
           const leveledUp = exp.addExperience(expGain);
+          SoundManager.playSound(player, 'coin');
 
           if (leveledUp) {
             this.onPlayerLevelUp(player, exp.level);
@@ -163,12 +164,12 @@ export class PickupSystem extends System {
 
         case 'globalPull':
           this.triggerGlobalItemPull(player);
-          SoundManager.playSound(player, 'coin');
+          SoundManager.playSound(player, 'power_up');
           break;
 
         case 'laserBurst':
           this.triggerLaserBurst(player);
-          SoundManager.playSound(player, 'coin');
+          SoundManager.playSound(player, 'explosion');
           break;
       }
     }

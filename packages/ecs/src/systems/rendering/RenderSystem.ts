@@ -6,7 +6,7 @@ import { RectArea } from '@ecs/utils/types';
 import { RenderLayer } from './base/RenderLayer';
 import {
   BackgroundRenderLayer,
-  DamageTextLayer,
+  DamageTextCanvasLayer,
   EntityRenderLayer,
   GridDebugLayer,
   ItemRenderLayer,
@@ -55,8 +55,8 @@ export class RenderSystem extends System {
       new BackgroundRenderLayer(this.mainCanvas, this.mainCtx, bgImage),
       // Debug layers
       // new GridDebugLayer(this.mainCanvas, this.mainCtx, 100), // 100 is the cell size
-      // UI layers with their own canvas
-      new DamageTextLayer(rootElement),
+      // UI layers drawn on main canvas to avoid DOM overhead
+      new DamageTextCanvasLayer(this.mainCanvas, this.mainCtx),
     ];
 
     // Initialize layers with this system
