@@ -114,6 +114,7 @@ export interface IWorld {
 }
 
 export type EntityType =
+  | 'object'
   | 'player'
   | 'enemy'
   | 'projectile'

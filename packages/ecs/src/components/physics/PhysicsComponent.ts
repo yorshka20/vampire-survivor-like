@@ -1,22 +1,32 @@
 import { SPEED_MULTIPLIERS, calculateSpeed } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
-import { Point } from '@ecs/utils/types';
+import { Vec2 } from '@ecs/utils/types';
 
 type EntityType = 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM';
 
 interface PhysicsProps {
-  velocity?: Point;
+  velocity?: Vec2;
   speed?: number;
   entityType?: EntityType;
   friction?: number;
   maxSpeed?: number;
 }
 
+/**
+ * Physics component for entities
+ * Handles velocity, speed, and movement
+ *
+ * @property {Point} velocity - The velocity of the entity
+ * @property {number} speed - The speed of the entity
+ * @property {EntityType} entityType - The type of the entity
+ * @property {number} friction - The friction of the entity
+ * @property {number} maxSpeed - The maximum speed of the entity
+ */
 export class PhysicsComponent extends Component {
   static componentName = 'Physics';
 
   // Velocity properties
-  velocity: Point;
+  velocity: Vec2;
   private isBlocked: boolean = false;
   private blockedTimer: number = 0;
   private readonly BLOCKED_DURATION: number = 500; // 500ms blocked duration
@@ -44,11 +54,11 @@ export class PhysicsComponent extends Component {
   }
 
   // Velocity methods
-  getVelocity(): Point {
+  getVelocity(): Vec2 {
     return this.velocity;
   }
 
-  setVelocity(velocity: Point): void {
+  setVelocity(velocity: Vec2): void {
     if (this.isBlocked) {
       return;
     }

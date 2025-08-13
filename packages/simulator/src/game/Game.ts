@@ -1,14 +1,7 @@
 import { type PerformanceSystem, ResourceManager, SoundManager, SpatialGridSystem } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
-import {
-  initAudioAssets,
-  initImageAssets,
-  initPatternAssets,
-  initSpriteSheetAssets,
-} from '@ecs/core/resources/loader';
 import { GameStore } from '@ecs/core/store/GameStore';
-import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
 import { Viewport } from '@ecs/utils/types';
 import { GameLoop } from './GameLoop';
 
@@ -76,30 +69,6 @@ export class Game {
     this.initializationPromise = (async () => {
       try {
         console.log('Initializing game...');
-
-        const renderSystem = this.world.getSystem<RenderSystem>(
-          'RenderSystem',
-          SystemPriorities.RENDER,
-        );
-        if (!renderSystem) {
-          throw new Error('RenderSystem not found');
-        }
-        // Initialize all game assets
-        await initImageAssets();
-        console.log('Background images loaded');
-        const bg = ResourceManager.getInstance().getImage('bg');
-        if (bg) {
-          (renderSystem as RenderSystem).setBackgroundImage(bg);
-        }
-
-        await initAudioAssets();
-        console.log('Audio resources loaded');
-
-        await initSpriteSheetAssets();
-        console.log('Sprite sheets loaded');
-
-        await initPatternAssets();
-        console.log('Pattern assets initialized');
 
         this.initialized = true;
         console.log('Game initialized successfully');
