@@ -29,11 +29,15 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     }
   }
 
+  // todo: support custom filter condition by client
   filterEntity(entity: Entity, viewport: RectArea): boolean {
     return (
       entity.hasComponent(RenderComponent.componentName) &&
       entity.hasComponent(TransformComponent.componentName) &&
-      (entity.isType('player') || entity.isType('enemy') || entity.isType('effect')) &&
+      (entity.isType('player') ||
+        entity.isType('enemy') ||
+        entity.isType('effect') ||
+        entity.isType('object')) &&
       this.isInViewport(entity, viewport)
     );
   }

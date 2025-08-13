@@ -32,6 +32,7 @@ export const EntityPoolList: EntityType[] = [
   'pickup',
   'effect',
   'other',
+  'object',
 ];
 
 export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
