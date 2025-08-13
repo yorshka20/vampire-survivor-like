@@ -1,12 +1,15 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { Color } from '@ecs/utils/types';
 
+export type EnemyType = 'normal' | 'magic' | 'elite' | 'boss' | 'legendary';
+
 export interface StateData {
   isDazed: boolean;
   dazeRemainingFrames: number;
   isHit: boolean;
   hitRemainingFrames: number;
   originalColor: Color | null;
+  enemyType?: EnemyType; // Optional classification for enemies
 }
 
 export class StateComponent extends Component {
@@ -21,6 +24,7 @@ export class StateComponent extends Component {
       isHit: false,
       hitRemainingFrames: 0,
       originalColor: null,
+      enemyType: data.enemyType,
       ...data,
     };
   }
@@ -31,6 +35,14 @@ export class StateComponent extends Component {
 
   getIsHit(): boolean {
     return this.state.isHit;
+  }
+
+  getEnemyType(): EnemyType | undefined {
+    return this.state.enemyType;
+  }
+
+  setEnemyType(type: EnemyType): void {
+    this.state.enemyType = type;
   }
 
   setDazed(frames: number): void {
@@ -74,6 +86,7 @@ export class StateComponent extends Component {
       isHit: false,
       hitRemainingFrames: 0,
       originalColor: null,
+      enemyType: undefined,
     };
   }
 }

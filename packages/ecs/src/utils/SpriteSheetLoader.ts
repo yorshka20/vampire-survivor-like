@@ -19,6 +19,7 @@ export class SpriteSheetLoader {
     frameWidth: number,
     frameHeight: number,
     animations: Map<string, AnimationData>,
+    cropScale?: number, // Optional: center crop scale for each frame
   ): Promise<SpriteSheetData> {
     if (this.loadedSpriteSheets.has(name)) {
       return this.loadedSpriteSheets.get(name)!;
@@ -28,11 +29,13 @@ export class SpriteSheetLoader {
       const img = new Image();
       img.onload = () => {
         const spriteSheet: SpriteSheetData = {
+          name,
           image: img,
           frameWidth,
           frameHeight,
           frameCount: Math.floor((img.width / frameWidth) * (img.height / frameHeight)),
           animations,
+          sourceCropScale: cropScale,
         };
         this.loadedSpriteSheets.set(name, spriteSheet);
         resolve(spriteSheet);
@@ -53,6 +56,7 @@ export class SpriteSheetLoader {
       frameWidth: number;
       frameHeight: number;
       animations: Map<string, AnimationData>;
+      cropScale?: number; // Optional crop scale per sheet
     }>,
   ): Promise<void> {
     const promises = spriteSheets.map((sheet) =>
@@ -62,6 +66,7 @@ export class SpriteSheetLoader {
         sheet.frameWidth,
         sheet.frameHeight,
         sheet.animations,
+        sheet.cropScale,
       ),
     );
     return Promise.all(promises).then(() => {});

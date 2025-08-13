@@ -1,7 +1,7 @@
 export { createAreaEffectEntity } from './areaEffects';
 export { createDamageTextEntity } from './DamageText';
 export { createEffectEntity } from './Effect';
-export { createEnemyEntity } from './Enemy';
+export { createEliteEnemyEntity, createEnemyEntity } from './Enemy';
 export { createItemEntity } from './Item';
 export { createObstacleEntity } from './Obstacle';
 export { createProjectileEntity } from './Projectile';

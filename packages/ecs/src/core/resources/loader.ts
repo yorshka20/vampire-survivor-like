@@ -1,6 +1,7 @@
 import { RenderPatternType } from '@ecs/components';
 import {
   explosionEffectAnimations,
+  orcAnimations,
   playerAnimations,
   slimeAnimations,
   spiritEffectAnimations,
@@ -68,6 +69,14 @@ export async function initSpriteSheetAssets() {
       frameWidth: 24,
       frameHeight: 24,
       animations: slimeAnimations,
+    },
+    {
+      name: 'orc',
+      url: '/assets/sprites/orc.png',
+      frameWidth: 100,
+      frameHeight: 100,
+      animations: orcAnimations,
+      cropScale: 0.5, // Crop center 50% to remove large transparent margins
     },
     {
       name: 'fireball_effect',

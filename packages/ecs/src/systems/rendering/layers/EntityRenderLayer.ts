@@ -1,5 +1,6 @@
 import {
   AnimationComponent,
+  HealthComponent,
   RenderComponent,
   StateComponent,
   TransformComponent,
@@ -70,6 +71,11 @@ export class EntityRenderLayer extends CanvasRenderLayer {
         const state = entity.getComponent<StateComponent>(StateComponent.componentName);
         if (state) {
           this.renderPlayerEnemyEntity(state, animation, sizeX, sizeY);
+          // Draw health bar for elite/boss/legendary enemies
+          const type = state.getEnemyType?.() as any;
+          if (type === 'elite' || type === 'boss' || type === 'legendary') {
+            this.renderHealthBar(entity as Entity, sizeX, sizeY);
+          }
         }
       }
     } else {
@@ -81,7 +87,38 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Render effect entities (spirit, explosion) with 8x12 sprite sheet layout
+   * Draw a simple health bar above the entity based on HealthComponent
+   */
+  private renderHealthBar(entity: Entity, sizeX: number, sizeY: number): void {
+    const health = entity.getComponent<HealthComponent>(HealthComponent.componentName);
+    if (!health) return;
+
+    const percent = Math.max(
+      0,
+      Math.min(1, health.getHealthPercentage?.() ?? health.currentHealth / health.maxHealth),
+    );
+
+    const barWidth = sizeX;
+    const barHeight = Math.max(3, Math.floor(sizeY * 0.08));
+    const x = -barWidth / 2;
+    const y = -sizeY / 2 - barHeight - 4; // small padding above sprite
+
+    // Background
+    this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    this.ctx.fillRect(x, y, barWidth, barHeight);
+
+    // Foreground
+    this.ctx.fillStyle = '#ff3b3b';
+    this.ctx.fillRect(x, y, barWidth * percent, barHeight);
+
+    // Border
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(x, y, barWidth, barHeight);
+  }
+
+  /**
+   * Render effect entities with generic grid sheet layout
    */
   private renderEffectEntity(animation: AnimationComponent, sizeX: number, sizeY: number): void {
     const spriteSheet = animation.getSpriteSheet();
@@ -89,18 +126,25 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const frameWidth = spriteSheet.frameWidth;
     const frameHeight = spriteSheet.frameHeight;
 
-    // Effects use 8x12 sprite sheet layout, calculate row and column
-    const totalColumns = 12;
+    // Infer grid dimensions from image and frame size
+    const totalColumns = Math.max(1, Math.floor(spriteSheet.image.width / frameWidth));
     const row = Math.floor(currentFrame / totalColumns);
     const column = currentFrame % totalColumns;
 
-    // Draw the current animation frame for effects
+    // Optional centered crop (used by sheets with large transparent margins)
+    const cropScale = spriteSheet.sourceCropScale ?? 1;
+    const insetX = ((1 - cropScale) / 2) * frameWidth;
+    const insetY = ((1 - cropScale) / 2) * frameHeight;
+    const srcW = frameWidth * cropScale;
+    const srcH = frameHeight * cropScale;
+
+    // Draw the current animation frame
     this.ctx.drawImage(
       spriteSheet.image,
-      column * frameWidth, // Source x: column * frame width
-      row * frameHeight, // Source y: row * frame height
-      frameWidth, // Source width: frame width
-      frameHeight, // Source height: frame height
+      column * frameWidth + insetX, // Source x with center crop
+      row * frameHeight + insetY, // Source y with center crop
+      srcW, // Source width (cropped)
+      srcH, // Source height (cropped)
       -sizeX / 2, // Destination x: center the sprite
       -sizeY / 2, // Destination y: center the sprite
       sizeX, // Destination width: entity size
@@ -109,7 +153,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Render player and enemy entities with single row sprite sheet layout
+   * Render player and enemy entities with generic grid sheet layout
    */
   private renderPlayerEnemyEntity(
     state: StateComponent,
@@ -124,25 +168,47 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
     // Handle hurt/idle animations for player and enemy entities
     if (state.getIsHit() && spriteSheet.animations.has('hurt')) {
-      // Force play hurt animation when hit
-      animation.setAnimation('hurt', true);
+      // Switch to hurt animation when entering hit state (avoid restarting every frame)
+      if (animation.getCurrentAnimation() !== 'hurt') {
+        animation.setAnimation('hurt', true);
+      }
     } else if (!state.getIsHit() && animation.getCurrentAnimation() === 'hurt') {
-      // Return to idle animation when not hit
-      animation.setAnimation('idle');
+      // Return to walk (preferred) or idle when not hit
+      if (spriteSheet.animations.has('walk')) {
+        animation.setAnimation('walk');
+      } else {
+        animation.setAnimation('idle');
+      }
+    } else if (!state.getIsHit()) {
+      // Ensure default non-hit animation is walk if available
+      if (spriteSheet.animations.has('walk') && animation.getCurrentAnimation() !== 'walk') {
+        animation.setAnimation('walk');
+      }
     }
 
-    // Draw the current animation frame for player/enemy (single row layout)
-    // Now that enemy sizes are consistent with sprite sheet, we can use the render size directly
+    // Infer grid dimensions; works for both single-row and multi-row sheets
+    const totalColumns = Math.max(1, Math.floor(spriteSheet.image.width / frameWidth));
+    const row = Math.floor(currentFrame / totalColumns);
+    const column = currentFrame % totalColumns;
+
+    // Optional centered crop (e.g., orc frames with big transparent borders)
+    const cropScale = spriteSheet.sourceCropScale ?? 1;
+    const insetX = ((1 - cropScale) / 2) * frameWidth;
+    const insetY = ((1 - cropScale) / 2) * frameHeight;
+    const srcW = frameWidth * cropScale;
+    const srcH = frameHeight * cropScale;
+
+    // Draw the current animation frame
     this.ctx.drawImage(
       spriteSheet.image,
-      currentFrame * frameWidth, // Source x: multiply frame index by frame width
-      0, // Source y: always 0 since frames are horizontal
-      frameWidth, // Source width: frame width
-      frameHeight, // Source height: frame height
+      column * frameWidth + insetX, // Source x with center crop
+      row * frameHeight + insetY, // Source y with center crop
+      srcW, // Source width (cropped)
+      srcH, // Source height (cropped)
       -sizeX / 2, // Destination x: center the sprite
       -sizeY / 2, // Destination y: center the sprite
-      sizeX, // Destination width: use render size (now consistent with sprite sheet)
-      sizeY, // Destination height: use render size (now consistent with sprite sheet)
+      sizeX, // Destination width: use render size
+      sizeY, // Destination height: use render size
     );
   }
 
