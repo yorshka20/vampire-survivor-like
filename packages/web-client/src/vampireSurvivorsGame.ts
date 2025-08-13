@@ -1,15 +1,20 @@
 import {
   AISystem,
   AnimationSystem,
+  BackgroundRenderLayer,
   ChaseSystem,
   CollisionSystem,
   DamageSystem,
+  DamageTextCanvasLayer,
   DeathSystem,
+  EntityRenderLayer,
   InputSystem,
+  ItemRenderLayer,
   LifecycleSystem,
   PerformanceSystem,
   PhysicsSystem,
   PickupSystem,
+  ProjectileRenderLayer,
   RenderSystem,
   SpatialGridSystem,
   SpawnSystem,
@@ -47,6 +52,15 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement, viewport);
+  // Game layers using main canvas
+  renderSystem.addRenderLayer(EntityRenderLayer);
+  renderSystem.addRenderLayer(ItemRenderLayer);
+  renderSystem.addRenderLayer(ProjectileRenderLayer);
+  renderSystem.addRenderLayer(BackgroundRenderLayer);
+  // UI layers drawn on main canvas to avoid DOM overhead
+  renderSystem.addRenderLayer(DamageTextCanvasLayer);
+  // init renderSystem after adding all layers
+  renderSystem.init();
   world.addSystem(renderSystem);
 
   // Initialize game and all assets

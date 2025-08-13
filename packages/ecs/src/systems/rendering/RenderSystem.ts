@@ -4,14 +4,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
 import { RenderLayer } from './base/RenderLayer';
-import {
-  BackgroundRenderLayer,
-  DamageTextCanvasLayer,
-  EntityRenderLayer,
-  GridDebugLayer,
-  ItemRenderLayer,
-  ProjectileRenderLayer,
-} from './layers';
+import { BackgroundRenderLayer, GridDebugLayer } from './layers';
 
 export class RenderSystem extends System {
   private rootElement: HTMLElement;
@@ -40,32 +33,15 @@ export class RenderSystem extends System {
     this.updateCtxConfig();
 
     this.mainCanvas.id = 'main-game-canvas';
-    this.mainCanvas.style.position = 'absolute';
-    this.mainCanvas.style.top = '0';
-    this.mainCanvas.style.left = '0';
-    this.mainCanvas.style.zIndex = '0';
+    this.mainCanvas.style.width = '100%';
+    this.mainCanvas.style.height = '100%';
+    this.mainCanvas.width = rootElement.clientWidth * this.dpr;
+    this.mainCanvas.height = rootElement.clientHeight * this.dpr;
 
     this.rootElement.appendChild(this.mainCanvas);
 
-    this.layers = [
-      // Game layers using main canvas
-      new EntityRenderLayer(this.mainCanvas, this.mainCtx),
-      new ItemRenderLayer(this.mainCanvas, this.mainCtx),
-      new ProjectileRenderLayer(this.mainCanvas, this.mainCtx),
-      new BackgroundRenderLayer(this.mainCanvas, this.mainCtx, bgImage),
-      // Debug layers
-      // new GridDebugLayer(this.mainCanvas, this.mainCtx, 100), // 100 is the cell size
-      // UI layers drawn on main canvas to avoid DOM overhead
-      new DamageTextCanvasLayer(this.mainCanvas, this.mainCtx),
-    ];
-
-    // Initialize layers with this system
-    this.layers.forEach((layer) => {
-      layer.initialize(this);
-    });
-
-    // sort layers by priority
-    this.layers.sort((a, b) => a.priority - b.priority);
+    // inject renderLayer by client
+    this.layers = [];
 
     // handle window resize
     window.addEventListener('resize', () => {
@@ -87,6 +63,10 @@ export class RenderSystem extends System {
     this.mainCanvas.style.width = `${window.innerWidth}px`;
     this.mainCanvas.style.height = `${window.innerHeight}px`;
     this.mainCtx.scale(this.dpr, this.dpr);
+  }
+
+  addRenderLayer(ctor: new (...args: any[]) => RenderLayer): void {
+    this.layers.push(new ctor(this.mainCanvas, this.mainCtx));
   }
 
   setBackgroundImage(image: HTMLImageElement): void {
@@ -112,6 +92,15 @@ export class RenderSystem extends System {
   setCameraFollow(entityId: string): void {
     this.cameraTargetId = entityId;
     this.cameraFollow = true;
+  }
+
+  init() {
+    // sort layers by priority
+    this.layers.sort((a, b) => a.priority - b.priority);
+    // initialize layers
+    this.layers.forEach((layer) => {
+      layer.initialize(this);
+    });
   }
 
   update(deltaTime: number): void {

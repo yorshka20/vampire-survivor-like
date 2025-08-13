@@ -12,6 +12,8 @@ export enum SystemPriorities {
   AI = 400, // AI decision making
   WEAPON = 500, // Weapon firing
   CHASE = 600, // Chase target
+
+  FORCE_FIELD = 601, // Force field
   PHYSICS = 700, // Apply movement
   TRANSFORM = 800, // Update transform
 
