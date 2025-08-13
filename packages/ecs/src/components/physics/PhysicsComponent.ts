@@ -1,4 +1,4 @@
-import { SPEED_MULTIPLIERS, calculateSpeed } from '@ecs/constants/speed';
+import { SPEED_MULTIPLIERS, calculateSpeed, calculateSpeedPerSecond } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
 import { Vec2 } from '@ecs/utils/types';
 
@@ -16,11 +16,11 @@ interface PhysicsProps {
  * Physics component for entities
  * Handles velocity, speed, and movement
  *
- * @property {Point} velocity - The velocity of the entity
- * @property {number} speed - The speed of the entity
+ * @property {Point} velocity - The velocity of the entity (pixels/second)
+ * @property {number} speed - The speed of the entity (pixels/second)
  * @property {EntityType} entityType - The type of the entity
  * @property {number} friction - The friction of the entity
- * @property {number} maxSpeed - The maximum speed of the entity
+ * @property {number} maxSpeed - The maximum speed of the entity (pixels/second)
  */
 export class PhysicsComponent extends Component {
   static componentName = 'Physics';
@@ -48,8 +48,14 @@ export class PhysicsComponent extends Component {
     this.friction = props.friction ?? 1;
 
     // Initialize movement properties
-    this.speed = props.speed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
-    this.maxSpeed = props.maxSpeed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
+    // Convert frame-based speed constants to per-second to match system integration
+    const baseSpeedPerFrame = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
+    const maxSpeedPerFrame = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
+    const baseSpeedPerSecond = calculateSpeedPerSecond(baseSpeedPerFrame);
+    const maxSpeedPerSecond = calculateSpeedPerSecond(maxSpeedPerFrame);
+
+    this.speed = props.speed ?? baseSpeedPerSecond;
+    this.maxSpeed = props.maxSpeed ?? maxSpeedPerSecond;
     this.acceleration = 0.5;
   }
 
@@ -65,7 +71,7 @@ export class PhysicsComponent extends Component {
 
     this.velocity = velocity;
 
-    // Limit speed
+    // Limit speed (pixels/second)
     const speed = Math.sqrt(this.velocity[0] ** 2 + this.velocity[1] ** 2);
     if (speed > this.maxSpeed) {
       const scale = this.maxSpeed / speed;
@@ -108,8 +114,11 @@ export class PhysicsComponent extends Component {
   }
 
   setSpeed(speed: number): void {
-    const minSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MIN);
-    this.speed = Math.min(Math.max(speed, minSpeed), this.maxSpeed);
+    // Clamp to [min, max] in pixels/second
+    const minSpeedPerSecond = calculateSpeedPerSecond(
+      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MIN),
+    );
+    this.speed = Math.min(Math.max(speed, minSpeedPerSecond), this.maxSpeed);
   }
 
   getMaxSpeed(): number {
@@ -142,9 +151,15 @@ export class PhysicsComponent extends Component {
     this.blockedTimer = 0;
     this.friction = 1;
 
-    // Reset movement properties
-    this.speed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
-    this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
+    // Reset movement properties (recompute in per-second units)
+    const baseSpeedPerSecond = calculateSpeedPerSecond(
+      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE),
+    );
+    const maxSpeedPerSecond = calculateSpeedPerSecond(
+      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX),
+    );
+    this.speed = baseSpeedPerSecond;
+    this.maxSpeed = maxSpeedPerSecond;
     this.acceleration = 0.5;
   }
 }
