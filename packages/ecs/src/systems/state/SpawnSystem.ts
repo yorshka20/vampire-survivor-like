@@ -3,7 +3,7 @@ import { SPAWN_CONSTANTS } from '@ecs/constants/spawnConstants';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { GameStore } from '@ecs/core/store/GameStore';
-import { createEnemyEntity } from '@ecs/entities/Enemy';
+import { createEliteEnemyEntity, createEnemyEntity } from '@ecs/entities/Enemy';
 import { PerformanceSystem } from '../core/PerformanceSystem';
 
 export class SpawnSystem extends System {
@@ -70,10 +70,6 @@ export class SpawnSystem extends System {
       this.enemiesSpawnedThisWave = 0;
     }
 
-    // Check if we should spawn
-    if (this.enemyCount >= this.maxEnemies) return;
-    if (currentTime - this.lastSpawnTime < this.spawnInterval) return;
-
     // Find the player
     const player = this.getPlayer();
     if (!player) return;
@@ -82,6 +78,38 @@ export class SpawnSystem extends System {
       TransformComponent.componentName,
     );
     const playerPos = playerTransform.getPosition();
+
+    // Elite spawn check: every 1000 normal enemy kills
+    const kills = this.gameStore.getNormalEnemyKills();
+    const elitesSpawned = this.gameStore.getEliteSpawned();
+    if (kills >= (elitesSpawned + 1) * 1000 && this.enemyCount < this.maxEnemies) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance =
+        this.minSpawnDistance + Math.random() * (this.maxSpawnDistance - this.minSpawnDistance);
+      const spawnX = playerPos[0] + Math.cos(angle) * distance;
+      const spawnY = playerPos[1] + Math.sin(angle) * distance;
+
+      // Normal enemy base health formula
+      const normalHealth = 100 * (1 + this.waveNumber * 0.05);
+      const eliteHealth = normalHealth * 10000;
+
+      const elite = createEliteEnemyEntity(this.world, {
+        position: [spawnX, spawnY],
+        speed: Math.max(
+          SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
+          SPAWN_CONSTANTS.MAX_ENEMY_SPEED,
+        ),
+        size: undefined, // will be derived in factory
+        health: eliteHealth,
+        playerId: player.id,
+      });
+      this.world.addEntity(elite);
+      this.gameStore.incrementEliteSpawned(1);
+    }
+
+    // Check if we should spawn
+    if (this.enemyCount >= this.maxEnemies) return;
+    if (currentTime - this.lastSpawnTime < this.spawnInterval) return;
 
     // Spawn enemies for current wave
     const remainingEnemies = this.enemiesPerWave - this.enemiesSpawnedThisWave;

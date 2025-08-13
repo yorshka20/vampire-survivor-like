@@ -27,6 +27,9 @@ interface GameStateData {
   timeUntilNextWave: number;
   waveDuration: number;
   lastWaveTime: number;
+  // Track total normal enemy kills to trigger elite spawns
+  normalEnemyKills: number;
+  eliteSpawned: number;
 }
 
 /**
@@ -45,6 +48,8 @@ export class GameStore {
       timeUntilNextWave: 0,
       waveDuration: 20000,
       lastWaveTime: 0,
+      normalEnemyKills: 0,
+      eliteSpawned: 0,
     };
     this.state$ = new Observable<GameStateData>();
   }
@@ -112,6 +117,22 @@ export class GameStore {
 
   getLastWaveTime(): number {
     return this.state.lastWaveTime;
+  }
+
+  incrementNormalEnemyKills(by: number = 1): void {
+    this.updateState({ normalEnemyKills: this.state.normalEnemyKills + by });
+  }
+
+  getNormalEnemyKills(): number {
+    return this.state.normalEnemyKills;
+  }
+
+  incrementEliteSpawned(by: number = 1): void {
+    this.updateState({ eliteSpawned: this.state.eliteSpawned + by });
+  }
+
+  getEliteSpawned(): number {
+    return this.state.eliteSpawned;
   }
 
   // Helper method to update state

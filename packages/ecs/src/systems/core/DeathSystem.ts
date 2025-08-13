@@ -1,14 +1,22 @@
-import { DeathMarkComponent, HealthComponent, TransformComponent } from '@ecs/components';
+import {
+  DeathMarkComponent,
+  HealthComponent,
+  StateComponent,
+  TransformComponent,
+} from '@ecs/components';
 import { ItemDropRate } from '@ecs/constants/itemDropRate';
 import { PowerupStats, WeaponMap } from '@ecs/constants/resources';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
+import { GameStore } from '@ecs/core/store/GameStore';
 import { createItemEntity } from '@ecs/entities/Item';
 import { SystemPriorities } from '../../constants/systemPriorities';
 
 export class DeathSystem extends System {
   private dropItemsMap: { rate: number; create: (position: [number, number]) => void }[] = [];
+  private gameStore: GameStore;
+
   constructor() {
     super('DeathSystem', SystemPriorities.DEATH, 'logic');
     this.dropItemsMap = [
@@ -37,6 +45,8 @@ export class DeathSystem extends System {
         create: (position) => this.createLaserBurstPickup(position[0], position[1]),
       },
     ];
+    // Track kills for elite spawn logic
+    this.gameStore = GameStore.getInstance();
   }
 
   update(deltaTime: number): void {
@@ -67,6 +77,12 @@ export class DeathSystem extends System {
 
     // Remove dead entities
     for (const entity of entitiesToRemove) {
+      // Increment kill counter for normal enemies only (exclude elite/boss/legendary)
+      const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+      const type = state?.getEnemyType?.();
+      if (type === undefined || type === 'normal' || type === 'magic') {
+        this.gameStore.incrementNormalEnemyKills(1);
+      }
       this.world.removeEntity(entity);
     }
   }
