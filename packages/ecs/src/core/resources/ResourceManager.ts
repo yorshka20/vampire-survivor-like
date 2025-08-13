@@ -19,6 +19,7 @@ export class ResourceManager {
   async loadImage(key: string, url: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      console.log('Loading image:', url);
       img.onload = () => {
         this.images.set(key, img);
         resolve();

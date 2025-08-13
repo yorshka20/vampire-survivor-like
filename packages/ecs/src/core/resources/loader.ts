@@ -46,6 +46,7 @@ export async function initAudioAssets() {
   await resourceManager.loadAudio('jump', '/assets/sounds/jump.wav');
   await resourceManager.loadAudio('power_up', '/assets/sounds/power_up.wav');
   await resourceManager.loadAudio('tap', '/assets/sounds/tap.wav');
+  await resourceManager.loadAudio('laser', '/assets/sounds/laser.mp3');
 }
 
 export async function initImageAssets() {
