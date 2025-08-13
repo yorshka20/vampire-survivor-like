@@ -1,4 +1,3 @@
-import { Game, createPlayerEntity } from '@brotov2/game';
 import {
   AISystem,
   AnimationSystem,
@@ -19,6 +18,8 @@ import {
   WeaponSystem,
 } from '@ecs';
 import { Viewport } from '@ecs/utils/types';
+import { createPlayerEntity } from './entities';
+import { Game } from './game/Game';
 
 export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create game instance

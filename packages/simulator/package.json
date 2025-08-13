@@ -11,8 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@brotov2/ecs": "workspace:*",
-    "@brotov2/game": "workspace:*"
+    "@brotov2/ecs": "workspace:*"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.1.0",

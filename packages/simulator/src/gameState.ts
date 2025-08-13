@@ -1,6 +1,6 @@
-import { Game } from '@brotov2/game';
 import { GameStore } from '@ecs';
 import { writable } from 'svelte/store';
+import { Game } from './game/Game';
 
 interface GameState {
   isInitialized: boolean;

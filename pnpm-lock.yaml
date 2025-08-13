@@ -11,9 +11,6 @@ importers:
       '@brotov2/ecs':
         specifier: workspace:*
         version: link:packages/ecs
-      '@brotov2/game':
-        specifier: workspace:*
-        version: link:packages/game
       '@brotov2/simulator':
         specifier: workspace:*
         version: link:packages/simulator
@@ -61,33 +58,11 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.15.29)(@vitest/ui@2.1.9)(jsdom@25.0.1)
 
-  packages/game:
-    dependencies:
-      '@brotov2/ecs':
-        specifier: workspace:*
-        version: link:../ecs
-    devDependencies:
-      '@vitest/coverage-v8':
-        specifier: ^2.1.8
-        version: 2.1.9(vitest@2.1.9)
-      '@vitest/ui':
-        specifier: ^2.1.8
-        version: 2.1.9(vitest@2.1.9)
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      vitest:
-        specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.15.29)(@vitest/ui@2.1.9)(jsdom@25.0.1)
-
   packages/simulator:
     dependencies:
       '@brotov2/ecs':
         specifier: workspace:*
         version: link:../ecs
-      '@brotov2/game':
-        specifier: workspace:*
-        version: link:../game
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.1.0
@@ -110,9 +85,9 @@ importers:
 
   packages/web-client:
     dependencies:
-      '@brotov2/game':
+      '@brotov2/ecs':
         specifier: workspace:*
-        version: link:../game
+        version: link:../ecs
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.1.0

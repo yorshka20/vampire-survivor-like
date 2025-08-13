@@ -14,7 +14,6 @@ also see ecs-simulator test page:
 The project is organized as a monorepo using pnpm workspaces, consisting of three main packages:
 
 - `@brotov2/ecs`: Pure ECS engine (reusable game engine core)
-- `@brotov2/game`: Game-specific logic and entities
 - `@brotov2/web-client`: Game client implementation
 
 ### ECS Package Structure (Pure Engine)
@@ -26,15 +25,6 @@ packages/ecs/
 ├── core/          # Core ECS implementation
 ├── constants/     # Engine constants
 └── utils/         # Engine utilities
-```
-
-### Game Package Structure
-
-```
-packages/game/
-├── core/          # Game management (Game, GameLoop)
-├── entities/      # Game-specific entities
-└── utils/         # Game-specific utilities
 ```
 
 ### Web Client Structure
