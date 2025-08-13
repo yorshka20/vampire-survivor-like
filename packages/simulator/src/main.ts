@@ -1,7 +1,7 @@
-import { Game } from '@brotov2/game';
 import { PhysicsSystem, RenderSystem, SpatialGridSystem, TransformSystem } from '@ecs';
 import { Viewport } from '@ecs/utils/types';
 import { mount } from 'svelte';
+import { Game } from './game/Game';
 import GameUI from './GameUI.svelte';
 
 /**
