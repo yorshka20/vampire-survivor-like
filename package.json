@@ -8,9 +8,9 @@
     "url": "https://github.com/yorshka20/vampire-survivor-like"
   },
   "scripts": {
-    "dev": "pnpm --filter @brotov2/web-client dev",
-    "build": "pnpm --filter @brotov2/web-client build",
-    "preview": "pnpm --filter @brotov2/web-client preview",
+    "dev": "pnpm --filter @brotov2/simulator dev",
+    "build": "pnpm -r --filter @brotov2/web-client --filter @brotov2/simulator build",
+    "preview": "pnpm dlx serve -s dist -l 4173",
     "typecheck": "pnpm --filter * typecheck",
     "test": "pnpm --filter @brotov2/ecs test",
     "test:run": "pnpm --filter @brotov2/ecs test:run",
@@ -39,6 +39,7 @@
   "dependencies": {
     "@brotov2/ecs": "workspace:*",
     "@brotov2/game": "workspace:*",
+    "@brotov2/simulator": "workspace:*",
     "@brotov2/web-client": "workspace:*"
   }
 }

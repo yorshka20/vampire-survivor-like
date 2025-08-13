@@ -7,24 +7,11 @@ const packageJson = fs.readJSONSync(path.resolve(__dirname, '../../package.json'
 
 export default defineConfig(({ mode }) => {
   return {
-    base: '/',
-    plugins: [
-      svelte(),
-      {
-        name: 'copy-resources',
-        closeBundle: async () => {
-          // Copy non-imported static resources to the root dist so production build has audio/sprites
-          const sourceDir = path.resolve(__dirname, 'assets/');
-          const targetDir = path.resolve(__dirname, '../../dist/assets/');
-          await fs.ensureDir(targetDir);
-          await fs.copy(sourceDir, targetDir);
-          console.log('Copied resources to root dist/assets');
-        },
-      },
-    ],
+    base: '/simulator/',
+    plugins: [svelte()],
     publicDir: 'public',
     build: {
-      outDir: path.resolve(__dirname, '../../dist'),
+      outDir: path.resolve(__dirname, '../../dist/simulator'),
       emptyOutDir: false,
       assetsDir: 'assets',
       rollupOptions: {
@@ -59,7 +46,7 @@ export default defineConfig(({ mode }) => {
       stringify: true,
     },
     server: {
-      port: 5173,
+      port: 5174,
       host: '0.0.0.0',
     },
     define: {
