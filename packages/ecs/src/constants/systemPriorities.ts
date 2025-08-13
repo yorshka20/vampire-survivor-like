@@ -16,6 +16,7 @@ export enum SystemPriorities {
   FORCE_FIELD = 601, // Force field
   PHYSICS = 700, // Apply movement
   TRANSFORM = 800, // Update transform
+  BORDER = 801, // Handle movement border
 
   COLLISION = 900, // Collision detection
   DAMAGE = 901, // Process damage

@@ -57,11 +57,14 @@ export class PhysicsSystem extends System {
     const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
     const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
 
+    // Allow PhysicsComponent internal timers to update (expects seconds)
     physics.update(deltaTime);
 
+    // Integrate position using velocity in units/second and delta time in seconds
     const position = transform.getPosition();
-    let newX = position[0] + physics.getVelocity()[0] * (deltaTime * 1000);
-    let newY = position[1] + physics.getVelocity()[1] * (deltaTime * 1000);
+    const [vx, vy] = physics.getVelocity();
+    const newX = position[0] + vx * deltaTime;
+    const newY = position[1] + vy * deltaTime;
     transform.setPosition([newX, newY]);
   }
 }
