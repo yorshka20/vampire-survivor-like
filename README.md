@@ -1,5 +1,9 @@
 # Vampire Survivors-like Game Demo
 
+![preview](./screenshots/preview.png)
+
+> preview
+
 A modern implementation of a Vampire Survivors-like game using Entity Component System (ECS) architecture. This project demonstrates how to build a roguelike survival game with clean architecture and modern web technologies. This project is developed with the assistance of AI tools to enhance development efficiency and code quality.
 
 ## Project Structure
