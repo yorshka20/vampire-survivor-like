@@ -6,6 +6,7 @@ import {
   InputComponent,
   PhysicsComponent,
   RenderComponent,
+  SoundEffectComponent,
   StateComponent,
   StatsComponent,
   TransformComponent,
@@ -76,10 +77,23 @@ export function createPlayerEntity(
     }),
   );
 
+  player.addComponent(
+    world.createComponent(SoundEffectComponent, {
+      hitSound: 'hit',
+      deathSound: 'death',
+      powerUpSound: 'power_up',
+      coinSound: 'coin',
+      explosionSound: 'explosion',
+      jumpSound: 'jump',
+      tapSound: 'tap',
+      volume: 0.5,
+    }),
+  );
+
   const weapons = [
     // WeaponMap.SpiralOrb,
     // WeaponMap.Aura,
-    // WeaponMap.RapidFire,
+    WeaponMap.RapidFire,
     // WeaponMap.SpiralShot,
     WeaponMap.Bomb,
     // WeaponMap.Laser,

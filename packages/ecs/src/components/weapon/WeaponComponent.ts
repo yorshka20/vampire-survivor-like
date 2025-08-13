@@ -20,6 +20,9 @@ export class WeaponComponent extends Component {
   attackCooldown: number = 200;
   onceWeapons: Weapon[] = [];
 
+  // Lock-on state: target enemy id
+  private lockOnTargetId?: string;
+
   constructor(props: WeaponProps) {
     super('Weapon');
     this.id = props.id;
@@ -33,6 +36,18 @@ export class WeaponComponent extends Component {
   getCurrentWeapon(): Weapon | null {
     if (!this.currentWeaponId) return null;
     return this.weapons.find((weapon) => weapon.id === this.currentWeaponId) || null;
+  }
+
+  setLockOnTarget(id: string | undefined): void {
+    this.lockOnTargetId = id;
+  }
+
+  getLockOnTarget(): string | undefined {
+    return this.lockOnTargetId;
+  }
+
+  clearLockOn(): void {
+    this.lockOnTargetId = undefined;
   }
 
   addWeapon(weapon: Weapon): void {
@@ -148,5 +163,6 @@ export class WeaponComponent extends Component {
     this.lastAttackTimes = {}; // Fixed: should be object, not array
     this.onceWeapons.length = 0;
     this.attackCooldown = 200;
+    this.lockOnTargetId = undefined;
   }
 }

@@ -1,4 +1,4 @@
-import { type PerformanceSystem, ResourceManager, SpatialGridSystem } from '@ecs';
+import { type PerformanceSystem, ResourceManager, SoundManager, SpatialGridSystem } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import {
@@ -21,6 +21,7 @@ export class Game {
   private world: World;
   private gameLoop: GameLoop;
   private store: GameStore;
+  private resourceManager: ResourceManager;
 
   private initialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
@@ -38,6 +39,7 @@ export class Game {
     this.world = new World();
     this.gameLoop = new GameLoop(this.world);
     this.store = GameStore.getInstance();
+    this.resourceManager = ResourceManager.getInstance();
 
     Game.instance = this;
 
@@ -127,6 +129,10 @@ export class Game {
       return;
     }
     this.store.start();
+  }
+
+  playBGM(pause: boolean = false, volume?: number): void {
+    SoundManager.playBGM(pause, volume);
   }
 
   /**

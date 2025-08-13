@@ -1,8 +1,10 @@
 import { InputComponent } from '@ecs/components';
+import { TransformComponent } from '@ecs/components/physics/TransformComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { isMobileDevice } from '@ecs/utils/platform';
+import { Point } from '@ecs/utils/types';
 
 const KEY_MAP = {
   ArrowUp: 'up',
@@ -35,6 +37,15 @@ export class InputSystem extends System {
   private isTouching: boolean = false;
   private readonly TOUCH_THRESHOLD = 20; // touch move threshold, only trigger move when the distance is greater than the threshold
 
+  // Mouse position tracking
+  private mousePosition: Point = [0, 0];
+  private viewport: [number, number, number, number] = [
+    0,
+    0,
+    window.innerWidth,
+    window.innerHeight,
+  ];
+
   constructor() {
     super('InputSystem', SystemPriorities.INPUT, 'logic');
     // check if the device is mobile
@@ -43,14 +54,20 @@ export class InputSystem extends System {
 
   init(): void {
     if (this.isMobileDevice) {
+      // Add touch event listeners for mobile
       window.addEventListener('touchstart', this.handleTouchStart);
       window.addEventListener('touchmove', this.handleTouchMove);
       window.addEventListener('touchend', this.handleTouchEnd);
-      window.addEventListener('touchcancel', this.handleTouchEnd);
     } else {
+      // Add keyboard event listeners for desktop
       window.addEventListener('keydown', this.handleKeyDown);
       window.addEventListener('keyup', this.handleKeyUp);
+      // Add mouse event listeners for desktop
+      window.addEventListener('mousemove', this.handleMouseMove);
     }
+
+    // Update viewport on window resize
+    window.addEventListener('resize', this.handleWindowResize);
 
     // Initialize input entities set
     this.updateInputEntities();
@@ -177,4 +194,64 @@ export class InputSystem extends System {
   update(deltaTime: number): void {
     // Input is handled by event listeners
   }
+
+  /**
+   * Get mouse position in game world coordinates
+   * This converts screen coordinates to game world coordinates based on player position
+   */
+  getMousePosition(): Point {
+    return [...this.mousePosition];
+  }
+
+  /**
+   * Convert screen coordinates to game world coordinates
+   * Since player is always at the center of the screen, we calculate:
+   * Game world position = Screen position - (Viewport center - Player position)
+   */
+  private convertScreenToGameCoordinates(screenX: number, screenY: number): Point {
+    try {
+      // Get player entity
+      const playerEntities = this.world.getEntitiesByType('player');
+      if (playerEntities.length > 0) {
+        const player = playerEntities[0];
+        const transform = player.getComponent<TransformComponent>(TransformComponent.componentName);
+
+        if (transform) {
+          const playerPosition = transform.getPosition();
+          const [playerX, playerY] = playerPosition;
+
+          // Get viewport dimensions
+          const [vx, vy, vw, vh] = this.viewport;
+          const viewportCenterX = vx + vw / 2;
+          const viewportCenterY = vy + vh / 2;
+
+          // Calculate camera offset (how much the world is shifted to keep player centered)
+          const cameraOffsetX = viewportCenterX - playerX;
+          const cameraOffsetY = viewportCenterY - playerY;
+
+          // Convert screen coordinates to game world coordinates
+          // Game world position = Screen position - Camera offset
+          const gameX = screenX - cameraOffsetX;
+          const gameY = screenY - cameraOffsetY;
+
+          return [gameX, gameY];
+        }
+      }
+    } catch (error) {
+      // Fallback to screen coordinates if conversion fails
+      console.warn('Failed to convert mouse position to game coordinates:', error);
+    }
+
+    // Fallback: return screen coordinates if conversion fails
+    return [screenX, screenY];
+  }
+
+  private handleMouseMove = (event: MouseEvent) => {
+    // Convert screen coordinates to game world coordinates
+    this.mousePosition = this.convertScreenToGameCoordinates(event.clientX, event.clientY);
+  };
+
+  private handleWindowResize = () => {
+    this.viewport = [0, 0, window.innerWidth, window.innerHeight];
+  };
 }

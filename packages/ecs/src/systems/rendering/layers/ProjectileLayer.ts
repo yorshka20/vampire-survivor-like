@@ -42,7 +42,7 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = render.getSize();
-    const rotation = render.getRotation();
+    const rotation = transform.rotation ?? render.getRotation();
     const scale = render.getScale();
     const patternImage = render.getPatternImageForState();
 

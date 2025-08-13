@@ -25,6 +25,8 @@ export interface BaseWeapon {
   // Child weapon properties
   childWeapon?: Weapon;
   childWeaponAttackCooldown?: number;
+  // spirit
+  spiritName?: string;
 }
 
 export interface RangedWeapon extends BaseWeapon {
@@ -36,6 +38,9 @@ export interface RangedWeapon extends BaseWeapon {
   projectileCount: number;
   projectileLifetime: number;
   fixedAngle?: number; // Angle in degrees for fixed direction weapons
+  // Lock-on behavior for auto-aim weapons
+  lockOn?: boolean;
+  projectileShape?: 'circle' | 'bullet';
 }
 
 export interface MeleeWeapon extends BaseWeapon {

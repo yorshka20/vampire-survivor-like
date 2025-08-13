@@ -1,9 +1,11 @@
 import {
+  AnimationComponent,
   ColliderComponent,
   DamageComponent,
   LifecycleComponent,
   PhysicsComponent,
   RenderComponent,
+  SoundEffectComponent,
   TransformComponent,
 } from '@ecs/components';
 import { SpiralMovementComponent } from '@ecs/components/projectile/SpiralProjectileComponent';
@@ -13,8 +15,11 @@ import {
   SpinningWeapon,
   SpiralWeapon,
   Weapon,
+  WeaponType,
 } from '@ecs/components/weapon/WeaponTypes';
+import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { World } from '@ecs/core/ecs/World';
+import { SoundType } from '@ecs/core/resources';
 import { Point } from '@ecs/utils/types';
 
 type UniqueProperties<T, U> = Pick<T, Exclude<keyof T, keyof U>>;
@@ -65,6 +70,7 @@ export function createProjectileEntity(
   projectile.addComponent(
     world.createComponent(TransformComponent, {
       position,
+      rotation: Math.atan2(velocity[1], velocity[0]),
     }),
   );
 
@@ -117,12 +123,38 @@ export function createProjectileEntity(
     }),
   );
 
+  if (weapon.spiritName) {
+    projectile.addComponent(world.createComponent(AnimationComponent, weapon.spiritName));
+    projectile.addComponent(
+      world.createComponent(RenderComponent, {
+        shape: 'pattern',
+        patternType: 'projectile',
+        size,
+        color,
+        visible: true,
+        layer: RenderLayerIdentifier.PROJECTILE,
+      }),
+    );
+  } else {
+    // Use line shape if requested
+    projectile.addComponent(
+      world.createComponent(RenderComponent, {
+        shape: (weapon as RangedWeapon).projectileShape ?? 'circle',
+        size,
+        color,
+        visible: true,
+        layer: RenderLayerIdentifier.PROJECTILE,
+      }),
+    );
+  }
+
+  const soundType = [WeaponType.LASER, WeaponType.RANGED_FIXED].includes(weapon.type)
+    ? 'laser'
+    : 'hit';
   projectile.addComponent(
-    world.createComponent(RenderComponent, {
-      shape: 'circle',
-      size,
-      color,
-      visible: true,
+    world.createComponent(SoundEffectComponent, {
+      hitSound: soundType as SoundType,
+      volume: 0.5,
     }),
   );
 

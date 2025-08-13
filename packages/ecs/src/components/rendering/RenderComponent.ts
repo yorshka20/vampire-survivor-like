@@ -3,7 +3,7 @@ import { Component } from '@ecs/core/ecs/Component';
 import { PatternAssetManager, PatternEffect, PatternState } from '@ecs/core/resources';
 import { Color, Point, Size } from '@ecs/utils/types';
 
-export type ShapeType = 'circle' | 'rect' | 'triangle' | 'pattern' | 'line';
+export type ShapeType = 'circle' | 'rect' | 'triangle' | 'pattern' | 'line' | 'bullet';
 
 export type RenderPatternType =
   | 'player'

@@ -17,9 +17,15 @@ export class RenderUtils {
 
     ctx.fillStyle = this.colorToString(color);
     switch (shape) {
+      case 'line':
+        this.drawLineProjectile(ctx, sizeX, sizeY, color);
+        break;
       case 'circle':
         ctx.beginPath();
         ctx.arc(0, 0, sizeX / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         ctx.fill();
         break;
       case 'triangle':
@@ -109,5 +115,37 @@ export class RenderUtils {
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
     ctx.closePath();
+  }
+
+  /**
+   * Draw a small glowing line projectile centered at origin, oriented by canvas rotation
+   */
+  static drawLineProjectile(
+    ctx: CanvasRenderingContext2D,
+    length: number,
+    thickness: number,
+    color: Color = { r: 255, g: 255, b: 180, a: 1 },
+  ): void {
+    const halfLen = length / 2;
+
+    // Outer glow
+    ctx.strokeStyle = 'rgba(255,255,200,0.85)';
+    ctx.lineWidth = Math.max(1, thickness);
+    ctx.lineCap = 'round';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(255,255,200,0.8)';
+    ctx.beginPath();
+    ctx.moveTo(-halfLen, 0);
+    ctx.lineTo(halfLen, 0);
+    ctx.stroke();
+
+    // Core
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = this.colorToString(color);
+    ctx.lineWidth = Math.max(1, thickness * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(-halfLen, 0);
+    ctx.lineTo(halfLen, 0);
+    ctx.stroke();
   }
 }

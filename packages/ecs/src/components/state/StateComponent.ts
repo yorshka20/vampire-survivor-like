@@ -10,6 +10,7 @@ export interface StateData {
   hitRemainingFrames: number;
   originalColor: Color | null;
   enemyType?: EnemyType; // Optional classification for enemies
+  lockedBy?: string; // Weapon entity id that locked this enemy (if any)
 }
 
 export class StateComponent extends Component {
@@ -25,6 +26,7 @@ export class StateComponent extends Component {
       hitRemainingFrames: 0,
       originalColor: null,
       enemyType: data.enemyType,
+      lockedBy: data.lockedBy,
       ...data,
     };
   }
@@ -43,6 +45,14 @@ export class StateComponent extends Component {
 
   setEnemyType(type: EnemyType): void {
     this.state.enemyType = type;
+  }
+
+  getLockedBy(): string | undefined {
+    return this.state.lockedBy;
+  }
+
+  setLockedBy(weaponEntityId?: string): void {
+    this.state.lockedBy = weaponEntityId;
   }
 
   setDazed(frames: number): void {
@@ -87,6 +97,7 @@ export class StateComponent extends Component {
       hitRemainingFrames: 0,
       originalColor: null,
       enemyType: undefined,
+      lockedBy: undefined,
     };
   }
 }

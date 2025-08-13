@@ -13,16 +13,19 @@ import {
 
 const RapidFire: RangedWeapon = {
   id: 'Rapid Fire',
-  damage: 5,
-  attackSpeed: 5,
-  attackCooldown: 100,
-  projectileSpeed: 10,
-  projectileSize: [6, 6],
+  damage: 100,
+  attackSpeed: 1000,
+  attackCooldown: 0,
+  projectileSpeed: 25,
+  penetration: 10,
+  projectileSize: [20, 6],
   projectileColor: { r: 255, g: 255, b: 0, a: 1 },
-  type: WeaponType.RANGED_AUTO_AIM,
-  range: 400,
-  projectileCount: 1,
-  projectileLifetime: 1000 * 3,
+  type: WeaponType.RANGED_FIXED,
+  range: 1000,
+  projectileCount: 5,
+  projectileLifetime: 1000 * 5,
+  lockOn: true,
+  projectileShape: 'bullet',
 };
 
 const HeavyShot: RangedWeapon = {
@@ -134,6 +137,7 @@ const SpiralOrb: SpinningWeapon = {
     id: 'Orb Spiral Shot',
     damage: 5,
     attackSpeed: 3,
+    attackCooldown: 0,
     penetration: 1,
     projectileSpeed: 16,
     projectileSize: [6, 6],
@@ -146,8 +150,7 @@ const SpiralOrb: SpinningWeapon = {
     projectileCount: 8,
     projectileLifetime: 1000 * 3,
     followPlayer: false,
-  },
-  childWeaponAttackCooldown: 1000,
+  } as unknown as RangedWeapon, // child weapon typed loosely as ranged-like spiral
 };
 
 const Bomb: BombWeapon = {

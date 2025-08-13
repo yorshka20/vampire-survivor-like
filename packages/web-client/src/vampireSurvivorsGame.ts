@@ -51,6 +51,8 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Initialize game and all assets
   await game.initialize();
 
+  game.playBGM();
+
   // Create player entity at center of screen
   const player = createPlayerEntity(world, {
     position: [viewport[2] / 2, viewport[3] / 2],

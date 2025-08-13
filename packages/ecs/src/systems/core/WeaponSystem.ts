@@ -21,9 +21,11 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
 import { TimeUtil } from '@ecs/utils/timeUtil';
 import { Point } from '@ecs/utils/types';
+import { InputSystem } from '../interaction';
 import { SpatialGridSystem } from '../physics';
 
 type WeaponParameters<T extends Weapon> = {
@@ -39,8 +41,19 @@ export class WeaponSystem extends System {
   private maxAreaEffects = 10;
   private areaEffects: Entity[] = [];
 
+  private inputSystem: InputSystem | null = null;
+
   constructor() {
     super('WeaponSystem', SystemPriorities.WEAPON, 'logic');
+  }
+
+  private getInputSystem(): InputSystem {
+    if (this.inputSystem) return this.inputSystem;
+    this.inputSystem = this.world.getSystem<InputSystem>('InputSystem', SystemPriorities.INPUT);
+    if (!this.inputSystem) {
+      throw new Error('InputSystem not found');
+    }
+    return this.inputSystem;
   }
 
   update(deltaTime: number): void {
@@ -201,13 +214,28 @@ export class WeaponSystem extends System {
     effectiveDamage,
     currentTime,
   }: WeaponParameters<RangedWeapon>): void {
-    // Convert angle to radians
-    const angleRad = ((currentWeapon.fixedAngle ?? 0) * Math.PI) / 180;
-    const dirX = Math.cos(angleRad);
-    const dirY = Math.sin(angleRad);
+    // Get mouse position from InputSystem instead of SpatialGridComponent
+    const mousePosition = this.getInputSystem().getMousePosition();
+    if (!mousePosition) return;
 
-    this.createProjectile(weaponEntity, currentWeapon, position, dirX, dirY, effectiveDamage);
-    weapon.updateAttackTime(currentTime, currentWeapon.id);
+    const dx = mousePosition[0] - position[0];
+    const dy = mousePosition[1] - position[1];
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+
+    for (let i = 0; i < currentWeapon.projectileCount; i++) {
+      const projectile = this.createProjectile(
+        weaponEntity,
+        currentWeapon,
+        position,
+        dirX,
+        dirY,
+        effectiveDamage,
+      );
+      weapon.updateAttackTime(currentTime, currentWeapon.id);
+      SoundManager.playSound(projectile, 'hit', 0.5);
+    }
   }
 
   private handleMelee({
@@ -320,7 +348,7 @@ export class WeaponSystem extends System {
     dirX: number,
     dirY: number,
     damage: number,
-  ): void {
+  ): Entity {
     const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
     const [sizeX, sizeY] = render ? render.getSize() : [0, 0];
 
@@ -329,12 +357,14 @@ export class WeaponSystem extends System {
       velocity: [dirX * weapon.projectileSpeed, dirY * weapon.projectileSpeed],
       damage: damage,
       source: entity.id,
-      size: weapon.projectileSize,
+      size: [...weapon.projectileSize],
       color: weapon.projectileColor,
       weapon: weapon,
     });
 
     this.world.addEntity(projectile);
+
+    return projectile;
   }
 
   private handleSpiral({
