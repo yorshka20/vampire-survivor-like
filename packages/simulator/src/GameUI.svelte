@@ -7,7 +7,10 @@
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
-
+  
+  // DOM element reference for canvas wrapper
+  let canvasWrapper: HTMLDivElement;
+  
   function togglePause() {
     isPaused = !isPaused;
     if (isPaused) {
@@ -20,17 +23,21 @@
   async function startGame() {
     if (!isGameStarted) {
       isGameStarted = true;
+
+
       // Initialize resources first, then start the game
       const game = await createSimulator();
       gameState.setGame(game);
       gameState.start();
 
+      // Make canvas dimensions available globally for debugging
       (window as any).game = game;
       (window as any).gameState = gameState;
     }
   }
 
   onMount(() => {
+    
     return () => {
       gameState.destroy();
     };
@@ -52,14 +59,21 @@
     z-index: 1000;
 
     box-sizing: border-box;
-    padding: 16px;
+    padding: 16px 100px;
   }
 
   .canvas-wrapper {
-    width: 100%;
-    height: 100%;
-
+    /* Calculate square size based on the smaller dimension of the viewport */
+    width: min(100vh - 32px, 100vw - 200px); /* Account for padding */
+    height: min(100vh - 32px, 100vw - 200px);
+    
+    /* Center the square */
+    margin: 0 auto;
+    
     border: 1px solid white;
+    
+    /* Optional: Add some visual feedback */
+    box-sizing: border-box;
   }
 
   .fps {
@@ -257,7 +271,13 @@
 
 </style>
 
-<div class="start-overlay" class:hidden={isGameStarted} on:click={startGame}>
+<div 
+  class="start-overlay" 
+  class:hidden={isGameStarted} 
+  on:click={startGame}
+  on:keydown={(e) => e.key === 'Enter' && startGame()}
+  role="button"
+  tabindex="0">
   <div class="start-text">Click to Start Game</div>
 </div>
 
@@ -269,7 +289,7 @@
 </a> -->
 
 <div class="ui-container" class:hidden={!isGameStarted}>
-  <div id="canvas-wrapper" class="canvas-wrapper"></div>
+  <div id="canvas-wrapper" class="canvas-wrapper" bind:this={canvasWrapper}></div>
 </div>
 
 <div class="performance-panel" class:hidden={!isGameStarted}>
@@ -284,7 +304,13 @@
   </div>
   {#if $gameState.performance.poolStatistics}
     <div class="pool-statistics">
-      <div class="pool-header" on:click={() => showDetailedPools = !showDetailedPools} style="cursor: pointer;">
+      <div 
+        class="pool-header" 
+        on:click={() => showDetailedPools = !showDetailedPools} 
+        on:keydown={(e) => e.key === 'Enter' && (showDetailedPools = !showDetailedPools)}
+        role="button"
+        tabindex="0"
+        style="cursor: pointer;">
         Object Pools {showDetailedPools ? '▼' : '▶'}
       </div>
       <div class="pool-metrics">
@@ -317,7 +343,7 @@
   {/if}
 </div>
 
-<!-- <button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
+<button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
   <svg class="pause-icon" viewBox="0 0 24 24">
     {#if isPaused}
       <path d="M8 5v14l11-7z"/>
@@ -327,4 +353,4 @@
   </svg>
   {isPaused ? 'Resume' : 'Pause'}
 </button>
- -->
+
