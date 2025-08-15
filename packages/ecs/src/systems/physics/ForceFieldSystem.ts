@@ -1,7 +1,8 @@
 import { PhysicsComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
-import { Point, Vec2 } from '@ecs/utils/types';
+import { RenderSystem } from '@ecs/systems';
+import { Point, RectArea, Vec2 } from '@ecs/utils/types';
 
 /**
  * Describes a force field that can apply acceleration to entities.
@@ -13,12 +14,23 @@ import { Point, Vec2 } from '@ecs/utils/types';
 interface ForceField {
   direction: Vec2;
   strength: number | ((time: number, position?: Point) => number);
-  area: (position: Point) => boolean;
+  area: (position: Point, viewport: RectArea) => boolean;
 }
 
 export class ForceFieldSystem extends System {
   private forceField: ForceField | null = null;
   private unitDirection: Vec2 = [0, 1];
+
+  get viewport(): RectArea {
+    if (!this.renderSystem) {
+      throw new Error('RenderSystem not found');
+    }
+    return this.renderSystem.getViewport();
+  }
+
+  get renderSystem(): RenderSystem | null {
+    return this.world.getSystem<RenderSystem>(RenderSystem.name, SystemPriorities.RENDER);
+  }
 
   constructor() {
     super('ForceFieldSystem', SystemPriorities.FORCE_FIELD, 'logic');
@@ -54,7 +66,7 @@ export class ForceFieldSystem extends System {
       const position = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (!position) continue;
 
-      if (this.forceField.area(position.getPosition())) {
+      if (this.forceField.area(position.getPosition(), this.viewport)) {
         // Treat strength as acceleration magnitude (units/s^2)
         const accelerationMagnitude = this.getStrength(deltaTime, position.getPosition());
         const [vx, vy] = physics.getVelocity();

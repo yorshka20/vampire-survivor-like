@@ -13,6 +13,7 @@ import {
   PhysicsComponent,
   PickupComponent,
   RenderComponent,
+  ShapeComponent,
   SoundEffectComponent,
   SpiralMovementComponent,
   StateComponent,
@@ -33,6 +34,7 @@ export const EntityPoolList: EntityType[] = [
   'effect',
   'other',
   'object',
+  'obstacle',
 ];
 
 export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
@@ -56,4 +58,5 @@ export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
   SpiralMovementComponent,
   StateComponent,
   AnimationComponent,
+  ShapeComponent,
 ];

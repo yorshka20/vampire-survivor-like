@@ -19,24 +19,27 @@ export class RenderSystem extends System {
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
 
-  constructor(rootElement: HTMLElement, viewport: RectArea, bgImage?: HTMLImageElement) {
+  constructor(rootElement: HTMLElement, bgImage?: HTMLImageElement) {
     super('RenderSystem', SystemPriorities.RENDER, 'render');
     this.rootElement = rootElement;
-    this.viewport = viewport;
+    const width = rootElement.clientWidth;
+    const height = rootElement.clientHeight;
 
     // Create main canvas for game rendering
     this.mainCanvas = document.createElement('canvas');
     this.mainCtx = this.mainCanvas.getContext('2d')!;
 
     // Set canvas size based on device pixel ratio
-    this.dpr = window.devicePixelRatio || 1;
-    this.updateCtxConfig();
+    const dpr = window.devicePixelRatio || 1;
+    // set actual viewport size
+    this.viewport = [0, 0, width * dpr, height * dpr];
+    this.updateCtxConfig(dpr);
 
     this.mainCanvas.id = 'main-game-canvas';
-    this.mainCanvas.style.width = '100%';
-    this.mainCanvas.style.height = '100%';
-    this.mainCanvas.width = rootElement.clientWidth * this.dpr;
-    this.mainCanvas.height = rootElement.clientHeight * this.dpr;
+    this.mainCanvas.style.width = `${width}px`;
+    this.mainCanvas.style.height = `${height}px`;
+    this.mainCanvas.width = width * dpr;
+    this.mainCanvas.height = height * dpr;
 
     this.rootElement.appendChild(this.mainCanvas);
 
@@ -45,7 +48,8 @@ export class RenderSystem extends System {
 
     // handle window resize
     window.addEventListener('resize', () => {
-      this.updateCtxConfig();
+      const dpr = window.devicePixelRatio || 1;
+      this.updateCtxConfig(dpr);
       this.layers.forEach((layer) => {
         layer.onResize();
       });
@@ -57,11 +61,21 @@ export class RenderSystem extends System {
     return this.dpr;
   }
 
-  private updateCtxConfig(): void {
-    this.mainCanvas.width = window.innerWidth * this.dpr;
-    this.mainCanvas.height = window.innerHeight * this.dpr;
-    this.mainCanvas.style.width = `${window.innerWidth}px`;
-    this.mainCanvas.style.height = `${window.innerHeight}px`;
+  getViewport(): RectArea {
+    return this.viewport;
+  }
+
+  private updateCtxConfig(dpr: number): void {
+    // reset transform before scale
+    this.mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+    this.dpr = dpr;
+    const width = this.rootElement.clientWidth;
+    const height = this.rootElement.clientHeight;
+    this.viewport = [0, 0, width * this.dpr, height * this.dpr];
+    this.mainCanvas.width = width * this.dpr;
+    this.mainCanvas.height = height * this.dpr;
+    this.mainCanvas.style.width = `${width}px`;
+    this.mainCanvas.style.height = `${height}px`;
     this.mainCtx.scale(this.dpr, this.dpr);
   }
 

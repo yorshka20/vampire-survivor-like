@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point, Viewport } from '@ecs/utils/types';
+import { Point } from '@ecs/utils/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance
@@ -46,7 +46,6 @@ export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
   private grid: Map<string, GridCell> = new Map();
   public cellSize: number;
-  private viewport: Viewport;
 
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
@@ -56,10 +55,9 @@ export class SpatialGridComponent extends Component {
   private lastCacheCleanupFrame: number = 0;
   private static readonly CACHE_CLEANUP_INTERVAL = 60;
 
-  constructor(cellSize: number, viewport: Viewport) {
+  constructor(cellSize: number) {
     super(SpatialGridComponent.componentName);
     this.cellSize = cellSize;
-    this.viewport = viewport;
 
     // Initialize caches and their configurations
     this.initializeCaches();
@@ -361,10 +359,6 @@ export class SpatialGridComponent extends Component {
     this.frameCount++;
   }
 
-  setViewport(viewport: Viewport): void {
-    this.viewport = viewport;
-  }
-
   clear(): void {
     this.grid.clear();
     this.invalidateCaches();
@@ -374,7 +368,6 @@ export class SpatialGridComponent extends Component {
     super.reset();
     this.grid.clear();
     this.cellSize = 0;
-    this.viewport = [0, 0, 0, 0];
     this.invalidateCaches();
     this.frameCount = 0;
   }
