@@ -104,7 +104,7 @@ export class RenderSystem extends System {
   }
 
   update(deltaTime: number): void {
-    // Update player position every frame. used in isInViewport check.
+    // Update player position every frame. Used in isInViewport check.
     this.updatePlayerPosition();
 
     // Calculate camera offset
@@ -116,6 +116,12 @@ export class RenderSystem extends System {
     // Update all layers
     for (const layer of this.layers) {
       if (layer.visible) {
+        // During rendering, geometry information should be obtained from ShapeComponent,
+        // and rendering style should be obtained from RenderComponent.
+        // Example:
+        //   const shapeComp = entity.getComponent(ShapeComponent)
+        //   const renderComp = entity.getComponent(RenderComponent)
+        //   shapeComp.descriptor.type, renderComp.color, etc.
         layer.update(deltaTime, this.viewport, this.cameraOffset);
       }
     }

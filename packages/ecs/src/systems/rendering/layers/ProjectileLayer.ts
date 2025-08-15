@@ -1,4 +1,4 @@
-import { RenderComponent, TransformComponent } from '@ecs/components';
+import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -19,32 +19,26 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
       const transform = projectile.getComponent<TransformComponent>(
         TransformComponent.componentName,
       );
-      if (render) {
-        this.renderEntity(render, transform, cameraOffset);
-      }
+      const shape = projectile.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      this.renderEntity(render, transform, shape, cameraOffset);
     }
   }
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    return (
-      entity.hasComponent(RenderComponent.componentName) &&
-      entity.hasComponent(TransformComponent.componentName) &&
-      entity.isType('projectile') &&
-      this.isInViewport(entity, viewport)
-    );
+    return super.filterEntity(entity, viewport) && entity.isType('projectile');
   }
 
   renderEntity(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     cameraOffset: [number, number],
   ): void {
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
-    const [sizeX, sizeY] = render.getSize();
     const rotation = transform.rotation ?? render.getRotation();
     const scale = render.getScale();
-    const patternImage = render.getPatternImageForState();
+    const patternImage = shape.getPatternImageForState();
 
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
@@ -55,9 +49,9 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
     this.ctx.scale(scale, scale);
 
     if (this.usePatternImage && patternImage && patternImage.complete) {
-      RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+      RenderUtils.drawPatternImage(this.ctx, patternImage, shape);
     } else {
-      RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      RenderUtils.drawShape(this.ctx, render, shape);
     }
 
     this.ctx.restore();

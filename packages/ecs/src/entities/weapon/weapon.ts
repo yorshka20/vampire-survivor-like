@@ -1,6 +1,8 @@
 import {
   ColliderComponent,
+  createShapeDescriptor,
   RenderComponent,
+  ShapeComponent,
   TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
@@ -49,6 +51,8 @@ export interface WeaponProps {
   laserBurstWeapon?: LaserBurstWeapon;
 }
 
+// todo: consider if we need this component
+
 /**
  * Creates a weapon entity using the factory pattern
  */
@@ -88,10 +92,16 @@ export function createWeaponEntity(world: World, props?: Partial<WeaponProps>): 
   );
 
   weapon.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('circle', {
+        radius: finalProps.size[0] / 2,
+      }),
+    }),
+  );
+
+  weapon.addComponent(
     world.createComponent(RenderComponent, {
       color: { r: 128, g: 128, b: 128, a: 1 },
-      size: finalProps.size,
-      shape: 'circle',
     }),
   );
 

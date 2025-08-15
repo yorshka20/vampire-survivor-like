@@ -1,4 +1,4 @@
-import { RenderComponent, TransformComponent } from '@ecs/components/index';
+import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -56,6 +56,7 @@ export class CanvasRenderLayer extends BaseRenderLayer {
   protected renderEntity(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     cameraOffset: [number, number],
   ): void {
     throw new Error('Method not implemented.');
@@ -70,7 +71,10 @@ export class CanvasRenderLayer extends BaseRenderLayer {
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
     return (
-      entity.hasComponent(RenderComponent.componentName) && this.isInViewport(entity, viewport)
+      entity.hasComponent(ShapeComponent.componentName) &&
+      entity.hasComponent(RenderComponent.componentName) &&
+      entity.hasComponent(TransformComponent.componentName) &&
+      this.isInViewport(entity, viewport)
     );
   }
 

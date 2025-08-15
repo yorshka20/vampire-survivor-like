@@ -1,7 +1,7 @@
 import {
   HealthComponent,
   PhysicsComponent,
-  RenderComponent,
+  ShapeComponent,
   StatsComponent,
   TransformComponent,
   WeaponComponent,
@@ -349,8 +349,8 @@ export class WeaponSystem extends System {
     dirY: number,
     damage: number,
   ): Entity {
-    const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
-    const [sizeX, sizeY] = render ? render.getSize() : [0, 0];
+    const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+    const [sizeX, sizeY] = shape.getSize();
 
     const projectile = createProjectileEntity(this.world, {
       position: [position[0] + sizeX / 2, position[1] + sizeY / 2],

@@ -1,4 +1,9 @@
-import { DamageTextComponent, RenderComponent } from '@ecs/components/rendering';
+import {
+  createShapeDescriptor,
+  DamageTextComponent,
+  RenderComponent,
+  ShapeComponent,
+} from '@ecs/components';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { World } from '@ecs/core/ecs/World';
 
@@ -25,11 +30,15 @@ export function createDamageTextEntity(
 
   dmgTextEntity.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'rect',
-      size: [1, 1],
       color: { r: 255, g: 255, b: 0, a: 1 },
       visible: true,
       layer: RenderLayerIdentifier.DAMAGE_TEXT,
+    }),
+  );
+
+  dmgTextEntity.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('rect', { width: 1, height: 1 }),
     }),
   );
   return dmgTextEntity;

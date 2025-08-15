@@ -1,9 +1,11 @@
 import {
+  createShapeDescriptor,
   PhysicsComponent,
   PickupComponent,
   PickupType,
   RenderComponent,
   RenderPatternType,
+  ShapeComponent,
   TransformComponent,
 } from '@ecs/components';
 import { Weapon } from '@ecs/components/weapon/WeaponTypes';
@@ -67,10 +69,16 @@ export function createItemEntity(world: World, props?: Partial<ItemProps>): Enti
   );
 
   item.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('pattern', {
+        patternType: getItemPatternType(finalProps.type),
+        size: finalProps.size,
+      }),
+    }),
+  );
+
+  item.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'pattern',
-      patternType: getItemPatternType(finalProps.type),
-      size: finalProps.size,
       color: finalProps.color,
       visible: true,
       layer: RenderLayerIdentifier.ITEM,

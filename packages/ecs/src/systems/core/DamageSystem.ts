@@ -3,7 +3,7 @@ import {
   DamageComponent,
   DeathMarkComponent,
   HealthComponent,
-  RenderComponent,
+  ShapeComponent,
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
@@ -284,7 +284,7 @@ export class DamageSystem extends System {
           .getComponent<TransformComponent>(TransformComponent.componentName)
           .getPosition();
         const enemySize = enemy
-          .getComponent<RenderComponent>(RenderComponent.componentName)
+          .getComponent<ShapeComponent>(ShapeComponent.componentName)
           .getSize();
         const enemyRadius = Math.max(enemySize[0], enemySize[1]) / 2;
 

@@ -1,9 +1,13 @@
+import {
+  createShapeDescriptor,
+  LifecycleComponent,
+  RenderComponent,
+  ShapeComponent,
+  TransformComponent,
+} from '@ecs/components';
+import { Entity } from '@ecs/core/ecs/Entity';
+import { World } from '@ecs/core/ecs/World';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { LifecycleComponent } from '../../../components/core/LifecycleComponent';
-import { TransformComponent } from '../../../components/physics/TransformComponent';
-import { RenderComponent } from '../../../components/rendering/RenderComponent';
-import { Entity } from '../../ecs/Entity';
-import { World } from '../../ecs/World';
 
 /**
  * Object Pool Memory Leak Tests using Vitest
@@ -44,9 +48,14 @@ describe('Object Pool Memory Leak Tests', () => {
         // Add some components
         entity.addComponent(world.createComponent(TransformComponent, { position: [0, 0] }));
         entity.addComponent(
+          world.createComponent(ShapeComponent, {
+            descriptor: createShapeDescriptor('circle', {
+              radius: 10,
+            }),
+          }),
+        );
+        entity.addComponent(
           world.createComponent(RenderComponent, {
-            shape: 'circle',
-            size: [10, 10],
             color: { r: 255, g: 0, b: 0, a: 1 },
           }),
         );
@@ -71,9 +80,14 @@ describe('Object Pool Memory Leak Tests', () => {
 
       entity1.addComponent(world.createComponent(TransformComponent, { position: [100, 100] }));
       entity1.addComponent(
+        world.createComponent(ShapeComponent, {
+          descriptor: createShapeDescriptor('circle', {
+            radius: 10,
+          }),
+        }),
+      );
+      entity1.addComponent(
         world.createComponent(RenderComponent, {
-          shape: 'circle',
-          size: [20, 20],
           color: { r: 255, g: 255, b: 255, a: 1 },
         }),
       );
@@ -98,13 +112,17 @@ describe('Object Pool Memory Leak Tests', () => {
       const transform1 = world.createComponent(TransformComponent, {
         position: [50, 50],
       }) as TransformComponent;
+      const shape1 = world.createComponent(ShapeComponent, {
+        descriptor: createShapeDescriptor('circle', {
+          radius: 25,
+        }),
+      }) as ShapeComponent;
       const render1 = world.createComponent(RenderComponent, {
-        shape: 'circle',
-        size: [25, 25],
         color: { r: 100, g: 100, b: 100, a: 1 },
       }) as RenderComponent;
 
       entity1.addComponent(transform1);
+      entity1.addComponent(shape1);
       entity1.addComponent(render1);
       world.addEntity(entity1);
       world.removeEntity(entity1);
@@ -114,19 +132,24 @@ describe('Object Pool Memory Leak Tests', () => {
       const transform2 = world.createComponent(TransformComponent, {
         position: [200, 200],
       }) as TransformComponent;
+      const shape2 = world.createComponent(ShapeComponent, {
+        descriptor: createShapeDescriptor('rect', {
+          width: 40,
+          height: 40,
+        }),
+      }) as ShapeComponent;
       const render2 = world.createComponent(RenderComponent, {
-        shape: 'rect',
-        size: [40, 40],
         color: { r: 255, g: 255, b: 255, a: 1 },
       }) as RenderComponent;
 
       // Verify components have correct new state
       expect(transform2.position[0]).toBe(200);
       expect(transform2.position[1]).toBe(200);
-      expect(render2.getProperties().size[0]).toBe(40);
-      expect(render2.getProperties().shape).toBe('rect');
+      expect(shape2.getSize()[0]).toBe(40);
+      expect(shape2.getSize()[1]).toBe(40);
 
       entity2.addComponent(transform2);
+      entity2.addComponent(shape2);
       entity2.addComponent(render2);
       world.addEntity(entity2);
     });
@@ -141,13 +164,17 @@ describe('Object Pool Memory Leak Tests', () => {
         const transform = world.createComponent(TransformComponent, {
           position: [i * 10, i * 10],
         }) as TransformComponent;
+        const shape = world.createComponent(ShapeComponent, {
+          descriptor: createShapeDescriptor('circle', {
+            radius: 20,
+          }),
+        }) as ShapeComponent;
         const render = world.createComponent(RenderComponent, {
-          shape: 'circle',
-          size: [20, 20],
           color: { r: i * 5, g: i * 5, b: i * 5, a: 1 },
         }) as RenderComponent;
 
         entity.addComponent(transform);
+        entity.addComponent(shape);
         entity.addComponent(render);
         world.addEntity(entity);
         entities.push(entity);
@@ -156,11 +183,13 @@ describe('Object Pool Memory Leak Tests', () => {
       // Verify each entity has unique component states
       entities.forEach((entity, index) => {
         const transform = entity.getComponent<TransformComponent>('Transform');
+        const shape = entity.getComponent<ShapeComponent>('Shape');
         const render = entity.getComponent<RenderComponent>('Render');
 
         expect(transform.position[0]).toBe(index * 10);
         expect(transform.position[1]).toBe(index * 10);
-        expect(render.getProperties().color.r).toBe(index * 5);
+        expect(shape.getSize()[0]).toBe(20);
+        expect(render.getColor().r).toBe(index * 5);
       });
 
       // Clean up
@@ -179,9 +208,14 @@ describe('Object Pool Memory Leak Tests', () => {
         const entity = world.createEntity('projectile');
         entity.addComponent(world.createComponent(TransformComponent, { position: [i, i] }));
         entity.addComponent(
+          world.createComponent(ShapeComponent, {
+            descriptor: createShapeDescriptor('circle', {
+              radius: 5,
+            }),
+          }),
+        );
+        entity.addComponent(
           world.createComponent(RenderComponent, {
-            shape: 'circle',
-            size: [5, 5],
             color: { r: 255, g: 255, b: 255, a: 1 },
           }),
         );

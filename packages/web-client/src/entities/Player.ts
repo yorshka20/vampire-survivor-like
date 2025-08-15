@@ -1,11 +1,13 @@
 import {
   AnimationComponent,
   ColliderComponent,
+  createShapeDescriptor,
   ExperienceComponent,
   HealthComponent,
   InputComponent,
   PhysicsComponent,
   RenderComponent,
+  ShapeComponent,
   SoundEffectComponent,
   StateComponent,
   StatsComponent,
@@ -51,10 +53,15 @@ export function createPlayerEntity(
     }),
   );
   player.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('pattern', {
+        patternType: 'player',
+        size,
+      }),
+    }),
+  );
+  player.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'pattern',
-      patternType: 'player',
-      size,
       color,
       visible: true,
       layer: RenderLayerIdentifier.ENTITY,
