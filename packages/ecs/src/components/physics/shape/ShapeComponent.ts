@@ -117,13 +117,88 @@ export class ShapeComponent extends Component {
 
   /**
    * Get shape size
-   * todo: fix get size
+   * For circle: [diameter, diameter]
+   * For rect: [width, height]
+   * For polygon: bounding box size
+   * For pattern: use descriptor.size or [0,0]
+   * For bezier/composite: fallback to bounding box if available, else [0,0]
    */
   getSize(): [number, number] {
-    if (this.isPatternDescriptor(this.descriptor)) {
-      return this.descriptor.size ?? [0, 0];
+    const desc = this.descriptor;
+    switch (desc.type) {
+      case 'circle':
+        // Circle: size is [diameter, diameter]
+        return [desc.radius * 2, desc.radius * 2];
+      case 'rect':
+        // Rect: size is [width, height]
+        return [desc.width, desc.height];
+      case 'polygon':
+        // Polygon: use bounding box if available, else [0,0]
+        if (this.bounds) {
+          return [this.bounds.max[0] - this.bounds.min[0], this.bounds.max[1] - this.bounds.min[1]];
+        }
+        return [0, 0];
+      case 'pattern':
+        // Pattern: use descriptor.size if present
+        return desc.size ?? [0, 0];
+      case 'bezier':
+      case 'composite':
+        // Bezier/composite: use bounding box if available
+        if (this.bounds) {
+          return [this.bounds.max[0] - this.bounds.min[0], this.bounds.max[1] - this.bounds.min[1]];
+        }
+        return [0, 0];
+      default:
+        return [0, 0];
     }
-    return [this.descriptor.width, this.descriptor.height];
+  }
+
+  /**
+   * Get half extents for border/collision checks.
+   * For circle: [radius, radius]
+   * For rect: [width/2, height/2]
+   * For polygon: bounding box half extents
+   * For pattern: half of descriptor.size or [0,0]
+   * For bezier/composite: bounding box half extents if available
+   * @returns [halfWidth, halfHeight]
+   */
+  getHalfExtents(): [number, number] {
+    const desc = this.descriptor;
+    switch (desc.type) {
+      case 'circle':
+        // Circle: half extents are [radius, radius]
+        return [desc.radius, desc.radius];
+      case 'rect':
+        // Rect: half extents are [width/2, height/2]
+        return [desc.width / 2, desc.height / 2];
+      case 'polygon':
+        // Polygon: use bounding box if available
+        if (this.bounds) {
+          return [
+            (this.bounds.max[0] - this.bounds.min[0]) / 2,
+            (this.bounds.max[1] - this.bounds.min[1]) / 2,
+          ];
+        }
+        return [0, 0];
+      case 'pattern':
+        // Pattern: use half of descriptor.size if present
+        if (desc.size) {
+          return [desc.size[0] / 2, desc.size[1] / 2];
+        }
+        return [0, 0];
+      case 'bezier':
+      case 'composite':
+        // Bezier/composite: use bounding box if available
+        if (this.bounds) {
+          return [
+            (this.bounds.max[0] - this.bounds.min[0]) / 2,
+            (this.bounds.max[1] - this.bounds.min[1]) / 2,
+          ];
+        }
+        return [0, 0];
+      default:
+        return [0, 0];
+    }
   }
 
   /**
