@@ -7,6 +7,7 @@
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
+  const showPerformancePanel = false;
   
   // DOM element reference for canvas wrapper
   let canvasWrapper: HTMLDivElement;
@@ -23,7 +24,6 @@
   async function startGame() {
     if (!isGameStarted) {
       isGameStarted = true;
-
 
       // Initialize resources first, then start the game
       const game = await createSimulator();
@@ -292,6 +292,7 @@
   <div id="canvas-wrapper" class="canvas-wrapper" bind:this={canvasWrapper}></div>
 </div>
 
+{#if showPerformancePanel}
 <div class="performance-panel" class:hidden={!isGameStarted}>
   <div class="fps" class:warning={$gameState.performance.fps < 45} class:critical={$gameState.performance.fps < 30}>
     FPS: {$gameState.performance.fps}
@@ -340,9 +341,11 @@
         </div>
       {/if}
     </div>
-  {/if}
-</div>
+    {/if}
+  </div>
+{/if}
 
+{#if showPerformancePanel}
 <button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
   <svg class="pause-icon" viewBox="0 0 24 24">
     {#if isPaused}
@@ -353,4 +356,4 @@
   </svg>
   {isPaused ? 'Resume' : 'Pause'}
 </button>
-
+{/if}

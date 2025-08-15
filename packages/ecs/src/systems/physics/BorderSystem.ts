@@ -16,7 +16,7 @@ export class BorderSystem extends System {
     return this.renderSystem.getViewport();
   }
 
-  constructor() {
+  constructor(private friction: number = 0.9) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
   }
 
@@ -66,8 +66,8 @@ export class BorderSystem extends System {
 
       if (collidedX || collidedY) {
         // Reflect velocity on the axis of collision (perfectly elastic)
-        if (collidedX) vx = -vx;
-        if (collidedY) vy = -vy;
+        if (collidedX) vx = -vx * this.friction;
+        if (collidedY) vy = -vy * this.friction;
         physics.setVelocity([vx, vy]);
         transform.setPosition([px, py]);
       }
