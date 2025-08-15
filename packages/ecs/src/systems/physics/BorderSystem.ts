@@ -1,14 +1,23 @@
 import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
-import { Point, Size, Viewport } from '@ecs/utils/types';
+import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
+import { Point, RectArea, Size } from '@ecs/utils/types';
 
 export class BorderSystem extends System {
-  private viewport: Viewport;
+  private get renderSystem(): RenderSystem | null {
+    return this.getWorld().getSystem<RenderSystem>(RenderSystem.name, SystemPriorities.RENDER);
+  }
 
-  constructor(viewport: Viewport) {
+  private get viewport(): RectArea {
+    if (!this.renderSystem) {
+      throw new Error('RenderSystem not found');
+    }
+    return this.renderSystem.getViewport();
+  }
+
+  constructor() {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
-    this.viewport = viewport;
   }
 
   update(deltaTime: number): void {

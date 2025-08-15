@@ -1,7 +1,7 @@
 import { TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
-import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { IEntity } from '@ecs/core/ecs/types';
 import { Color, RectArea } from '@ecs/utils/types';
 import { RenderSystem } from '../RenderSystem';
 
@@ -49,7 +49,7 @@ export abstract class BaseRenderLayer implements RenderLayer {
     return transform.getPosition();
   }
 
-  isInViewport(entity: Entity, viewport: RectArea): boolean {
+  isInViewport(entity: IEntity, viewport: RectArea): boolean {
     const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
     if (!transform) return false;
 
@@ -83,13 +83,13 @@ export abstract class BaseRenderLayer implements RenderLayer {
    * @param entity - The entity to filter.
    * @returns True if the entity should be rendered, false otherwise.
    */
-  abstract filterEntity(entity: Entity, viewport: RectArea): boolean;
+  abstract filterEntity(entity: IEntity, viewport: RectArea): boolean;
 
   protected colorToString(color: Color): string {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
   }
 
-  protected getLayerEntities(viewport: RectArea): Entity[] {
+  protected getLayerEntities(viewport: RectArea): IEntity[] {
     return this.getWorld().getEntitiesByCondition((entity) => this.filterEntity(entity, viewport));
   }
 

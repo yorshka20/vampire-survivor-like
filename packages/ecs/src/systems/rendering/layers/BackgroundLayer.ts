@@ -5,6 +5,7 @@ import {
   TransformComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
+import { IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
 import { CanvasRenderLayer } from '../base';
 import { RenderUtils } from '../utils/RenderUtils';
@@ -29,6 +30,11 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     this.renderBackground(deltaTime, viewport, cameraOffset);
     this.renderPickupRange(deltaTime, viewport, cameraOffset);
     this.renderEffects(deltaTime, viewport, cameraOffset);
+
+    const entities = this.getLayerEntities(viewport);
+    for (const entity of entities) {
+      this.renderBackgroundEntity(entity, cameraOffset);
+    }
   }
 
   private renderBackground(
@@ -199,7 +205,22 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     }
   }
 
-  filterEntity(): boolean {
-    return false; // Background layer does not filter entities
+  filterEntity(entity: IEntity, viewport: RectArea): boolean {
+    return super.filterEntity(entity, viewport) && entity.isType('obstacle');
+  }
+
+  private renderBackgroundEntity(entity: IEntity, cameraOffset: [number, number]): void {
+    const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+
+    const pos = transform.getPosition();
+    const dx = pos[0] + cameraOffset[0];
+    const dy = pos[1] + cameraOffset[1];
+
+    this.ctx.save();
+    this.ctx.translate(dx, dy);
+    RenderUtils.drawShape(this.ctx, render, shape);
+    this.ctx.restore();
   }
 }

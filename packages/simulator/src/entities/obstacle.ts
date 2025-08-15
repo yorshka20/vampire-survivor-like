@@ -1,10 +1,11 @@
 import { RenderComponent, ShapeComponent, TransformComponent, World } from '@ecs';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
-import { Point } from '@ecs/utils/types';
+import { Color, Point } from '@ecs/utils/types';
 
 type ObstacleProps = {
   position: Point;
-  size: number;
+  shape: ShapeComponent;
+  color: Color;
 };
 
 export function createObstacle(world: World, props: ObstacleProps) {
@@ -12,15 +13,11 @@ export function createObstacle(world: World, props: ObstacleProps) {
 
   obstacle.addComponent(new TransformComponent({ position: props.position }));
 
-  obstacle.addComponent(
-    new ShapeComponent({
-      descriptor: { type: 'rect', width: props.size, height: props.size },
-    }),
-  );
+  obstacle.addComponent(props.shape);
 
   obstacle.addComponent(
     new RenderComponent({
-      color: { r: 0, g: 0, b: 0, a: 1 },
+      color: props.color,
       layer: RenderLayerIdentifier.BACKGROUND,
     }),
   );

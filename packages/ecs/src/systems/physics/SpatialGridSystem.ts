@@ -2,7 +2,6 @@ import { SpatialGridComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
-import { Viewport } from '@ecs/utils/types';
 
 export class SpatialGridSystem extends System {
   private spatialGridEntity: Entity | null = null;
@@ -10,17 +9,15 @@ export class SpatialGridSystem extends System {
   private readonly UPDATE_INTERVAL = 16; // Update every 16ms (roughly 60fps)
 
   private spatialComponent: SpatialGridComponent | null = null;
-  private viewport: Viewport;
 
-  constructor(viewport: Viewport) {
+  constructor() {
     super('SpatialGridSystem', SystemPriorities.SPATIAL_GRID, 'logic');
-    this.viewport = viewport;
   }
 
   init(): void {
     // Create spatial grid entity
     this.spatialGridEntity = new Entity('spatial-grid', 'other');
-    this.spatialComponent = new SpatialGridComponent(100, this.viewport);
+    this.spatialComponent = new SpatialGridComponent(100);
     this.spatialGridEntity.addComponent(this.spatialComponent);
     this.world.addEntity(this.spatialGridEntity);
 
@@ -60,14 +57,5 @@ export class SpatialGridSystem extends System {
       this.world.removeEntity(this.spatialGridEntity);
       this.spatialGridEntity = null;
     }
-  }
-
-  setViewport(viewport: Viewport): void {
-    this.viewport = viewport;
-    this.spatialComponent?.setViewport(viewport);
-  }
-
-  getViewport(): Viewport {
-    return this.viewport;
   }
 }

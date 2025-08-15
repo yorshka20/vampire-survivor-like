@@ -32,7 +32,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
   // todo: support custom filter condition by client
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    const isValidType = ['player', 'enemy', 'effect', 'object'].every((type) =>
+    const isValidType = ['player', 'enemy', 'effect', 'object'].some((type) =>
       entity.isType(type as EntityType),
     );
 

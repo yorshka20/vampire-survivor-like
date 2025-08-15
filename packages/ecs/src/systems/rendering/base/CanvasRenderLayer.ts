@@ -1,6 +1,6 @@
 import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
-import { Entity } from '@ecs/core/ecs/Entity';
+import { IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
 import { BaseRenderLayer, RenderLayerType } from './RenderLayer';
 
@@ -20,6 +20,9 @@ export class CanvasRenderLayer extends BaseRenderLayer {
   ) {
     super(identifier, priority);
 
+    // get dpr
+    const dpr = window.devicePixelRatio || 1;
+
     if (rootElementOrCanvas instanceof HTMLCanvasElement) {
       this.canvas = rootElementOrCanvas;
       this.ctx = context ?? this.canvas.getContext('2d')!;
@@ -28,8 +31,8 @@ export class CanvasRenderLayer extends BaseRenderLayer {
     } else {
       this.canvas = document.createElement('canvas');
       this.canvas.id = `canvas-${identifier}-${priority}`;
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
+      this.canvas.width = window.innerWidth * dpr;
+      this.canvas.height = window.innerHeight * dpr;
       this.canvas.style.position = 'absolute';
       this.canvas.style.top = '0';
       this.canvas.style.left = '0';
@@ -37,6 +40,9 @@ export class CanvasRenderLayer extends BaseRenderLayer {
       this.canvas.style.height = '100%';
       this.canvas.style.zIndex = priority.toString();
       this.ctx = this.canvas.getContext('2d')!;
+      // scale context to adapt dpr
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.scale(dpr, dpr);
       this.rootElement = rootElementOrCanvas;
       this.isSharedCanvas = false;
       rootElementOrCanvas.appendChild(this.canvas);
@@ -64,12 +70,18 @@ export class CanvasRenderLayer extends BaseRenderLayer {
 
   onResize(): void {
     if (!this.isSharedCanvas) {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      this.canvas.width = window.innerWidth * dpr;
+      this.canvas.height = window.innerHeight * dpr;
+      this.canvas.style.width = `${window.innerWidth}px`;
+      this.canvas.style.height = `${window.innerHeight}px`;
+      // reset transform and scale
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.scale(dpr, dpr);
     }
   }
 
-  filterEntity(entity: Entity, viewport: RectArea): boolean {
+  filterEntity(entity: IEntity, viewport: RectArea): boolean {
     return (
       entity.hasComponent(ShapeComponent.componentName) &&
       entity.hasComponent(RenderComponent.componentName) &&
