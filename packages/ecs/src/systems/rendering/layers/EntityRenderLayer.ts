@@ -2,12 +2,13 @@ import {
   AnimationComponent,
   HealthComponent,
   RenderComponent,
+  ShapeComponent,
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
-import { IEntity } from '@ecs/core/ecs/types';
+import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
 import { PatternState } from '../../../core/resources/PatternAssetManager';
 import { CanvasRenderLayer } from '../base';
@@ -23,28 +24,25 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     for (const entity of entities) {
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      if (render) {
-        this.renderEntity(render, transform, cameraOffset);
-      }
+      const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+
+      this.renderEntity(render, transform, shape, cameraOffset);
     }
   }
 
   // todo: support custom filter condition by client
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    return (
-      entity.hasComponent(RenderComponent.componentName) &&
-      entity.hasComponent(TransformComponent.componentName) &&
-      (entity.isType('player') ||
-        entity.isType('enemy') ||
-        entity.isType('effect') ||
-        entity.isType('object')) &&
-      this.isInViewport(entity, viewport)
+    const isValidType = ['player', 'enemy', 'effect', 'object'].every((type) =>
+      entity.isType(type as EntityType),
     );
+
+    return super.filterEntity(entity, viewport) && isValidType;
   }
 
   renderEntity(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     cameraOffset: [number, number],
   ): void {
     const entity = render.entity;
@@ -52,7 +50,6 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
-    const [sizeX, sizeY] = render.getSize();
     const rotation = render.getRotation();
     // Use TransformComponent scale instead of RenderComponent scale for consistency
     const scale = transform.scale;
@@ -70,30 +67,38 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       const animation = entity.getComponent<AnimationComponent>(AnimationComponent.componentName);
 
       if (entity.isType('effect')) {
-        this.renderEffectEntity(animation, sizeX, sizeY);
+        this.renderAnimatedEffectEntity(animation, shape);
       } else {
-        const state = entity.getComponent<StateComponent>(StateComponent.componentName);
-        if (state) {
-          this.renderPlayerEnemyEntity(state, animation, sizeX, sizeY);
-          // Draw health bar for elite/boss/legendary enemies
-          const type = state.getEnemyType?.() as any;
-          if (type === 'elite' || type === 'boss' || type === 'legendary') {
-            this.renderHealthBar(entity as Entity, sizeX, sizeY);
-          }
-        }
+        this.renderAnimatedObjectEntity(entity, animation, shape);
       }
     } else {
       // Render pattern or shape for entities without animation
-      this.renderNormalEntity(entity, render, sizeX, sizeY);
+      this.renderNormalEntity(entity, render, shape);
     }
 
     this.ctx.restore();
   }
 
+  private renderAnimatedObjectEntity(
+    entity: IEntity,
+    animation: AnimationComponent,
+    shape: ShapeComponent,
+  ): void {
+    const state = entity.getComponent<StateComponent>(StateComponent.componentName);
+    if (state) {
+      this.renderPlayerEnemyEntity(state, animation, shape);
+      // Draw health bar for elite/boss/legendary enemies
+      const type = state.getEnemyType?.() as any;
+      if (type === 'elite' || type === 'boss' || type === 'legendary') {
+        this.renderHealthBar(entity as Entity, shape);
+      }
+    }
+  }
+
   /**
    * Draw a simple health bar above the entity based on HealthComponent
    */
-  private renderHealthBar(entity: Entity, sizeX: number, sizeY: number): void {
+  private renderHealthBar(entity: Entity, shape: ShapeComponent): void {
     const health = entity.getComponent<HealthComponent>(HealthComponent.componentName);
     if (!health) return;
 
@@ -101,6 +106,10 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       0,
       Math.min(1, health.getHealthPercentage?.() ?? health.currentHealth / health.maxHealth),
     );
+
+    // because it's a rect shape.
+    const sizeX = shape.descriptor.width;
+    const sizeY = shape.descriptor.height;
 
     const barWidth = sizeX;
     const barHeight = Math.max(3, Math.floor(sizeY * 0.08));
@@ -124,11 +133,14 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   /**
    * Render effect entities with generic grid sheet layout
    */
-  private renderEffectEntity(animation: AnimationComponent, sizeX: number, sizeY: number): void {
+  private renderAnimatedEffectEntity(animation: AnimationComponent, shape: ShapeComponent): void {
     const spriteSheet = animation.getSpriteSheet();
     const currentFrame = animation.getCurrentFrame();
     const frameWidth = spriteSheet.frameWidth;
     const frameHeight = spriteSheet.frameHeight;
+    // todo: get shape size.
+    const sizeX = shape.descriptor.width;
+    const sizeY = shape.descriptor.height;
 
     // Infer grid dimensions from image and frame size
     const totalColumns = Math.max(1, Math.floor(spriteSheet.image.width / frameWidth));
@@ -162,13 +174,16 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   private renderPlayerEnemyEntity(
     state: StateComponent,
     animation: AnimationComponent,
-    sizeX: number,
-    sizeY: number,
+    shape: ShapeComponent,
   ): void {
     const spriteSheet = animation.getSpriteSheet();
     const currentFrame = animation.getCurrentFrame();
     const frameWidth = spriteSheet.frameWidth;
     const frameHeight = spriteSheet.frameHeight;
+
+    // todo: get shape size.
+    const sizeX = shape.descriptor.width;
+    const sizeY = shape.descriptor.height;
 
     // Handle hurt/idle animations for player and enemy entities
     if (state.getIsHit() && spriteSheet.animations.has('hurt')) {
@@ -222,23 +237,22 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   private renderNormalEntity(
     entity: IEntity,
     render: RenderComponent,
-    sizeX: number,
-    sizeY: number,
+    shape: ShapeComponent,
   ): void {
     let patternImage = null;
 
     if (entity.hasComponent(StateComponent.componentName)) {
       const state = entity.getComponent<StateComponent>(StateComponent.componentName);
       const stateType: PatternState = state.getIsHit() ? 'hit' : 'normal';
-      patternImage = render.getPatternImageForState(stateType, 'whiteSilhouette');
+      patternImage = shape.getPatternImageForState(stateType, 'whiteSilhouette');
     } else {
-      patternImage = render.getPatternImageForState();
+      patternImage = shape.getPatternImageForState();
     }
 
     if (patternImage && patternImage.complete) {
-      RenderUtils.drawPatternImage(this.ctx, patternImage, sizeX, sizeY);
+      RenderUtils.drawPatternImage(this.ctx, patternImage, shape);
     } else {
-      RenderUtils.drawShape(this.ctx, render, sizeX, sizeY);
+      RenderUtils.drawShape(this.ctx, render, shape);
     }
   }
 }

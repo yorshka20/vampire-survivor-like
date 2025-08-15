@@ -1,4 +1,4 @@
-import { PhysicsComponent, RenderComponent, TransformComponent } from '@ecs/components';
+import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { Point, Size, Viewport } from '@ecs/utils/types';
@@ -16,11 +16,11 @@ export class BorderSystem extends System {
     for (const entity of entities) {
       const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
-      if (!physics || !transform || !render) continue;
+      const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      if (!physics || !transform || !shape) continue;
 
       const position = transform.getPosition();
-      const size = render.getSize();
+      const size = shape.getSize();
 
       // Compute half extents assuming shapes are drawn centered at transform position
       const halfW = size[0] / 2;

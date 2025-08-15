@@ -1,8 +1,9 @@
-import { RenderComponent, TransformComponent } from '@ecs/components';
+import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
 import { CanvasRenderLayer } from '../base';
+import { RenderUtils } from '../utils/RenderUtils';
 
 export class ItemRenderLayer extends CanvasRenderLayer {
   constructor(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
@@ -14,32 +15,26 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     for (const item of items) {
       const render = item.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = item.getComponent<TransformComponent>(TransformComponent.componentName);
-      if (render) {
-        this.renderEntity(render, transform, cameraOffset);
-      }
+      const shape = item.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      this.renderEntity(render, transform, shape, cameraOffset);
     }
   }
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    return (
-      entity.hasComponent(RenderComponent.componentName) &&
-      entity.isType('pickup') &&
-      this.isInViewport(entity, viewport)
-    );
+    return super.filterEntity(entity, viewport) && entity.isType('pickup');
   }
 
   renderEntity(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     cameraOffset: [number, number],
   ): void {
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
-    const [sizeX, sizeY] = render.getSize();
-    const color = render.getColor();
     const rotation = render.getRotation();
     const scale = render.getScale();
-    const patternImage = render.getPatternImageForState();
+    const patternImage = shape.getPatternImageForState();
 
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
@@ -50,6 +45,9 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     this.ctx.scale(scale, scale);
 
     if (patternImage && patternImage.complete) {
+      // todo: get shape size.
+      const sizeX = shape.descriptor.width;
+      const sizeY = shape.descriptor.height;
       // Calculate dimensions to maintain aspect ratio
       const aspectRatio = patternImage.width / patternImage.height;
       let drawWidth = sizeX;
@@ -71,8 +69,7 @@ export class ItemRenderLayer extends CanvasRenderLayer {
       this.ctx.drawImage(patternImage, x, y, drawWidth, drawHeight);
     } else {
       // Render shape as fallback
-      this.ctx.fillStyle = this.colorToString(color);
-      this.ctx.fillRect(-sizeX / 2, -sizeY / 2, sizeX, sizeY);
+      RenderUtils.drawShape(this.ctx, render, shape);
     }
 
     this.ctx.restore();

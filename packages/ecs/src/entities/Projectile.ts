@@ -1,10 +1,12 @@
 import {
   AnimationComponent,
   ColliderComponent,
+  createShapeDescriptor,
   DamageComponent,
   LifecycleComponent,
   PhysicsComponent,
   RenderComponent,
+  ShapeComponent,
   SoundEffectComponent,
   TransformComponent,
 } from '@ecs/components';
@@ -126,21 +128,32 @@ export function createProjectileEntity(
   if (weapon.spiritName) {
     projectile.addComponent(world.createComponent(AnimationComponent, weapon.spiritName));
     projectile.addComponent(
+      world.createComponent(ShapeComponent, {
+        descriptor: createShapeDescriptor('pattern', {
+          patternType: 'projectile',
+          size,
+        }),
+      }),
+    );
+    projectile.addComponent(
       world.createComponent(RenderComponent, {
-        shape: 'pattern',
-        patternType: 'projectile',
-        size,
         color,
         visible: true,
         layer: RenderLayerIdentifier.PROJECTILE,
       }),
     );
   } else {
+    // todo: use real shape for projectile
+    projectile.addComponent(
+      world.createComponent(ShapeComponent, {
+        descriptor: createShapeDescriptor('circle', {
+          radius: size[0] / 2,
+        }),
+      }),
+    );
     // Use line shape if requested
     projectile.addComponent(
       world.createComponent(RenderComponent, {
-        shape: (weapon as RangedWeapon).projectileShape ?? 'circle',
-        size,
         color,
         visible: true,
         layer: RenderLayerIdentifier.PROJECTILE,

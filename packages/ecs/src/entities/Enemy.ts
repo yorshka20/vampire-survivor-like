@@ -2,9 +2,11 @@ import {
   AIComponent,
   AnimationComponent,
   ColliderComponent,
+  createShapeDescriptor,
   HealthComponent,
   PhysicsComponent,
   RenderComponent,
+  ShapeComponent,
   SoundEffectComponent,
   StateComponent,
   TransformComponent,
@@ -59,10 +61,16 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   );
 
   enemy.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('pattern', {
+        patternType: 'enemy',
+        size: enemySize,
+      }),
+    }),
+  );
+
+  enemy.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'pattern',
-      patternType: 'enemy',
-      size: enemySize, // Use calculated enemy size
       color: props.color ?? randomRgb(1),
       visible: true,
       layer: RenderLayerIdentifier.ENTITY,

@@ -1,4 +1,4 @@
-import { RenderComponent, TransformComponent } from '@ecs/components/index';
+import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
@@ -86,6 +86,7 @@ export class DomRenderLayer extends BaseRenderLayer {
   protected renderEntity(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     cameraOffset: [number, number],
   ): void {
     throw new Error('Method not implemented.');
@@ -104,11 +105,12 @@ export class DomRenderLayer extends BaseRenderLayer {
   protected createDomElement(
     render: RenderComponent,
     transform: TransformComponent,
+    shape: ShapeComponent,
     rotation: number,
   ): HTMLDivElement {
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
-    const [sizeX, sizeY] = render.getSize();
+    const [sizeX, sizeY] = shape.getSize();
     const color = render.getColor();
     const element = document.createElement('div') as HTMLDivElement;
 

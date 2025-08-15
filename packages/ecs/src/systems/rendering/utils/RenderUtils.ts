@@ -1,4 +1,4 @@
-import { RenderComponent } from '@ecs/components';
+import { RenderComponent, ShapeComponent } from '@ecs/components';
 import { Color } from '@ecs/utils/types';
 
 export class RenderUtils {
@@ -9,20 +9,19 @@ export class RenderUtils {
   static drawShape(
     ctx: CanvasRenderingContext2D,
     render: RenderComponent,
-    sizeX: number,
-    sizeY: number,
+    shape: ShapeComponent,
   ): void {
     const color = render.getColor();
-    const shape = render.getShape();
+    const shapeType = shape.getType();
 
     ctx.fillStyle = this.colorToString(color);
-    switch (shape) {
+    switch (shapeType) {
       case 'line':
-        this.drawLineProjectile(ctx, sizeX, sizeY, color);
+        this.drawLineProjectile(ctx, shape.descriptor.width, shape.descriptor.height, color);
         break;
       case 'circle':
         ctx.beginPath();
-        ctx.arc(0, 0, sizeX / 2, 0, Math.PI * 2);
+        ctx.arc(0, 0, shape.descriptor.radius, 0, Math.PI * 2);
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -30,15 +29,26 @@ export class RenderUtils {
         break;
       case 'triangle':
         ctx.beginPath();
-        ctx.moveTo(0, -sizeY / 2);
-        ctx.lineTo(sizeX / 2, sizeY / 2);
-        ctx.lineTo(-sizeX / 2, sizeY / 2);
+        ctx.moveTo(0, -shape.descriptor.height / 2);
+        ctx.lineTo(shape.descriptor.width / 2, shape.descriptor.height / 2);
+        ctx.lineTo(-shape.descriptor.width / 2, shape.descriptor.height / 2);
         ctx.closePath();
         ctx.fill();
         break;
       case 'rect':
+      case 'bezier':
+      case 'polygon':
+      case 'parametric':
+      case 'composite':
+      case 'path':
+      case 'text':
       default:
-        ctx.fillRect(-sizeX / 2, -sizeY / 2, sizeX, sizeY);
+        ctx.fillRect(
+          -shape.descriptor.width / 2,
+          -shape.descriptor.height / 2,
+          shape.descriptor.width,
+          shape.descriptor.height,
+        );
         break;
     }
   }
@@ -46,9 +56,11 @@ export class RenderUtils {
   static drawPatternImage(
     ctx: CanvasRenderingContext2D,
     patternImage: HTMLImageElement,
-    sizeX: number,
-    sizeY: number,
+    shape: ShapeComponent,
   ): void {
+    const sizeX = shape.descriptor.width;
+    const sizeY = shape.descriptor.height;
+
     // Calculate dimensions to maintain aspect ratio
     const aspectRatio = patternImage.width / patternImage.height;
     let drawWidth = sizeX;

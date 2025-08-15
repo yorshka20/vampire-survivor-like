@@ -1,8 +1,11 @@
 import {
   ColliderComponent,
+  createShapeDescriptor,
   DamageComponent,
   LifecycleComponent,
   RenderComponent,
+  ShapeComponent,
+  ShapeName,
   TransformComponent,
   Weapon,
 } from '@ecs/components';
@@ -61,11 +64,19 @@ export function createAreaEffectEntity(world: World, props: AreaEffectProps): En
     colliderComponent.updateLaserDirection(props.position);
   }
 
+  const shape = props.type === 'laser' ? 'line' : 'circle';
+
+  effect.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor(shape as ShapeName, {
+        size,
+      }),
+    }),
+  );
+
   effect.addComponent(
     world.createComponent(RenderComponent, {
-      shape: props.type === 'laser' ? 'line' : 'circle',
       color: props.color ?? randomRgb(0.3),
-      size,
       laser: props.type === 'laser' ? props.laser : undefined,
       layer: RenderLayerIdentifier.BACKGROUND,
     }),

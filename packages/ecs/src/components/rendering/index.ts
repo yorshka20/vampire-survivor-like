@@ -1,3 +1,3 @@
 export * from './AnimationComponent';
 export * from './DamageTextComponent';
-export * from './RenderComponent';
+export * from './render/RenderComponent';

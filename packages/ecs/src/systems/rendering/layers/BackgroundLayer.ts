@@ -1,4 +1,9 @@
-import { RenderComponent, StatsComponent, TransformComponent } from '@ecs/components';
+import {
+  RenderComponent,
+  ShapeComponent,
+  StatsComponent,
+  TransformComponent,
+} from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { RectArea } from '@ecs/utils/types';
 import { CanvasRenderLayer } from '../base';
@@ -122,23 +127,25 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     for (const effect of effects) {
       const render = effect.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = effect.getComponent<TransformComponent>(TransformComponent.componentName);
+      const shape = effect.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
       const pos = transform.getPosition();
-      const size = render.getSize();
       const color = render.getColor();
+      const shapeType = shape.getType();
 
       this.ctx.save();
 
-      switch (render.getShape()) {
+      switch (shapeType) {
         case 'circle':
           // Calculate position relative to the background
           const relativeX = pos[0] + cameraOffset[0];
           const relativeY = pos[1] + cameraOffset[1];
+          const size = shape.descriptor.radius;
 
           this.ctx.translate(relativeX, relativeY);
           this.ctx.fillStyle = this.colorToString(color);
           this.ctx.beginPath();
-          this.ctx.arc(0, 0, size[0] / 2, 0, Math.PI * 2);
+          this.ctx.arc(0, 0, size, 0, Math.PI * 2);
           this.ctx.fill();
           this.ctx.closePath();
           break;

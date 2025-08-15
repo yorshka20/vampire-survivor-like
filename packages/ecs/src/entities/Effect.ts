@@ -2,8 +2,10 @@ import {
   AnimationComponent,
   LifecycleComponent,
   RenderComponent,
+  ShapeComponent,
   TransformComponent,
 } from '@ecs/components';
+import { createShapeDescriptor } from '@ecs/components/physics/shape/factory';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
@@ -47,11 +49,22 @@ export function createEffectEntity(world: World, props?: Partial<EffectProps>): 
   );
 
   effect.addComponent(
+    world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('rect', {
+        width: finalProps.size[0],
+        height: finalProps.size[1],
+      }),
+      tessellated: [],
+      bounds: {
+        min: [0, 0],
+        max: [finalProps.size[0], finalProps.size[1]],
+      },
+    }),
+  );
+
+  effect.addComponent(
     world.createComponent(RenderComponent, {
-      shape: 'pattern',
-      patternType: 'effect',
       color: finalProps.color,
-      size: finalProps.size,
       layer: RenderLayerIdentifier.ENTITY,
     }),
   );

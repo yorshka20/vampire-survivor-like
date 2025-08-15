@@ -1,6 +1,10 @@
-import { LifecycleComponent } from '../../../components/core/LifecycleComponent';
-import { TransformComponent } from '../../../components/physics/TransformComponent';
-import { RenderComponent } from '../../../components/rendering/RenderComponent';
+import {
+  createShapeDescriptor,
+  LifecycleComponent,
+  RenderComponent,
+  ShapeComponent,
+  TransformComponent,
+} from '@ecs/components';
 import { Entity } from '../../ecs/Entity';
 import { World } from '../../ecs/World';
 
@@ -42,9 +46,14 @@ export class PoolMemoryLeakTest {
       // Add some components
       entity.addComponent(this.world.createComponent(TransformComponent, { position: [0, 0] }));
       entity.addComponent(
+        this.world.createComponent(ShapeComponent, {
+          descriptor: createShapeDescriptor('circle', {
+            radius: 10,
+          }),
+        }),
+      );
+      entity.addComponent(
         this.world.createComponent(RenderComponent, {
-          shape: 'circle',
-          size: [10, 10],
           color: { r: 255, g: 0, b: 0, a: 1 },
         }),
       );
@@ -77,9 +86,12 @@ export class PoolMemoryLeakTest {
       const transform = this.world.createComponent(TransformComponent, {
         position: [i * 10, i * 10],
       }) as TransformComponent;
+      const shape = this.world.createComponent(ShapeComponent, {
+        descriptor: createShapeDescriptor('circle', {
+          radius: 10,
+        }),
+      }) as ShapeComponent;
       const render = this.world.createComponent(RenderComponent, {
-        shape: 'circle',
-        size: [20, 20],
         color: { r: i * 50, g: i * 50, b: i * 50, a: 1 },
       }) as RenderComponent;
 
@@ -89,10 +101,11 @@ export class PoolMemoryLeakTest {
       });
       componentStates.set(`${entity.id}-render`, {
         color: { ...render.getProperties().color },
-        size: [...render.getProperties().size],
+        size: [...shape.getSize()],
       });
 
       entity.addComponent(transform);
+      entity.addComponent(shape);
       entity.addComponent(render);
 
       this.world.addEntity(entity);
@@ -111,9 +124,13 @@ export class PoolMemoryLeakTest {
         const transform = this.world.createComponent(TransformComponent, {
           position: [100 + i * 10, 100 + i * 10],
         }) as TransformComponent;
+        const shape = this.world.createComponent(ShapeComponent, {
+          descriptor: createShapeDescriptor('rect', {
+            width: 30,
+            height: 30,
+          }),
+        }) as ShapeComponent;
         const render = this.world.createComponent(RenderComponent, {
-          shape: 'rect',
-          size: [30, 30],
           color: { r: 255, g: 255, b: 255, a: 1 },
         }) as RenderComponent;
 
@@ -123,12 +140,13 @@ export class PoolMemoryLeakTest {
           return false;
         }
 
-        if (render.getProperties().color.r !== 255 || render.getProperties().size[0] !== 30) {
+        if (render.getProperties().color.r !== 255 || shape.getSize()[0] !== 30) {
           console.error('❌ Render component not properly reset/recreated');
           return false;
         }
 
         entity.addComponent(transform);
+        entity.addComponent(shape);
         entity.addComponent(render);
 
         this.world.addEntity(entity);
@@ -154,9 +172,14 @@ export class PoolMemoryLeakTest {
 
       entity.addComponent(this.world.createComponent(TransformComponent, { position: [i, i] }));
       entity.addComponent(
+        this.world.createComponent(ShapeComponent, {
+          descriptor: createShapeDescriptor('circle', {
+            radius: 5,
+          }),
+        }),
+      );
+      entity.addComponent(
         this.world.createComponent(RenderComponent, {
-          shape: 'circle',
-          size: [5, 5],
           color: { r: 255, g: 255, b: 255, a: 1 },
         }),
       );
