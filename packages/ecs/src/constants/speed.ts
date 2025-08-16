@@ -27,6 +27,11 @@ export const SPEED_MULTIPLIERS = {
     MIN: 0.8, // Minimum item speed
     MAX: 1.0, // Maximum item speed
   },
+  OBSTACLE: {
+    BASE: 0.0, // Base obstacle speed
+    MIN: 0.0, // Minimum obstacle speed
+    MAX: 0.0, // Maximum obstacle speed
+  },
 };
 
 // Helper function to calculate actual speed in pixels per logic frame

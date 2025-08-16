@@ -66,36 +66,25 @@ export class CollisionSystem extends System {
     this.damageCollisionResults.length = 0;
 
     // Performance profiling start
-    const updateStart = performance.now();
+    // const updateStart = performance.now();
 
     // Get all entities with colliders
     const entities = this.world.getEntitiesWithComponents([ColliderComponent]);
-    const player = this.getPlayer();
-    if (!player) return;
-
-    const playerPos = player
-      .getComponent<TransformComponent>(TransformComponent.componentName)
-      .getPosition();
+    if (!entities || entities.length === 0) return;
 
     // Performance profiling: distance calculation phase
     const distanceStart = performance.now();
 
-    // Process entities based on their distance from player
+    // handle each entity with its own collision detection
     for (const entity of entities) {
-      const position = entity
-        .getComponent<TransformComponent>(TransformComponent.componentName)
-        .getPosition();
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      if (!transform) continue;
 
-      // Calculate squared distance from player using reusable array (avoid Math.sqrt)
-      this.tempPosition[0] = position[0] - playerPos[0];
-      this.tempPosition[1] = position[1] - playerPos[1];
-      const distanceSquared =
-        this.tempPosition[0] * this.tempPosition[0] + this.tempPosition[1] * this.tempPosition[1];
-
-      // Determine collision tier using squared distance
-      const tier = this.getCollisionTier(distanceSquared);
-
-      // Check if we should process this entity based on its tier
+      // use CRITICAL distance as default tier (can be customized based on entity type)
+      // can be customized based on entity's "activity" or other properties
+      // here we keep the original tier logic, default to CRITICAL for all entities
+      // you can adjust the getCollisionTier parameter based on actual needs
+      const tier = this.getCollisionTier(0); // 0 distance, guaranteed to be processed every frame
       if (this.shouldProcessTier(tier)) {
         this.processEntityCollisions(entity, tier);
       }

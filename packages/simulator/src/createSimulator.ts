@@ -1,9 +1,12 @@
 import {
   BorderSystem,
+  ColliderComponent,
+  CollisionSystem,
   createShapeDescriptor,
   EntityRenderLayer,
   ForceFieldSystem,
   GridDebugLayer,
+  PerformanceSystem,
   PhysicsComponent,
   PhysicsSystem,
   RenderComponent,
@@ -64,9 +67,11 @@ export async function createSimulator(): Promise<Game> {
 function initializeSystems(world: World, rootElement: HTMLElement) {
   // Register core systems required by the simulator
   world.addSystem(new SpatialGridSystem());
+  world.addSystem(new CollisionSystem());
   world.addSystem(new PhysicsSystem());
+  world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
-  world.addSystem(new BorderSystem());
+  world.addSystem(new BorderSystem(0.8));
 
   // Add a force field system for basic world forces
   const forceFieldSystem = new ForceFieldSystem();
@@ -74,7 +79,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
     // Gravity-like force pointing downward
     direction: [0, 1],
     // Acceleration magnitude in units/s^2 (approx. gravity); tune as needed
-    strength: 100,
+    strength: 200,
     // Affect everything within the viewport (viewport = [x, y, width, height])
     area: (position, vp) =>
       position[0] >= vp[0] &&
@@ -111,25 +116,41 @@ function initializeEntities(world: World, viewport: Viewport) {
     world.addEntity(ball);
   }
 
-  const obstacleSize = [200, 100];
-  const positions: Point[] = [
-    [obstacleSize[0] / 2, obstacleSize[1] / 2], // tl
-    [obstacleSize[0] / 2, viewport[3] - obstacleSize[1] / 2], // bl
-    [viewport[2] - obstacleSize[0] / 2, obstacleSize[1] / 2], // tr
-    [viewport[2] - obstacleSize[0] / 2, viewport[3] - obstacleSize[1] / 2], // br
+  createObstacleBlock(world, [200, 700], [100, 100]);
+  createObstacleBlock(world, [400, 400], [100, 100]);
+  createObstacleBlock(world, [200, 1200], [100, 100]);
+
+  createObstacleBlock(world, [1100, 1110]);
+  createObstacleBlock(world, [1200, 1600]);
+  createObstacleBlock(world, [1300, 1800]);
+
+  const walls: [Point, Point][] = [
+    // [0, 0], // no top wall
+    [
+      [-0.5, viewport[3]], // position
+      [1, viewport[3] * 2], // size
+    ], // left
+    [
+      [viewport[2] + 0.5, viewport[3]], // position
+      [1, viewport[3] * 2], // size
+    ], // right
+    [
+      [viewport[2] / 2, viewport[3] + 0.5], // position
+      [viewport[2] * 2, 1], // size
+    ], // bottom
   ];
-  for (const position of positions) {
-    const obstacle = createObstacle(world, {
-      position,
+  for (const wall of walls) {
+    const wallObstacle = createObstacle(world, {
+      position: wall[0],
       shape: world.createComponent(ShapeComponent, {
         descriptor: createShapeDescriptor('rect', {
-          width: obstacleSize[0],
-          height: obstacleSize[1],
+          width: wall[1][0],
+          height: wall[1][1],
         }),
       }),
       color: { r: 255, g: 255, b: 255, a: 1 },
     });
-    world.addEntity(obstacle);
+    world.addEntity(wallObstacle);
   }
 }
 
@@ -160,6 +181,13 @@ function createBall(world: World, position: Point, size: number) {
   );
 
   ball.addComponent(
+    world.createComponent(ColliderComponent, {
+      type: 'circle',
+      size: [size, size],
+    }),
+  );
+
+  ball.addComponent(
     world.createComponent(ShapeComponent, {
       descriptor: createShapeDescriptor('circle', {
         radius: size,
@@ -173,4 +201,18 @@ function createBall(world: World, position: Point, size: number) {
     }),
   );
   return ball;
+}
+
+function createObstacleBlock(world: World, position: Point, size: [number, number] = [100, 100]) {
+  const obstacle = createObstacle(world, {
+    position,
+    shape: world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('rect', {
+        width: size[0],
+        height: size[1],
+      }),
+    }),
+    color: { r: 255, g: 255, b: 255, a: 1 },
+  });
+  world.addEntity(obstacle);
 }

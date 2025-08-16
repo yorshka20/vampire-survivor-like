@@ -17,6 +17,8 @@ interface GridCell {
   pickups: Set<string>;
   players: Set<string>;
   areaEffects: Set<string>;
+  objects: Set<string>;
+  obstacles: Set<string>;
 }
 
 /**
@@ -27,8 +29,16 @@ interface GridCell {
  * - damage: only collect entities that can deal damage
  * - collision-distant: only collect collidable entities that are further away
  * - pickup: only collect entities that are pickable
+ * - object: only collect entities that are objects
+ * - obstacle: only collect entities that are obstacles
  */
-export type SpatialQueryType = 'collision' | 'damage' | 'collision-distant' | 'pickup';
+export type SpatialQueryType =
+  | 'collision'
+  | 'damage'
+  | 'collision-distant'
+  | 'pickup'
+  | 'object'
+  | 'obstacle';
 
 interface CacheEntry {
   entities: string[]; // Changed from Set<string> to string[] for better performance
@@ -125,6 +135,8 @@ export class SpatialGridComponent extends Component {
       pickups: new Set(),
       players: new Set(),
       areaEffects: new Set(),
+      objects: new Set(),
+      obstacles: new Set(),
     };
   }
 
@@ -143,6 +155,10 @@ export class SpatialGridComponent extends Component {
         return cell.players;
       case 'areaEffect':
         return cell.areaEffects;
+      case 'object':
+        return cell.objects;
+      case 'obstacle':
+        return cell.obstacles;
       default:
         return cell.entities; // Fallback to legacy storage
     }
@@ -333,11 +349,23 @@ export class SpatialGridComponent extends Component {
     switch (queryType) {
       case 'collision-distant':
       case 'collision':
-        return [...cell.enemies, ...cell.players, ...cell.projectiles, ...cell.areaEffects];
+        // return all collidable types
+        return [
+          ...cell.enemies,
+          ...cell.players,
+          ...cell.projectiles,
+          ...cell.areaEffects,
+          ...cell.objects,
+          ...cell.obstacles,
+        ];
       case 'damage':
         return [...cell.enemies, ...cell.projectiles, ...cell.areaEffects];
       case 'pickup':
         return [...cell.pickups];
+      case 'object':
+        return [...cell.objects];
+      case 'obstacle':
+        return [...cell.obstacles];
       default:
         return [];
     }

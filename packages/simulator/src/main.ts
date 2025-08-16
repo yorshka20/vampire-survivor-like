@@ -1,5 +1,5 @@
 import { mount } from 'svelte';
-import GameUI from './GameUI.svelte';
+import GameUI from './ui/GameUI.svelte';
 
 // Mount the Svelte UI. Game bootstrap logic was moved to `createSimulator.ts`
 // to avoid a circular import between `main.ts` and `GameUI.svelte` that caused
