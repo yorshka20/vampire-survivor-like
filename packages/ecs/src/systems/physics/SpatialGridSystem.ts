@@ -4,10 +4,22 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { RenderSystem } from '../rendering/RenderSystem';
 
+/**
+ * @class SpatialGridSystem
+ * @description Manages the spatial grid for efficient entity lookups.
+ * This system updates the spatial grid at a fixed interval to optimize performance.
+ */
 export class SpatialGridSystem extends System {
   private spatialGridEntity: Entity | null = null;
   private lastUpdateTime: number = 0;
-  private readonly UPDATE_INTERVAL = 16; // Update every 16ms (roughly 60fps)
+  /**
+   * The interval at which the spatial grid is updated.
+   * @private
+   * @readonly
+   * @type {number}
+   * @default 100
+   */
+  private readonly UPDATE_INTERVAL = 100; // Update every 100ms (roughly 10fps)
 
   private resizeUpdated: boolean = false;
 
@@ -17,6 +29,11 @@ export class SpatialGridSystem extends System {
     super('SpatialGridSystem', SystemPriorities.SPATIAL_GRID, 'logic');
   }
 
+  /**
+   * Retrieves the SpatialGridComponent.
+   * @returns {SpatialGridComponent} The SpatialGridComponent instance.
+   * @throws {Error} If the SpatialGridComponent is not found.
+   */
   getSpatialGridComponent(): SpatialGridComponent {
     if (!this.spatialComponent) {
       throw new Error('SpatialGridComponent not found');
@@ -38,6 +55,11 @@ export class SpatialGridSystem extends System {
     });
   }
 
+  /**
+   * Updates the spatial grid system.
+   * This method is called on each frame, but the grid is updated only when the time since the last update exceeds UPDATE_INTERVAL.
+   * @param {number} deltaTime - The time elapsed since the last frame.
+   */
   update(deltaTime: number): void {
     if (!this.spatialGridEntity || !this.spatialComponent) return;
 

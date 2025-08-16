@@ -122,8 +122,8 @@ export class SpatialGridComponent extends Component {
    * If either coordinate is negative (outside viewport), returns an empty string.
    */
   private getCellKey(x: number, y: number): string {
-    const cellX = Math.round(x / this.cellSize);
-    const cellY = Math.round(y / this.cellSize);
+    const cellX = Math.floor(x / this.cellSize);
+    const cellY = Math.floor(y / this.cellSize);
     // Only return key if cell is inside viewport (cellX, cellY >= 0)
     if (cellX < 0 || cellY < 0 || cellX > this.maxCellX || cellY > this.maxCellY) return '';
     return `${cellX},${cellY}`;
@@ -184,9 +184,7 @@ export class SpatialGridComponent extends Component {
    * Invalidate cache for a specific cell and its neighbors (3x3 grid)
    * This is the key optimization: only invalidate affected cells instead of all caches
    */
-  private invalidateCacheForCell(cellKey: string): void {
-    const [cellX, cellY] = cellKey.split(',').map(Number);
-
+  private invalidateCacheForCell(cellX: number, cellY: number): void {
     // Invalidate the target cell and its 8 neighbors (3x3 grid)
     for (let x = cellX - 1; x <= cellX + 1; x++) {
       for (let y = cellY - 1; y <= cellY + 1; y++) {
@@ -199,15 +197,17 @@ export class SpatialGridComponent extends Component {
   }
 
   /**
-   * Get all cell keys covered by an entity at position with optional size
-   * If size is not provided, returns the single cell key for the position
-   * Only returns cell keys with non-negative coordinates (inside viewport)
+   * Get all cell coordinates covered by an entity at position with optional size
+   * If size is not provided, returns the single cell coordinate for the position
+   * Only returns cell coordinates with non-negative values (inside viewport)
    */
-  private getCoveredCellKeys(position: Point, size?: [number, number]): string[] {
+  private getCoveredCellCoords(position: Point, size?: [number, number]): [number, number][] {
     if (!size) {
       // Single cell
-      const cellKey = this.getCellKey(position[0], position[1]);
-      return cellKey ? [cellKey] : [];
+      const cellX = Math.floor(position[0] / this.cellSize);
+      const cellY = Math.floor(position[1] / this.cellSize);
+      if (cellX < 0 || cellY < 0 || cellX > this.maxCellX || cellY > this.maxCellY) return [];
+      return [[cellX, cellY]];
     }
     // Multi-cell: compute AABB
     const minX = position[0] - size[0] / 2;
@@ -218,16 +218,15 @@ export class SpatialGridComponent extends Component {
     const cellMaxX = Math.floor(maxX / this.cellSize);
     const cellMinY = Math.floor(minY / this.cellSize);
     const cellMaxY = Math.floor(maxY / this.cellSize);
-    const keys: string[] = [];
+    const coords: [number, number][] = [];
     for (let x = cellMinX; x <= cellMaxX; x++) {
       for (let y = cellMinY; y <= cellMaxY; y++) {
-        const cellKey = this.getCellKey(x * this.cellSize, y * this.cellSize);
-        if (cellKey) {
-          keys.push(cellKey);
+        if (x >= 0 && y >= 0 && x <= this.maxCellX && y <= this.maxCellY) {
+          coords.push([x, y]);
         }
       }
     }
-    return keys;
+    return coords;
   }
 
   updateMaxCell(viewport: Viewport) {
@@ -240,8 +239,9 @@ export class SpatialGridComponent extends Component {
    * Registers to all cells covered by its AABB if size is provided
    */
   insert(entityId: string, position: Point, entityType: EntityType, size?: [number, number]): void {
-    const cellKeys = this.getCoveredCellKeys(position, size);
-    for (const cellKey of cellKeys) {
+    const cellCoords = this.getCoveredCellCoords(position, size);
+    for (const [cellX, cellY] of cellCoords) {
+      const cellKey = `${cellX},${cellY}`;
       if (!this.grid.has(cellKey)) {
         this.grid.set(cellKey, this.createGridCell());
       }
@@ -253,7 +253,7 @@ export class SpatialGridComponent extends Component {
       const entitySet = this.getEntitySetByType(cell, entityType);
       entitySet.add(entityId);
       // Local cache invalidation
-      this.invalidateCacheForCell(cellKey);
+      this.invalidateCacheForCell(cellX, cellY);
     }
   }
 
@@ -267,8 +267,9 @@ export class SpatialGridComponent extends Component {
     entityType?: EntityType,
     size?: [number, number],
   ): void {
-    const cellKeys = this.getCoveredCellKeys(position, size);
-    for (const cellKey of cellKeys) {
+    const cellCoords = this.getCoveredCellCoords(position, size);
+    for (const [cellX, cellY] of cellCoords) {
+      const cellKey = `${cellX},${cellY}`;
       const cell = this.grid.get(cellKey);
       if (cell) {
         // Remove from legacy storage
@@ -284,7 +285,7 @@ export class SpatialGridComponent extends Component {
           this.grid.delete(cellKey);
         }
         // Local cache invalidation
-        this.invalidateCacheForCell(cellKey);
+        this.invalidateCacheForCell(cellX, cellY);
       }
     }
   }
