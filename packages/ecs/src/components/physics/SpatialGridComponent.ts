@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point } from '@ecs/utils/types';
+import { Point, Viewport } from '@ecs/utils/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance
@@ -56,6 +56,9 @@ export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
   private grid: Map<string, GridCell> = new Map();
   public cellSize: number;
+
+  private maxCellY: number = 10000;
+  private maxCellX: number = 10000;
 
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
@@ -122,7 +125,7 @@ export class SpatialGridComponent extends Component {
     const cellX = Math.round(x / this.cellSize);
     const cellY = Math.round(y / this.cellSize);
     // Only return key if cell is inside viewport (cellX, cellY >= 0)
-    if (cellX < 0 || cellY < 0) return '';
+    if (cellX < 0 || cellY < 0 || cellX > this.maxCellX || cellY > this.maxCellY) return '';
     return `${cellX},${cellY}`;
   }
 
@@ -225,6 +228,11 @@ export class SpatialGridComponent extends Component {
       }
     }
     return keys;
+  }
+
+  updateMaxCell(viewport: Viewport) {
+    this.maxCellY = Math.floor((viewport[3] - viewport[1]) / this.cellSize);
+    this.maxCellX = Math.floor((viewport[2] - viewport[0]) / this.cellSize);
   }
 
   /**
@@ -389,7 +397,7 @@ export class SpatialGridComponent extends Component {
       }
     }
 
-    return result;
+    return Array.from(new Set(result));
   }
 
   /**

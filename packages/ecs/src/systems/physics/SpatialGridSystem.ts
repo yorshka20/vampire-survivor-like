@@ -2,11 +2,14 @@ import { ShapeComponent, SpatialGridComponent, TransformComponent } from '@ecs/c
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { RenderSystem } from '../rendering/RenderSystem';
 
 export class SpatialGridSystem extends System {
   private spatialGridEntity: Entity | null = null;
   private lastUpdateTime: number = 0;
   private readonly UPDATE_INTERVAL = 16; // Update every 16ms (roughly 60fps)
+
+  private resizeUpdated: boolean = false;
 
   private spatialComponent: SpatialGridComponent | null = null;
 
@@ -31,16 +34,12 @@ export class SpatialGridSystem extends System {
     // Handle window resize
     window.addEventListener('resize', () => {
       this.spatialComponent?.clear();
+      this.resizeUpdated = false;
     });
   }
 
   update(deltaTime: number): void {
-    if (!this.spatialGridEntity || !this.spatialComponent) return;
-
-    // const currentTime = performance.now();
-    // if (currentTime - this.lastUpdateTime < this.UPDATE_INTERVAL) {
-    //   return; // Skip update if not enough time has passed
-    // }
+    if (!this.spatialGridEntity || !this.spatialComponent || !this.canInvoke()) return;
 
     // Update frame counter for cache management
     this.spatialComponent.updateFrame();
@@ -61,7 +60,16 @@ export class SpatialGridSystem extends System {
       this.spatialComponent.insert(entity.id, position, entity.type, size);
     }
 
-    // this.lastUpdateTime = currentTime;
+    if (!this.resizeUpdated) {
+      const renderSystem = this.world.getSystem<RenderSystem>(
+        RenderSystem.name,
+        SystemPriorities.RENDER,
+      );
+      if (renderSystem) {
+        this.spatialComponent.updateMaxCell(renderSystem.getViewport());
+        this.resizeUpdated = true;
+      }
+    }
   }
 
   destroy(): void {

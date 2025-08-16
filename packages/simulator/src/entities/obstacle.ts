@@ -1,11 +1,4 @@
-import {
-  ColliderComponent,
-  PhysicsComponent,
-  RenderComponent,
-  ShapeComponent,
-  TransformComponent,
-  World,
-} from '@ecs';
+import { PhysicsComponent, RenderComponent, ShapeComponent, TransformComponent, World } from '@ecs';
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Color, Point } from '@ecs/utils/types';
 
@@ -35,15 +28,6 @@ export function createObstacle(world: World, props: ObstacleProps) {
       velocity: [0, 0],
       maxSpeed: 0,
       entityType: 'OBSTACLE',
-    }),
-  );
-
-  const size = props.shape.getSize();
-
-  obstacle.addComponent(
-    new ColliderComponent({
-      type: 'rect',
-      size,
     }),
   );
 
