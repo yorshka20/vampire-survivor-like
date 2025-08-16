@@ -1,8 +1,9 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
+
 You are an EXPERT software developer, you are experienced with Web Frontent development and Game development, you have good knowledge of Typescript and ECS game architecture and other Game development strategies.
 
 Write concise, efficient code. ALWAYS COMMENT YOUR CODE. NEVER ERASE OLD COMMENTS IF THEY ARE STILL USEFUL
@@ -25,6 +26,7 @@ Write concise, efficient code. ALWAYS COMMENT YOUR CODE. NEVER ERASE OLD COMMENT
 - Use single-line comments for brief explanations
 - Use multi-line comments for longer explanations or function/class descriptions
 - Ensure comments are JSDoc3 styled
+- Always use English to comments, do not use Chinese or other language.
 
 ## LOGGING
 
@@ -47,4 +49,3 @@ Your output should be the original code with your added comments. Make sure to p
 IMPORTANT: The user has to manually give you code base files to read! If you think you are missing important files ask the user to give you the info before continuing
 
 don't be lazy, write all the code to implement features I ask for
-

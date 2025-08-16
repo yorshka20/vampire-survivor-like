@@ -18,6 +18,7 @@ type ObstacleProps = {
 export function createObstacle(world: World, props: ObstacleProps) {
   const obstacle = world.createEntity('obstacle');
 
+  // fixed true to prevent movement
   obstacle.addComponent(new TransformComponent({ position: props.position, fixed: true }));
 
   obstacle.addComponent(props.shape);
@@ -32,16 +33,17 @@ export function createObstacle(world: World, props: ObstacleProps) {
   obstacle.addComponent(
     new PhysicsComponent({
       velocity: [0, 0],
-      friction: 0.8,
       maxSpeed: 0,
       entityType: 'OBSTACLE',
     }),
   );
 
+  const size = props.shape.getSize();
+
   obstacle.addComponent(
     new ColliderComponent({
       type: 'rect',
-      size: [props.shape.descriptor.width, props.shape.descriptor.height],
+      size,
     }),
   );
 
