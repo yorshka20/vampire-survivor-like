@@ -1,16 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createSimulator } from './createSimulator';
-  import { gameState } from './gameState';
-  
+  import { createSimulator } from '../createSimulator';
+  import { gameState } from '../game/gameState';
+  import { draggable } from './draggable';
+
   const repoUrl = import.meta.env.VITE_REPO_URL;
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
-  const showPerformancePanel = false;
+  const showPerformancePanel = true;
+  const showPauseButton = true;
+  let showForceFieldPanel = true; // Whether the force field panel is expanded
   
   // DOM element reference for canvas wrapper
   let canvasWrapper: HTMLDivElement;
+  let forceFieldSystem: any = null; // ForceFieldSystem实例
+  let forceStrength = 200;
+  let forceDirection = [0, 1];
   
   function togglePause() {
     isPaused = !isPaused;
@@ -33,6 +39,29 @@
       // Make canvas dimensions available globally for debugging
       (window as any).game = game;
       (window as any).gameState = gameState;
+
+      // Get ForceFieldSystem instance (priority 35 = SystemPriorities.FORCE_FIELD)
+      const world = game.getWorld();
+      forceFieldSystem = world.getSystem('ForceFieldSystem', 35);
+      if (forceFieldSystem && forceFieldSystem.forceField) {
+        forceStrength = forceFieldSystem.forceField.strength ?? 200;
+        // Copy direction array to avoid reference issues
+        forceDirection = forceFieldSystem.forceField.direction ? [...forceFieldSystem.forceField.direction] : [0, 1];
+      }
+    }
+  }
+
+  /**
+   * Update global force field parameters (strength and direction). Area remains unchanged.
+   */
+  function updateForceField() {
+    if (forceFieldSystem && forceFieldSystem.forceField) {
+      // Only update strength and direction
+      forceFieldSystem.setForceField({
+        ...forceFieldSystem.forceField,
+        strength: Number(forceStrength),
+        direction: [Number(forceDirection[0]), Number(forceDirection[1])],
+      });
     }
   }
 
@@ -269,6 +298,57 @@
     fill: currentColor;
   }
 
+  /* Add styles for the standalone forcefield-panel */
+  .forcefield-panel {
+    position: fixed;
+    top: 300px;
+    right: 10px;
+    width: 200px;
+    background: rgba(0,0,0,0.85);
+    color: white;
+    font-family: monospace;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.2);
+    z-index: 1100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: width 0.2s, opacity 0.2s;
+    padding: 0 0 10px 0;
+  }
+  .forcefield-panel.collapsed {
+    position: fixed;
+    right: 0;
+    width: 100px;
+    opacity: 0.7;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+  .forcefield-header {
+    font-weight: bold;
+    background: rgba(255,255,255,0.08);
+    padding: 8px 12px;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+  }
+  .forcefield-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px 0 16px;
+  }
+  .forcefield-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .forcefield-value {
+    width: 30px;
+    display: inline-block;
+    text-align: right;
+  }
+
 </style>
 
 <div 
@@ -293,59 +373,93 @@
 </div>
 
 {#if showPerformancePanel}
-<div class="performance-panel" class:hidden={!isGameStarted}>
-  <div class="fps" class:warning={$gameState.performance.fps < 45} class:critical={$gameState.performance.fps < 30}>
-    FPS: {$gameState.performance.fps}
-  </div>
-  <div class="performance-metrics">
-    <div class="metric">Frame: {$gameState.performance.frameTime.toFixed(1)}ms</div>
-    <div class="metric">Delta: {$gameState.performance.deltaTime.toFixed(3)}s</div>
-    <div class="metric entities">Entities: {$gameState.performance.entityCount}</div>
-    <div class="metric components">Components: {$gameState.performance.componentCount}</div>
-  </div>
-  {#if $gameState.performance.poolStatistics}
-    <div class="pool-statistics">
-      <div 
-        class="pool-header" 
-        on:click={() => showDetailedPools = !showDetailedPools} 
-        on:keydown={(e) => e.key === 'Enter' && (showDetailedPools = !showDetailedPools)}
-        role="button"
-        tabindex="0"
-        style="cursor: pointer;">
-        Object Pools {showDetailedPools ? '▼' : '▶'}
-      </div>
-      <div class="pool-metrics">
-        <div class="metric pool-total">Total Entity Pool: {$gameState.performance.poolStatistics.totalEntityPoolSize}</div>
-        <div class="metric pool-total">Total Component Pool: {$gameState.performance.poolStatistics.totalComponentPoolSize}</div>
-      </div>
-      {#if showDetailedPools}
-        <div class="detailed-pools">
-          <div class="pool-section">
-            <div class="pool-section-header">Entity Pools:</div>
-            {#each Array.from($gameState.performance.poolStatistics.entityPools.entries()) as [entityType, size]}
-              <div class="pool-item">
-                <span class="pool-name">{entityType}:</span>
-                <span class="pool-size">{size}</span>
-              </div>
-            {/each}
-          </div>
-          <div class="pool-section">
-            <div class="pool-section-header">Component Pools:</div>
-            {#each Array.from($gameState.performance.poolStatistics.componentPools.entries()) as [componentName, size]}
-              <div class="pool-item">
-                <span class="pool-name">{componentName}:</span>
-                <span class="pool-size">{size}</span>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
+  <div class="performance-panel" use:draggable={{ handle: '.performance-header' }} class:hidden={!isGameStarted}>
+    <div class="performance-header">Performance Panel</div>
+    <div class="fps" class:warning={$gameState.performance.fps < 45} class:critical={$gameState.performance.fps < 30}>
+      FPS: {$gameState.performance.fps}
     </div>
+    <div class="performance-metrics">
+      <div class="metric">Frame: {$gameState.performance.frameTime.toFixed(1)}ms</div>
+      <div class="metric">Delta: {$gameState.performance.deltaTime.toFixed(3)}s</div>
+      <div class="metric entities">Entities: {$gameState.performance.entityCount}</div>
+      <div class="metric components">Components: {$gameState.performance.componentCount}</div>
+    </div>
+    {#if $gameState.performance.poolStatistics}
+      <div class="pool-statistics">
+        <div 
+          class="pool-header" 
+          on:click={() => showDetailedPools = !showDetailedPools} 
+          on:keydown={(e) => e.key === 'Enter' && (showDetailedPools = !showDetailedPools)}
+          role="button"
+          tabindex="0"
+          style="cursor: pointer;">
+          Object Pools {showDetailedPools ? '▼' : '▶'}
+        </div>
+        <div class="pool-metrics">
+          <div class="metric pool-total">Total Entity Pool: {$gameState.performance.poolStatistics.totalEntityPoolSize}</div>
+          <div class="metric pool-total">Total Component Pool: {$gameState.performance.poolStatistics.totalComponentPoolSize}</div>
+        </div>
+        {#if showDetailedPools}
+          <div class="detailed-pools">
+            <div class="pool-section">
+              <div class="pool-section-header">Entity Pools:</div>
+              {#each Array.from($gameState.performance.poolStatistics.entityPools.entries()) as [entityType, size]}
+                <div class="pool-item">
+                  <span class="pool-name">{entityType}:</span>
+                  <span class="pool-size">{size}</span>
+                </div>
+              {/each}
+            </div>
+            <div class="pool-section">
+              <div class="pool-section-header">Component Pools:</div>
+              {#each Array.from($gameState.performance.poolStatistics.componentPools.entries()) as [componentName, size]}
+                <div class="pool-item">
+                  <span class="pool-name">{componentName}:</span>
+                  <span class="pool-size">{size}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 {/if}
 
-{#if showPerformancePanel}
+<!-- Standalone, collapsible force field controller panel -->
+{#if forceFieldSystem}
+  <div class="forcefield-panel" use:draggable={{ handle: '.forcefield-drag' }} style="top: 300px;right: 10px;" class:collapsed={!showForceFieldPanel}>
+    <div class="forcefield-header" style="display: flex; align-items: center; justify-content: space-between;">
+      <div class="forcefield-drag" style="flex:1; cursor: move; user-select: none;">
+        Force Field
+      </div>
+      <button class="forcefield-toggle" style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0 8px; min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center;" on:click={() => showForceFieldPanel = !showForceFieldPanel} tabindex="0" aria-label="Toggle force field panel">
+        {showForceFieldPanel ? '▼' : '▶'}
+      </button>
+    </div>
+    {#if showForceFieldPanel}
+      <div class="forcefield-controls">
+        <label class="forcefield-label">
+          Str:
+          <input type="range" min="0" max="1000" step="1" bind:value={forceStrength} on:input={updateForceField} />
+          <span class="forcefield-value">{forceStrength}</span>
+        </label>
+        <label class="forcefield-label">
+          Dir X:
+          <input type="range" min="-1" max="1" step="0.01" bind:value={forceDirection[0]} on:input={updateForceField} />
+          <span class="forcefield-value">{forceDirection[0]}</span>
+        </label>
+        <label class="forcefield-label">
+          Dir Y:
+          <input type="range" min="-1" max="1" step="0.01" bind:value={forceDirection[1]} on:input={updateForceField} />
+          <span class="forcefield-value">{forceDirection[1]}</span>
+        </label>
+      </div>
+    {/if}
+  </div>
+{/if}
+
+{#if showPauseButton}
 <button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
   <svg class="pause-icon" viewBox="0 0 24 24">
     {#if isPaused}
@@ -357,3 +471,5 @@
   {isPaused ? 'Resume' : 'Pause'}
 </button>
 {/if}
+
+
