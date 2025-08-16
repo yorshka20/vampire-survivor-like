@@ -1,8 +1,8 @@
 import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
+import { RenderSystem } from '@ecs/systems';
 import { Point, Size, Vec2 } from '@ecs/utils/types';
-import { RenderSystem } from '../rendering/RenderSystem';
 
 /**
  * BorderSystem handles elastic collision (with friction) between 'object' entities and nearby 'obstacle' entities.
@@ -14,23 +14,13 @@ import { RenderSystem } from '../rendering/RenderSystem';
  * This approach greatly improves performance in large maps or with many obstacles, as only spatially relevant obstacles are checked.
  */
 export class BorderSystem extends System {
-  private renderSystem: RenderSystem | null = null;
-
   constructor(private friction: number = 1) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
     this.friction = friction;
   }
 
   private getRenderSystem(): RenderSystem {
-    if (this.renderSystem) return this.renderSystem;
-    this.renderSystem = this.world.getSystem<RenderSystem>(
-      RenderSystem.name,
-      SystemPriorities.RENDER,
-    );
-    if (!this.renderSystem) {
-      throw new Error('RenderSystem not found');
-    }
-    return this.renderSystem;
+    return RenderSystem.getInstance();
   }
 
   /**

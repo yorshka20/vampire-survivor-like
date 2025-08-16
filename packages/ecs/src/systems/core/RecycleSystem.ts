@@ -2,8 +2,8 @@ import { TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { RenderSystem } from '@ecs/systems';
 import { Point, RectArea } from '@ecs/utils/types';
-import { RenderSystem } from '../rendering/RenderSystem';
 
 /**
  * RecycleSystem
@@ -24,24 +24,13 @@ export class RecycleSystem extends System {
    */
   private predicate: (entity: Entity, position: Point, viewport: RectArea) => boolean;
 
-  private renderSystem: RenderSystem | null = null;
-
   constructor(predicate: (entity: Entity, position: Point, viewport: RectArea) => boolean) {
     super('RecycleSystem', SystemPriorities.RECYCLE ?? 5, 'logic');
     this.predicate = predicate;
   }
 
   private getRenderSystem(): RenderSystem {
-    if (this.renderSystem) return this.renderSystem;
-
-    this.renderSystem = this.world.getSystem<RenderSystem>(
-      RenderSystem.name,
-      SystemPriorities.RENDER,
-    );
-    if (!this.renderSystem) {
-      throw new Error('RenderSystem not found');
-    }
-    return this.renderSystem;
+    return RenderSystem.getInstance();
   }
 
   update(deltaTime: number): void {

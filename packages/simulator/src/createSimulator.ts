@@ -2,10 +2,10 @@ import {
   BorderSystem,
   createShapeDescriptor,
   EntityRenderLayer,
-  ExactCollisionSystem,
   ForceFieldSystem,
   GridDebugLayer,
   isInRect,
+  ParallelCollisionSystem,
   PerformanceSystem,
   PhysicsSystem,
   RecycleSystem,
@@ -75,7 +75,8 @@ export async function createSimulator(): Promise<Game> {
 function initializeSystems(world: World, rootElement: HTMLElement) {
   // Register core systems required by the simulator
   world.addSystem(new SpatialGridSystem());
-  world.addSystem(new ExactCollisionSystem());
+  // world.addSystem(new ExactCollisionSystem());
+  world.addSystem(new ParallelCollisionSystem());
   // world.addSystem(new CollisionSystem());
   world.addSystem(new PhysicsSystem());
   world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
@@ -112,7 +113,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(renderSystem);
 
   // set coarse mode for performance testing
-  renderSystem.setCoarseMode(true);
+  // renderSystem.setCoarseMode(true);
 }
 
 function initializeEntities(world: World, viewport: Viewport) {
@@ -123,7 +124,7 @@ function initializeEntities(world: World, viewport: Viewport) {
     position: [100, 100],
     maxEntities: 2000,
     ballSize: 20,
-    velocity: [initialV, initialV],
+    velocity: [initialV * 50, initialV],
     spawnGap: 50,
   });
   world.addEntity(generator);
