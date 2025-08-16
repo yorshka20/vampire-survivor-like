@@ -57,6 +57,16 @@ export async function createSimulator(): Promise<Game> {
   // Initialize the game
   await game.initialize();
 
+  const spatialGridSystem = world.getSystem<SpatialGridSystem>(
+    SpatialGridSystem.name,
+    SystemPriorities.SPATIAL_GRID,
+  );
+  if (!spatialGridSystem) {
+    throw new Error('SpatialGridSystem not found');
+  }
+  // @ts-ignore
+  window.spatial = spatialGridSystem.getSpatialGridComponent();
+
   return game;
 }
 

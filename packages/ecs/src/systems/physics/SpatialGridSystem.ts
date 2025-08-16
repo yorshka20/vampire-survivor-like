@@ -1,4 +1,4 @@
-import { SpatialGridComponent, TransformComponent } from '@ecs/components';
+import { ShapeComponent, SpatialGridComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -12,6 +12,13 @@ export class SpatialGridSystem extends System {
 
   constructor() {
     super('SpatialGridSystem', SystemPriorities.SPATIAL_GRID, 'logic');
+  }
+
+  getSpatialGridComponent(): SpatialGridComponent {
+    if (!this.spatialComponent) {
+      throw new Error('SpatialGridComponent not found');
+    }
+    return this.spatialComponent;
   }
 
   init(): void {
@@ -46,7 +53,12 @@ export class SpatialGridSystem extends System {
     for (const entity of entities) {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       const position = transform.getPosition();
-      this.spatialComponent.insert(entity.id, position, entity.type);
+      let size: [number, number] | undefined;
+      if (entity.hasComponent(ShapeComponent.componentName)) {
+        const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+        size = shape.getSize();
+      }
+      this.spatialComponent.insert(entity.id, position, entity.type, size);
     }
 
     // this.lastUpdateTime = currentTime;
