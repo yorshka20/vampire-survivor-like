@@ -8,6 +8,7 @@ import { createBall } from './ball';
 type GeneratorProps = {
   position: Point;
   velocity?: Vec2;
+  ballSize?: number;
   maxEntities: number;
   spawnGap?: number;
 };
@@ -17,6 +18,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   private velocity: Vec2;
   private maxEntities: number;
   private spawnGap: number;
+  private ballSize: number;
   private currentEntities: number = 0;
   private lastSpawnTime: number = 0;
 
@@ -26,6 +28,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
     this.maxEntities = props.maxEntities;
     this.velocity = props.velocity ?? [0, 0];
     this.spawnGap = props.spawnGap ?? 0;
+    this.ballSize = props.ballSize ?? 10;
 
     this.addComponent(new TransformComponent({ position: this.position, fixed: true }));
     this.addComponent(new SpawnerComponent({ spawnerEntity: this, position: this.position }));
@@ -48,7 +51,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
     const ball = createBall(world, {
       position: this.position,
-      size: 10,
+      size: this.ballSize,
       velocity: this.velocity,
       color: randomRgb(Math.random()),
     });

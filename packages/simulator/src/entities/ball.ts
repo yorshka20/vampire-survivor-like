@@ -42,7 +42,7 @@ export function createBall(world: World, props: BallProps) {
   ball.addComponent(
     world.createComponent(ColliderComponent, {
       type: 'circle',
-      size: [props.size, props.size],
+      size: [props.size * 2, props.size * 2],
     }),
   );
 
