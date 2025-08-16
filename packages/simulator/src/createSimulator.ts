@@ -120,7 +120,7 @@ function initializeEntities(world: World, viewport: Viewport) {
     position: [100, 100],
     maxEntities: 10000,
     velocity: [initialV, initialV],
-    spawnGap: 50,
+    spawnGap: 10,
   });
   world.addEntity(generator);
 

@@ -74,6 +74,7 @@ export class RecycleSystem extends System {
     for (const entityId of this.entitiesToRemove) {
       const entity = this.world.getEntityById(entityId);
       if (entity) {
+        console.log('remove entity', entity.id);
         this.world.removeEntity(entity);
       }
     }

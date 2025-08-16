@@ -7,6 +7,15 @@ import { RenderLayer } from './base/RenderLayer';
 import { BackgroundRenderLayer, GridDebugLayer } from './layers';
 
 export class RenderSystem extends System {
+  static getInstance(): RenderSystem {
+    if (!RenderSystem.instance) {
+      throw new Error('RenderSystem instance not initialized');
+    }
+    return RenderSystem.instance as RenderSystem;
+  }
+
+  private static instance: RenderSystem;
+
   private rootElement: HTMLElement;
   private viewport: RectArea;
   private cameraTargetId?: string;
@@ -55,6 +64,8 @@ export class RenderSystem extends System {
       });
       this.setViewport([0, 0, window.innerWidth, window.innerHeight]);
     });
+
+    RenderSystem.instance = this;
   }
 
   getDevicePixelRatio(): number {

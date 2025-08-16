@@ -2,6 +2,7 @@ import { PhysicsComponent, SpiralMovementComponent, TransformComponent } from '@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { RenderSystem } from '../rendering/RenderSystem';
 
 export class PhysicsSystem extends System {
   constructor() {
@@ -63,8 +64,27 @@ export class PhysicsSystem extends System {
     // Integrate position using velocity in units/second and delta time in seconds
     const position = transform.getPosition();
     const [vx, vy] = physics.getVelocity();
-    const newX = position[0] + vx * deltaTime;
-    const newY = position[1] + vy * deltaTime;
+    let newX = position[0] + vx * deltaTime;
+    let newY = position[1] + vy * deltaTime;
+
+    // --- Clamp position to viewport (prevent entity from being pushed out of screen) ---
+    const renderSystem = RenderSystem.getInstance();
+    if (renderSystem) {
+      const viewport = renderSystem.getViewport(); // [x, y, w, h]
+      let w = 0,
+        h = 0;
+      const shape = entity.getComponent<any>('Shape');
+      if (shape && shape.getSize) {
+        [w, h] = shape.getSize();
+      }
+      // Clamp so that the entire AABB stays within the viewport
+      if (newX - w / 2 < viewport[0]) newX = viewport[0] + w / 2;
+      if (newX + w / 2 > viewport[0] + viewport[2]) newX = viewport[0] + viewport[2] - w / 2;
+      if (newY - h / 2 < viewport[1]) newY = viewport[1] + h / 2;
+      if (newY + h / 2 > viewport[1] + viewport[3]) newY = viewport[1] + viewport[3] - h / 2;
+    }
+    // ----------------------------------------------------------------------------------
+
     transform.setPosition([newX, newY]);
   }
 }
