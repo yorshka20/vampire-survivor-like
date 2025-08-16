@@ -1,12 +1,14 @@
 import {
   BorderSystem,
-  CollisionSystem,
   createShapeDescriptor,
   EntityRenderLayer,
+  ExactCollisionSystem,
   ForceFieldSystem,
   GridDebugLayer,
+  isInRect,
   PerformanceSystem,
   PhysicsSystem,
+  RecycleSystem,
   RenderSystem,
   ShapeComponent,
   SpatialGridSystem,
@@ -73,9 +75,10 @@ export async function createSimulator(): Promise<Game> {
 function initializeSystems(world: World, rootElement: HTMLElement) {
   // Register core systems required by the simulator
   world.addSystem(new SpatialGridSystem());
-  // world.addSystem(new ExactCollisionSystem());
-  world.addSystem(new CollisionSystem());
+  world.addSystem(new ExactCollisionSystem());
+  // world.addSystem(new CollisionSystem());
   world.addSystem(new PhysicsSystem());
+  world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
   world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
   world.addSystem(new SpawnSystem());
@@ -130,20 +133,30 @@ function initializeEntities(world: World, viewport: Viewport) {
   createObstacleBlock(world, [1200, 1600]);
   createObstacleBlock(world, [1300, 1800]);
 
+  // Wall thickness for left/right, wall height for top/bottom
+  const wallWidth = 200;
+  const wallHeight = 100;
   const walls: [Point, Point][] = [
-    // [0, 0], // no top wall
+    // Left wall: inner edge aligns with viewport left
     [
-      [-0.5, viewport[3]], // position
-      [1, viewport[3] * 2], // size
-    ], // left
+      [-wallWidth / 2, viewport[3] / 2],
+      [wallWidth, viewport[3] * 2],
+    ],
+    // Right wall: inner edge aligns with viewport right
     [
-      [viewport[2] + 0.5, viewport[3]], // position
-      [1, viewport[3] * 2], // size
-    ], // right
+      [viewport[2] + wallWidth / 2, viewport[3] / 2],
+      [wallWidth, viewport[3] * 2],
+    ],
+    // Bottom wall: inner edge aligns with viewport bottom
     [
-      [viewport[2] / 2, viewport[3] + 0.5], // position
-      [viewport[2] * 2, 1], // size
-    ], // bottom
+      [viewport[2] / 2, viewport[3] + wallHeight / 2],
+      [viewport[2] * 2, wallHeight],
+    ],
+    // Top wall: inner edge aligns with viewport top
+    [
+      [viewport[2] / 2, -wallHeight / 2],
+      [viewport[2] * 2, wallHeight],
+    ],
   ];
   for (const wall of walls) {
     const wallObstacle = createObstacle(world, {

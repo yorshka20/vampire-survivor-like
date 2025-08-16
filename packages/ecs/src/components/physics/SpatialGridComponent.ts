@@ -111,9 +111,9 @@ export class SpatialGridComponent extends Component {
 
     this.caches.set('obstacle', new Map());
     this.cacheConfigs.set('obstacle', {
-      ttl: 1000 * 10, // 10 seconds TTL
+      ttl: 50, // 50ms TTL, same as collision cache for real-time accuracy
       radiusMultiplier: 1.0, // Normal radius
-      updateFrequency: 60 * 10, // Update every 10 seconds
+      updateFrequency: 1, // Update every frame for obstacle queries
     });
   }
 

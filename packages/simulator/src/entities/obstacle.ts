@@ -12,7 +12,9 @@ export function createObstacle(world: World, props: ObstacleProps) {
   const obstacle = world.createEntity('obstacle');
 
   // fixed true to prevent movement
-  obstacle.addComponent(new TransformComponent({ position: props.position, fixed: true }));
+  obstacle.addComponent(
+    new TransformComponent({ position: props.position, fixed: true, recyclable: false }),
+  );
 
   obstacle.addComponent(props.shape);
 

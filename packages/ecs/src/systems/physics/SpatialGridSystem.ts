@@ -39,7 +39,7 @@ export class SpatialGridSystem extends System {
   }
 
   update(deltaTime: number): void {
-    if (!this.spatialGridEntity || !this.spatialComponent || !this.canInvoke()) return;
+    if (!this.spatialGridEntity || !this.spatialComponent) return;
 
     // Update frame counter for cache management
     this.spatialComponent.updateFrame();
