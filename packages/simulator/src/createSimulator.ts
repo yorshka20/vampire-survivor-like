@@ -47,7 +47,7 @@ export async function createSimulator(): Promise<Game> {
   initializeSystems(world, rootElement);
 
   // get actual viewport from renderSystem
-  const renderSystem = world.getSystem<RenderSystem>(RenderSystem.name, SystemPriorities.RENDER);
+  const renderSystem = world.getSystem<RenderSystem>('RenderSystem', SystemPriorities.RENDER);
   if (!renderSystem) {
     throw new Error('RenderSystem not found');
   }
@@ -60,7 +60,7 @@ export async function createSimulator(): Promise<Game> {
   await game.initialize();
 
   const spatialGridSystem = world.getSystem<SpatialGridSystem>(
-    SpatialGridSystem.name,
+    'SpatialGridSystem',
     SystemPriorities.SPATIAL_GRID,
   );
   if (!spatialGridSystem) {

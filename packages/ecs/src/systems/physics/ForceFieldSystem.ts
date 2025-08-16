@@ -29,7 +29,7 @@ export class ForceFieldSystem extends System {
   }
 
   get renderSystem(): RenderSystem | null {
-    return this.world.getSystem<RenderSystem>(RenderSystem.name, SystemPriorities.RENDER);
+    return RenderSystem.getInstance();
   }
 
   constructor() {

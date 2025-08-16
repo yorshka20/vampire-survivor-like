@@ -26,7 +26,7 @@ import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } fr
 import { TimeUtil } from '@ecs/utils/timeUtil';
 import { Point } from '@ecs/utils/types';
 import { InputSystem } from '../interaction';
-import { SpatialGridSystem } from '../physics';
+import { RenderSystem } from '../rendering';
 
 type WeaponParameters<T extends Weapon> = {
   weaponEntity: Entity;
@@ -54,6 +54,10 @@ export class WeaponSystem extends System {
       throw new Error('InputSystem not found');
     }
     return this.inputSystem;
+  }
+
+  private getRenderSystem(): RenderSystem {
+    return RenderSystem.getInstance();
   }
 
   update(deltaTime: number): void {
@@ -281,7 +285,7 @@ export class WeaponSystem extends System {
   }
 
   private getRandomPositionInViewport(position: Point): Point {
-    const viewport = this.world.getSystem<SpatialGridSystem>('SpatialGridSystem', 0)?.getViewport();
+    const viewport = this.getRenderSystem().getViewport();
     if (!viewport) return position;
 
     const viewportWidth = viewport[2];

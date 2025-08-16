@@ -28,8 +28,6 @@ interface CollisionResult {
  * and handles obstacle-object (ball) collision response precisely.
  */
 export class ExactCollisionSystem extends System {
-  private renderSystem: RenderSystem | null = null;
-
   private defaultCollisionArea: RectArea = [0, 0, 0, 0];
 
   constructor(private positionalCorrectTimes: number = 10) {
@@ -37,15 +35,7 @@ export class ExactCollisionSystem extends System {
   }
 
   private getRenderSystem(): RenderSystem {
-    if (this.renderSystem) return this.renderSystem;
-    this.renderSystem = this.world.getSystem<RenderSystem>(
-      RenderSystem.name,
-      SystemPriorities.RENDER,
-    );
-    if (!this.renderSystem) {
-      throw new Error('RenderSystem not found');
-    }
-    return this.renderSystem;
+    return RenderSystem.getInstance();
   }
 
   /**

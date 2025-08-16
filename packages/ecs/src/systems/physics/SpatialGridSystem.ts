@@ -29,6 +29,10 @@ export class SpatialGridSystem extends System {
     super('SpatialGridSystem', SystemPriorities.SPATIAL_GRID, 'logic');
   }
 
+  private getRenderSystem(): RenderSystem {
+    return RenderSystem.getInstance();
+  }
+
   /**
    * Retrieves the SpatialGridComponent.
    * @returns {SpatialGridComponent} The SpatialGridComponent instance.
@@ -83,10 +87,7 @@ export class SpatialGridSystem extends System {
     }
 
     if (!this.resizeUpdated) {
-      const renderSystem = this.world.getSystem<RenderSystem>(
-        RenderSystem.name,
-        SystemPriorities.RENDER,
-      );
+      const renderSystem = this.getRenderSystem();
       if (renderSystem) {
         this.spatialComponent.updateMaxCell(renderSystem.getViewport());
         this.resizeUpdated = true;
