@@ -13,19 +13,21 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
-import { CollisionSystem } from '../physics/CollisionSystem';
-import { GridDebugLayer } from '../rendering';
-import { RenderSystem } from '../rendering/RenderSystem';
+import { CollisionSystem } from '../physics/collision';
+import { GridDebugLayer, RenderSystem } from '../rendering';
 
 export class DamageSystem extends System {
   private collisionSystem: CollisionSystem | null = null;
-  private renderSystem: RenderSystem | null = null;
 
   private highlightedCells: string[] = [];
 
   constructor() {
     super('DamageSystem', SystemPriorities.DAMAGE, 'logic');
     // this.debug = true;
+  }
+
+  private getRenderSystem(): RenderSystem {
+    return RenderSystem.getInstance();
   }
 
   getCollisionSystem(): CollisionSystem {
@@ -41,21 +43,6 @@ export class DamageSystem extends System {
       throw new Error('CollisionSystem not found');
     }
     return this.collisionSystem;
-  }
-
-  private getRenderSystem(): RenderSystem {
-    if (this.renderSystem) return this.renderSystem;
-
-    if (!this.renderSystem) {
-      this.renderSystem = this.world.getSystem<RenderSystem>(
-        'RenderSystem',
-        SystemPriorities.RENDER,
-      );
-    }
-    if (!this.renderSystem) {
-      throw new Error('RenderSystem not found');
-    }
-    return this.renderSystem;
   }
 
   private processDamage(
