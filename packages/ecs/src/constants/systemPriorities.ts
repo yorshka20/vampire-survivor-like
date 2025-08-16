@@ -6,6 +6,7 @@ export enum SystemPriorities {
   LIFECYCLE = 100, // Handle entity lifecycle
   PERFORMANCE = 101, // Handle performance
   INPUT = 200, // Input systems (early processing)
+  RECYCLE = 102, // Recycle entities
 
   // Core game systems
   SPAWN = 300, // Spawn new entities
@@ -15,6 +16,7 @@ export enum SystemPriorities {
 
   FORCE_FIELD = 601, // Force field
   PHYSICS = 700, // Apply movement
+
   TRANSFORM = 800, // Update transform
   BORDER = 801, // Handle movement border
 

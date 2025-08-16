@@ -1,7 +1,8 @@
 import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
-import { Point, Size } from '@ecs/utils/types';
+import { Point, Size, Vec2 } from '@ecs/utils/types';
+import { RenderSystem } from '../rendering/RenderSystem';
 
 /**
  * BorderSystem handles elastic collision (with friction) between 'object' entities and nearby 'obstacle' entities.
@@ -13,8 +14,23 @@ import { Point, Size } from '@ecs/utils/types';
  * This approach greatly improves performance in large maps or with many obstacles, as only spatially relevant obstacles are checked.
  */
 export class BorderSystem extends System {
+  private renderSystem: RenderSystem | null = null;
+
   constructor(private friction: number = 1) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
+    this.friction = friction;
+  }
+
+  private getRenderSystem(): RenderSystem {
+    if (this.renderSystem) return this.renderSystem;
+    this.renderSystem = this.world.getSystem<RenderSystem>(
+      RenderSystem.name,
+      SystemPriorities.RENDER,
+    );
+    if (!this.renderSystem) {
+      throw new Error('RenderSystem not found');
+    }
+    return this.renderSystem;
   }
 
   /**
@@ -57,29 +73,45 @@ export class BorderSystem extends System {
         const obstacleSize = obstacleShape.getSize();
         const obstacleType = obstacleShape.getType ? obstacleShape.getType() : 'rect';
 
-        if (
-          this.checkCollision(position, size, shapeType, obstaclePos, obstacleSize, obstacleType)
-        ) {
-          // Compute collision normal and reflect velocity
+        // Use new collision normal and penetration calculation
+        const collision = this.getCollisionNormalAndPenetration(
+          position,
+          size,
+          shapeType,
+          obstaclePos,
+          obstacleSize,
+          obstacleType,
+        );
+        if (collision) {
+          const { normal, penetration } = collision;
           const velocity = physics.getVelocity();
-          const normal = this.getCollisionNormal(
-            position,
-            size,
-            shapeType,
-            obstaclePos,
-            obstacleSize,
-            obstacleType,
-          );
-          if (normal) {
-            // Reflect velocity along normal, apply friction
-            const dot = velocity[0] * normal[0] + velocity[1] * normal[1];
-            const reflected = [
-              velocity[0] - 2 * dot * normal[0],
-              velocity[1] - 2 * dot * normal[1],
-            ];
-            physics.setVelocity([reflected[0] * this.friction, reflected[1] * this.friction]);
-            // Push object out of obstacle along normal (simple separation)
-            transform.setPosition([position[0] + normal[0], position[1] + normal[1]]);
+          // Project velocity onto normal
+          const dot = velocity[0] * normal[0] + velocity[1] * normal[1];
+          // Reflect only the normal component (perfect elastic collision)
+          const reflected: Vec2 = [
+            velocity[0] - 2 * dot * normal[0],
+            velocity[1] - 2 * dot * normal[1],
+          ];
+
+          physics.setVelocity(reflected); // No friction for perfect elastic collision
+          // Push object out of obstacle by penetration depth along normal
+          transform.setPosition([
+            position[0] + normal[0] * penetration,
+            position[1] + normal[1] * penetration,
+          ]);
+
+          // Ensure entity's AABB is fully inside the viewport after collision
+          // This prevents any part of the entity from exceeding the visible area
+          const viewport = this.getRenderSystem().getViewport();
+          const [w, h] = shape.getSize();
+          let [nx, ny] = transform.getPosition();
+          // Clamp so that the entire AABB stays within the viewport
+          if (nx - w / 2 < viewport[0]) nx = viewport[0] + w / 2;
+          if (nx + w / 2 > viewport[0] + viewport[2]) nx = viewport[0] + viewport[2] - w / 2;
+          if (ny - h / 2 < viewport[1]) ny = viewport[1] + h / 2;
+          if (ny + h / 2 > viewport[1] + viewport[3]) ny = viewport[1] + viewport[3] - h / 2;
+          if (nx !== transform.getPosition()[0] || ny !== transform.getPosition()[1]) {
+            transform.setPosition([nx, ny]);
           }
         }
       }
@@ -87,50 +119,29 @@ export class BorderSystem extends System {
   }
 
   /**
-   * Basic AABB collision for rectangles, circle-rect, or circle-circle (expand as needed).
-   * @returns true if collision detected
+   * Compute collision normal and penetration depth for separation and velocity reflection.
+   * For AABB, returns the axis of minimum penetration and penetration depth.
+   * @returns { normal: [nx, ny], penetration: number } or null if not colliding
    */
-  private checkCollision(
+  private getCollisionNormalAndPenetration(
     posA: Point,
     sizeA: Size,
     typeA: string,
     posB: Point,
     sizeB: Size,
     typeB: string,
-  ): boolean {
-    // For now, treat all as AABB (rect-rect)
-    // TODO: Add circle-rect and circle-circle support if needed
-    const minA = [posA[0] - sizeA[0] / 2, posA[1] - sizeA[1] / 2];
-    const maxA = [posA[0] + sizeA[0] / 2, posA[1] + sizeA[1] / 2];
-    const minB = [posB[0] - sizeB[0] / 2, posB[1] - sizeB[1] / 2];
-    const maxB = [posB[0] + sizeB[0] / 2, posB[1] + sizeB[1] / 2];
-    return minA[0] < maxB[0] && maxA[0] > minB[0] && minA[1] < maxB[1] && maxA[1] > minB[1];
-  }
-
-  /**
-   * Compute collision normal for separation and velocity reflection.
-   * For AABB, returns the axis of minimum penetration.
-   * @returns [nx, ny] or null if not colliding
-   */
-  private getCollisionNormal(
-    posA: Point,
-    sizeA: Size,
-    typeA: string,
-    posB: Point,
-    sizeB: Size,
-    typeB: string,
-  ): [number, number] | null {
+  ): { normal: [number, number]; penetration: number } | null {
     // For now, only AABB
     const dx = posA[0] - posB[0];
     const dy = posA[1] - posB[1];
     const px = (sizeA[0] + sizeB[0]) / 2 - Math.abs(dx);
     const py = (sizeA[1] + sizeB[1]) / 2 - Math.abs(dy);
     if (px < 0 || py < 0) return null; // no overlap
-    // Find axis of minimum penetration
+    // Find axis of minimum penetration and return normal and penetration depth
     if (px < py) {
-      return [dx < 0 ? -1 : 1, 0];
+      return { normal: [dx < 0 ? -1 : 1, 0], penetration: px };
     } else {
-      return [0, dy < 0 ? -1 : 1];
+      return { normal: [0, dy < 0 ? -1 : 1], penetration: py };
     }
   }
 }

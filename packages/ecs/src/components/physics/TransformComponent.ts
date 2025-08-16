@@ -6,6 +6,11 @@ interface TransformProps {
   rotation?: number;
   scale?: number;
   fixed?: boolean;
+  /**
+   * Whether this entity can be recycled (auto-removed by RecycleSystem)
+   * Defaults to true. Obstacles and some static entities should set this to false.
+   */
+  recyclable?: boolean;
 }
 
 export class TransformComponent extends Component {
@@ -15,6 +20,11 @@ export class TransformComponent extends Component {
   rotation: number;
   scale: number;
   fixed: boolean;
+  /**
+   * Whether this entity can be recycled (auto-removed by RecycleSystem)
+   * Defaults to true. Obstacles/static entities should set to false.
+   */
+  recyclable: boolean;
 
   constructor(props: TransformProps) {
     super('Transform');
@@ -23,6 +33,7 @@ export class TransformComponent extends Component {
     this.rotation = props.rotation ?? 0;
     this.scale = props.scale ?? 1;
     this.fixed = props.fixed ?? false;
+    this.recyclable = props.recyclable ?? true; // default true
   }
 
   getPosition(): Point {
@@ -48,5 +59,6 @@ export class TransformComponent extends Component {
     this.rotation = 0;
     this.scale = 1;
     this.fixed = false;
+    this.recyclable = true;
   }
 }
