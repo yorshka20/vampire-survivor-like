@@ -105,11 +105,24 @@ export class SpatialGridComponent extends Component {
       radiusMultiplier: 1.0, // Largest radius for pickup detection
       updateFrequency: 5, // Update every 5 frames
     });
+
+    this.caches.set('obstacle', new Map());
+    this.cacheConfigs.set('obstacle', {
+      ttl: 1000 * 10, // 10 seconds TTL
+      radiusMultiplier: 1.0, // Normal radius
+      updateFrequency: 60 * 10, // Update every 10 seconds
+    });
   }
 
+  /**
+   * Returns the cell key for a given x, y position.
+   * If either coordinate is negative (outside viewport), returns an empty string.
+   */
   private getCellKey(x: number, y: number): string {
     const cellX = Math.round(x / this.cellSize);
     const cellY = Math.round(y / this.cellSize);
+    // Only return key if cell is inside viewport (cellX, cellY >= 0)
+    if (cellX < 0 || cellY < 0) return '';
     return `${cellX},${cellY}`;
   }
 
@@ -183,73 +196,111 @@ export class SpatialGridComponent extends Component {
   }
 
   /**
-   * Insert entity into grid with pre-classified storage
+   * Get all cell keys covered by an entity at position with optional size
+   * If size is not provided, returns the single cell key for the position
+   * Only returns cell keys with non-negative coordinates (inside viewport)
    */
-  insert(entityId: string, position: Point, entityType: EntityType): void {
-    const cellKey = this.getCellKey(position[0], position[1]);
-    if (!this.grid.has(cellKey)) {
-      this.grid.set(cellKey, this.createGridCell());
+  private getCoveredCellKeys(position: Point, size?: [number, number]): string[] {
+    if (!size) {
+      // Single cell
+      const cellKey = this.getCellKey(position[0], position[1]);
+      return cellKey ? [cellKey] : [];
     }
-    const cell = this.grid.get(cellKey)!;
-
-    // Add to legacy storage for backward compatibility
-    cell.entities.add(entityId);
-    cell.entityTypes.set(entityId, entityType);
-
-    // Add to pre-classified storage for better performance
-    const entitySet = this.getEntitySetByType(cell, entityType);
-    entitySet.add(entityId);
-
-    // Local cache invalidation instead of global invalidation
-    this.invalidateCacheForCell(cellKey);
+    // Multi-cell: compute AABB
+    const minX = position[0] - size[0] / 2;
+    const maxX = position[0] + size[0] / 2;
+    const minY = position[1] - size[1] / 2;
+    const maxY = position[1] + size[1] / 2;
+    const cellMinX = Math.floor(minX / this.cellSize);
+    const cellMaxX = Math.floor(maxX / this.cellSize);
+    const cellMinY = Math.floor(minY / this.cellSize);
+    const cellMaxY = Math.floor(maxY / this.cellSize);
+    const keys: string[] = [];
+    for (let x = cellMinX; x <= cellMaxX; x++) {
+      for (let y = cellMinY; y <= cellMaxY; y++) {
+        const cellKey = this.getCellKey(x * this.cellSize, y * this.cellSize);
+        if (cellKey) {
+          keys.push(cellKey);
+        }
+      }
+    }
+    return keys;
   }
 
   /**
-   * Remove entity from grid
+   * Insert entity into grid with pre-classified storage
+   * Registers to all cells covered by its AABB if size is provided
    */
-  remove(entityId: string, position: Point): void {
-    const cellKey = this.getCellKey(position[0], position[1]);
-    const cell = this.grid.get(cellKey);
-    if (cell) {
-      // Remove from legacy storage
-      cell.entities.delete(entityId);
-      const entityType = cell.entityTypes.get(entityId);
-      cell.entityTypes.delete(entityId);
-
-      // Remove from pre-classified storage
-      if (entityType) {
-        const entitySet = this.getEntitySetByType(cell, entityType);
-        entitySet.delete(entityId);
+  insert(entityId: string, position: Point, entityType: EntityType, size?: [number, number]): void {
+    const cellKeys = this.getCoveredCellKeys(position, size);
+    for (const cellKey of cellKeys) {
+      if (!this.grid.has(cellKey)) {
+        this.grid.set(cellKey, this.createGridCell());
       }
-
-      if (cell.entities.size === 0) {
-        this.grid.delete(cellKey);
-      }
-
-      // Local cache invalidation instead of global invalidation
+      const cell = this.grid.get(cellKey)!;
+      // Add to legacy storage for backward compatibility
+      cell.entities.add(entityId);
+      cell.entityTypes.set(entityId, entityType);
+      // Add to pre-classified storage
+      const entitySet = this.getEntitySetByType(cell, entityType);
+      entitySet.add(entityId);
+      // Local cache invalidation
       this.invalidateCacheForCell(cellKey);
     }
   }
 
   /**
+   * Remove entity from grid
+   * Removes from all cells covered by its AABB if size is provided
+   */
+  remove(
+    entityId: string,
+    position: Point,
+    entityType?: EntityType,
+    size?: [number, number],
+  ): void {
+    const cellKeys = this.getCoveredCellKeys(position, size);
+    for (const cellKey of cellKeys) {
+      const cell = this.grid.get(cellKey);
+      if (cell) {
+        // Remove from legacy storage
+        cell.entities.delete(entityId);
+        const et = entityType || cell.entityTypes.get(entityId);
+        cell.entityTypes.delete(entityId);
+        // Remove from pre-classified storage
+        if (et) {
+          const entitySet = this.getEntitySetByType(cell, et);
+          entitySet.delete(entityId);
+        }
+        if (cell.entities.size === 0) {
+          this.grid.delete(cellKey);
+        }
+        // Local cache invalidation
+        this.invalidateCacheForCell(cellKey);
+      }
+    }
+  }
+
+  /**
    * Optimized position update method - only updates grid when crossing cell boundaries
-   * This is the second key optimization: avoid unnecessary remove/insert calls
+   * For 'obstacle', remove from old AABB cells, insert to new AABB cells
    */
   updatePosition(
     entityId: string,
     oldPosition: Point,
     newPosition: Point,
     entityType: EntityType,
+    oldSize?: [number, number],
+    newSize?: [number, number],
   ): void {
     const oldCellKey = this.getCellKey(oldPosition[0], oldPosition[1]);
     const newCellKey = this.getCellKey(newPosition[0], newPosition[1]);
-
-    // Only update grid if entity crossed cell boundary
+    // only update grid if entity crossed cell boundary
     if (oldCellKey !== newCellKey) {
       // Remove from old cell
-      this.remove(entityId, oldPosition);
+      this.remove(entityId, oldPosition, entityType, oldSize);
       // Insert into new cell
-      this.insert(entityId, newPosition, entityType);
+      this.insert(entityId, newPosition, entityType, newSize);
     }
     // If same cell, no grid update needed - this is the performance gain
   }
@@ -350,16 +401,18 @@ export class SpatialGridComponent extends Component {
       case 'collision-distant':
       case 'collision':
         // return all collidable types
-        return [
-          ...cell.enemies,
-          ...cell.players,
-          ...cell.projectiles,
-          ...cell.areaEffects,
-          ...cell.objects,
-          ...cell.obstacles,
-        ];
+        return Array.from(
+          new Set([
+            ...cell.enemies,
+            ...cell.players,
+            ...cell.projectiles,
+            ...cell.areaEffects,
+            ...cell.objects,
+            ...cell.obstacles,
+          ]),
+        );
       case 'damage':
-        return [...cell.enemies, ...cell.projectiles, ...cell.areaEffects];
+        return Array.from(new Set([...cell.enemies, ...cell.projectiles, ...cell.areaEffects]));
       case 'pickup':
         return [...cell.pickups];
       case 'object':
