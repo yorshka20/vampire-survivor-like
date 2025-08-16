@@ -5,6 +5,5 @@ export * from './CollisionSystem';
 export * from './ExactCollisionSystem';
 export * from './ForceFieldSystem';
 export * from './PhysicsSystem';
-export * from './RecycleSystem';
 export * from './SpatialGridSystem';
 export * from './TransformSystem';
