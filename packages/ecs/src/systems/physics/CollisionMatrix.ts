@@ -7,6 +7,8 @@ export enum EntityTypeEnum {
   PROJECTILE = 2,
   PICKUP = 3,
   AREA_EFFECT = 4,
+  OBJECT = 5,
+  OBSTACLE = 6,
 }
 
 /**
@@ -20,6 +22,8 @@ export class CollisionMatrix {
     projectile: EntityTypeEnum.PROJECTILE,
     pickup: EntityTypeEnum.PICKUP,
     areaEffect: EntityTypeEnum.AREA_EFFECT,
+    object: EntityTypeEnum.OBJECT,
+    obstacle: EntityTypeEnum.OBSTACLE,
   };
   private matrix: Map<number, Set<EntityTypeEnum>> = new Map();
 
@@ -43,11 +47,15 @@ export class CollisionMatrix {
     this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.PROJECTILE, true);
     this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.AREA_EFFECT, true);
     this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.PICKUP, false);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.OBJECT, true);
+    this.setCollisionRule(EntityTypeEnum.ENEMY, EntityTypeEnum.OBSTACLE, true);
 
     // Projectile collisions
     this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.PROJECTILE, false);
     this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.PICKUP, false);
     this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.AREA_EFFECT, false);
+    this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.OBJECT, true);
+    this.setCollisionRule(EntityTypeEnum.PROJECTILE, EntityTypeEnum.OBSTACLE, true);
 
     // Pickup collisions
     this.setCollisionRule(EntityTypeEnum.PICKUP, EntityTypeEnum.PICKUP, false);
@@ -55,6 +63,13 @@ export class CollisionMatrix {
 
     // Area effect collisions
     this.setCollisionRule(EntityTypeEnum.AREA_EFFECT, EntityTypeEnum.AREA_EFFECT, false);
+
+    // Object collisions
+    this.setCollisionRule(EntityTypeEnum.OBJECT, EntityTypeEnum.OBJECT, true);
+    this.setCollisionRule(EntityTypeEnum.OBJECT, EntityTypeEnum.OBSTACLE, true);
+
+    // Obstacle collisions
+    this.setCollisionRule(EntityTypeEnum.OBSTACLE, EntityTypeEnum.OBSTACLE, true);
   }
 
   /**

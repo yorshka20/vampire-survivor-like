@@ -5,6 +5,7 @@ interface TransformProps {
   position: Point;
   rotation?: number;
   scale?: number;
+  fixed?: boolean;
 }
 
 export class TransformComponent extends Component {
@@ -13,6 +14,7 @@ export class TransformComponent extends Component {
   position: Point = [0, 0];
   rotation: number;
   scale: number;
+  fixed: boolean;
 
   constructor(props: TransformProps) {
     super('Transform');
@@ -20,6 +22,7 @@ export class TransformComponent extends Component {
     this.position[1] = props.position[1];
     this.rotation = props.rotation ?? 0;
     this.scale = props.scale ?? 1;
+    this.fixed = props.fixed ?? false;
   }
 
   getPosition(): Point {
@@ -27,11 +30,13 @@ export class TransformComponent extends Component {
   }
 
   setPosition(position: Point): void {
+    if (this.fixed) return;
     this.position[0] = position[0];
     this.position[1] = position[1];
   }
 
   move(dx: number, dy: number): void {
+    if (this.fixed) return;
     this.position[0] += dx;
     this.position[1] += dy;
   }
@@ -42,5 +47,6 @@ export class TransformComponent extends Component {
     this.position = [0, 0];
     this.rotation = 0;
     this.scale = 1;
+    this.fixed = false;
   }
 }

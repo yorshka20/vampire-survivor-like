@@ -2,7 +2,7 @@ import { SPEED_MULTIPLIERS, calculateSpeed, calculateSpeedPerSecond } from '@ecs
 import { Component } from '@ecs/core/ecs/Component';
 import { Vec2 } from '@ecs/utils/types';
 
-type EntityType = 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM';
+type EntityType = 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM' | 'OBSTACLE';
 
 interface PhysicsProps {
   velocity?: Vec2;
