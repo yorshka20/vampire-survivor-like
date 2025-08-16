@@ -45,10 +45,9 @@ export class SpawnSystem extends System {
     if (this.performanceSystem) return this.performanceSystem;
 
     this.performanceSystem = this.world.getSystem<PerformanceSystem>(
-      PerformanceSystem.name,
-      SystemPriorities.SPAWN,
+      'PerformanceSystem',
+      SystemPriorities.PERFORMANCE,
     );
-
     if (!this.performanceSystem) {
       throw new Error('PerformanceSystem not found');
     }
