@@ -24,6 +24,7 @@ export class RenderSystem extends System {
   private mainCanvas: HTMLCanvasElement;
   private mainCtx: CanvasRenderingContext2D;
   private dpr: number = 1;
+  private coarseMode: boolean = false;
 
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
@@ -39,7 +40,7 @@ export class RenderSystem extends System {
     this.mainCtx = this.mainCanvas.getContext('2d')!;
 
     // Set canvas size based on device pixel ratio
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getDPR();
     // set actual viewport size
     this.viewport = [0, 0, width * dpr, height * dpr];
     this.updateCtxConfig(dpr);
@@ -57,7 +58,7 @@ export class RenderSystem extends System {
 
     // handle window resize
     window.addEventListener('resize', () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = this.getDPR();
       this.updateCtxConfig(dpr);
       this.layers.forEach((layer) => {
         layer.onResize();
@@ -66,6 +67,15 @@ export class RenderSystem extends System {
     });
 
     RenderSystem.instance = this;
+  }
+
+  private getDPR(): number {
+    return this.coarseMode ? 1 : window.devicePixelRatio || 1;
+  }
+
+  setCoarseMode(coarse: boolean): void {
+    this.coarseMode = coarse;
+    this.updateCtxConfig(this.getDPR());
   }
 
   getDevicePixelRatio(): number {

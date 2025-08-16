@@ -110,6 +110,9 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   renderSystem.init();
   // Add renderer last so it has access to a fully configured world
   world.addSystem(renderSystem);
+
+  // set coarse mode for performance testing
+  renderSystem.setCoarseMode(true);
 }
 
 function initializeEntities(world: World, viewport: Viewport) {
@@ -118,9 +121,10 @@ function initializeEntities(world: World, viewport: Viewport) {
   const initialV = 10 + (Math.random() * 4 - 2); // [8, 12]
   const generator = createGenerator(world, {
     position: [100, 100],
-    maxEntities: 10000,
+    maxEntities: 2000,
+    ballSize: 20,
     velocity: [initialV, initialV],
-    spawnGap: 10,
+    spawnGap: 50,
   });
   world.addEntity(generator);
 

@@ -54,7 +54,7 @@ interface CacheConfig {
 
 export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
-  private grid: Map<string, GridCell> = new Map();
+  public grid: Map<string, GridCell> = new Map();
   public cellSize: number;
 
   private maxCellY: number = 10000;

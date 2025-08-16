@@ -33,6 +33,12 @@ export class PhysicsComponent extends Component {
   private readonly COLLISION_DAMPING: number = 0.5; // Damping factor for collision response
   private friction: number;
 
+  // Sleep properties
+  public isSleeping = false;
+  public sleepTimer = 0;
+  public readonly SLEEP_VELOCITY_THRESHOLD = 0.1; // pixels/second, very low threshold
+  public readonly SLEEP_TIME_THRESHOLD = 2000; // 2 seconds
+
   // Movement properties
   speed: number;
   private maxSpeed: number;
@@ -67,6 +73,11 @@ export class PhysicsComponent extends Component {
   setVelocity(velocity: Vec2): void {
     if (this.isBlocked) {
       return;
+    }
+
+    // Wake up if a non-zero velocity is applied to a sleeping entity
+    if (this.isSleeping && (velocity[0] !== 0 || velocity[1] !== 0)) {
+      this.wakeUp();
     }
 
     this.velocity = velocity;
@@ -106,6 +117,16 @@ export class PhysicsComponent extends Component {
 
   isCurrentlyBlocked(): boolean {
     return this.isBlocked;
+  }
+
+  // Sleep methods
+  public isAsleep(): boolean {
+    return this.isSleeping;
+  }
+
+  public wakeUp(): void {
+    this.isSleeping = false;
+    this.sleepTimer = 0;
   }
 
   // Movement methods
@@ -150,6 +171,10 @@ export class PhysicsComponent extends Component {
     this.isBlocked = false;
     this.blockedTimer = 0;
     this.friction = 1;
+
+    // Reset sleep properties
+    this.isSleeping = false;
+    this.sleepTimer = 0;
 
     // Reset movement properties (recompute in per-second units)
     const baseSpeedPerSecond = calculateSpeedPerSecond(
