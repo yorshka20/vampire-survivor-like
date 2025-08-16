@@ -17,11 +17,12 @@ type SpawnerProps = {
  * It holds a reference to its spawner entity and delegates spawn logic.
  */
 export class SpawnerComponent extends Component {
+  static componentName = 'Spawner';
   private spawnerEntity: ISpawnerEntity;
   private position: Point;
 
   constructor(props: SpawnerProps) {
-    super('Spawner');
+    super(SpawnerComponent.componentName);
     this.spawnerEntity = props.spawnerEntity;
     this.position = props.position;
   }

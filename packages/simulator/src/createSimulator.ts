@@ -1,27 +1,23 @@
 import {
   BorderSystem,
-  ColliderComponent,
   CollisionSystem,
   createShapeDescriptor,
   EntityRenderLayer,
   ForceFieldSystem,
   GridDebugLayer,
   PerformanceSystem,
-  PhysicsComponent,
   PhysicsSystem,
-  RenderComponent,
   RenderSystem,
   ShapeComponent,
   SpatialGridSystem,
-  TransformComponent,
+  SpawnSystem,
   TransformSystem,
   World,
 } from '@ecs';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
-import { randomRgb } from '@ecs/entities/utils/rgb';
 import { BackgroundRenderLayer } from '@ecs/systems/rendering/layers/BackgroundLayer';
 import { Point, Viewport } from '@ecs/utils/types';
+import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
 import { Game } from './game/Game';
 
@@ -67,10 +63,12 @@ export async function createSimulator(): Promise<Game> {
 function initializeSystems(world: World, rootElement: HTMLElement) {
   // Register core systems required by the simulator
   world.addSystem(new SpatialGridSystem());
+  // world.addSystem(new ExactCollisionSystem());
   world.addSystem(new CollisionSystem());
   world.addSystem(new PhysicsSystem());
   world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
+  world.addSystem(new SpawnSystem());
   world.addSystem(new BorderSystem(0.8));
 
   // Add a force field system for basic world forces
@@ -102,25 +100,23 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
 }
 
 function initializeEntities(world: World, viewport: Viewport) {
-  // Spawn 100 balls at random positions strictly inside the viewport bounds
-  // We keep a half-size margin so the center-based render shape starts fully inside
-  const ballSize = 10; // must match RenderComponent size below to keep margins correct
-  for (let i = 0; i < 100; i++) {
-    const position: Point = [
-      // x in [0, width]
-      Math.random() * viewport[2],
-      // y in [0, 30]
-      30 + (0.5 - Math.random()) * 30,
-    ];
-    const ball = createBall(world, position, ballSize);
-    world.addEntity(ball);
-  }
+  // Initial velocity requirements for testing physics:
+  //   We randomize in [8, 12] to add slight variation
+  const initialV = 10 + (Math.random() * 4 - 2); // [8, 12]
+  const generator = createGenerator(world, {
+    position: [100, 100],
+    maxEntities: 10000,
+    velocity: [initialV, initialV],
+    spawnGap: 50,
+  });
+  world.addEntity(generator);
 
   createObstacleBlock(world, [200, 700], [100, 100]);
   createObstacleBlock(world, [400, 400], [100, 100]);
   createObstacleBlock(world, [200, 1200], [100, 100]);
 
-  createObstacleBlock(world, [1100, 1110]);
+  createObstacleBlock(world, [1200, 1000], [800, 100]);
+
   createObstacleBlock(world, [1200, 1600]);
   createObstacleBlock(world, [1300, 1800]);
 
@@ -152,55 +148,6 @@ function initializeEntities(world: World, viewport: Viewport) {
     });
     world.addEntity(wallObstacle);
   }
-}
-
-function createBall(world: World, position: Point, size: number) {
-  const ball = world.createEntity('object');
-  ball.addComponent(
-    world.createComponent(TransformComponent, {
-      position,
-      rotation: 0,
-    }),
-  );
-
-  // Initial velocity requirements for testing physics:
-  // - Horizontal component fixed at 0
-  // - Vertical component fixed around +10 (downwards in canvas space)
-  //   We randomize in [8, 12] to add slight variation
-  const initialVy = 10 + (Math.random() * 4 - 2); // [8, 12]
-  ball.addComponent(
-    world.createComponent(PhysicsComponent, {
-      velocity: [0, initialVy],
-      // We leave speed at 0 so movement is purely governed by velocity + force fields
-      speed: 0,
-      // Use a generous maxSpeed so force-field acceleration is visible and not clamped early
-      maxSpeed: 100000,
-      // Mark as PROJECTILE-like for physics tuning (independent of Entity.type)
-      entityType: 'PROJECTILE',
-    }),
-  );
-
-  ball.addComponent(
-    world.createComponent(ColliderComponent, {
-      type: 'circle',
-      size: [size, size],
-    }),
-  );
-
-  ball.addComponent(
-    world.createComponent(ShapeComponent, {
-      descriptor: createShapeDescriptor('circle', {
-        radius: size,
-      }),
-    }),
-  );
-  ball.addComponent(
-    world.createComponent(RenderComponent, {
-      color: randomRgb(Math.random()),
-      layer: RenderLayerIdentifier.PROJECTILE,
-    }),
-  );
-  return ball;
 }
 
 function createObstacleBlock(world: World, position: Point, size: [number, number] = [100, 100]) {

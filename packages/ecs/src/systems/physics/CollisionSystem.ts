@@ -414,7 +414,45 @@ export class CollisionSystem extends System {
       // Enemy cannot push player
       const pushForce = 5;
       transform1.setPosition([pos1[0] - nx * pushForce, pos1[1] - ny * pushForce]);
-    } else {
+    }
+    // --- Begin obstacle-ball collision handling ---
+    else if (entity.isType('obstacle') && nearbyEntity.isType('enemy')) {
+      /**
+       * Obstacle is static, only move the enemy (ball) out of overlap and reflect its velocity.
+       * This prevents the ball from tunneling through the obstacle.
+       */
+      const transform = nearbyEntity.getComponent<TransformComponent>(
+        TransformComponent.componentName,
+      );
+      const physics = nearbyEntity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+      if (transform && physics) {
+        // Move enemy out of overlap
+        transform.setPosition([pos2[0] + nx * overlap, pos2[1] + ny * overlap]);
+        // Reflect and dampen velocity along the collision normal
+        const vel = physics.getVelocity();
+        const dot = vel[0] * nx + vel[1] * ny;
+        physics.setVelocity([(vel[0] - 2 * dot * nx) * 0.5, (vel[1] - 2 * dot * ny) * 0.5]);
+      }
+      return;
+    } else if (entity.isType('enemy') && nearbyEntity.isType('obstacle')) {
+      /**
+       * Obstacle is static, only move the enemy (ball) out of overlap and reflect its velocity.
+       * This prevents the ball from tunneling through the obstacle.
+       */
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+      if (transform && physics) {
+        // Move enemy out of overlap
+        transform.setPosition([pos1[0] - nx * overlap, pos1[1] - ny * overlap]);
+        // Reflect and dampen velocity along the collision normal
+        const vel = physics.getVelocity();
+        const dot = vel[0] * nx + vel[1] * ny;
+        physics.setVelocity([(vel[0] - 2 * dot * nx) * 0.5, (vel[1] - 2 * dot * ny) * 0.5]);
+      }
+      return;
+    }
+    // --- End obstacle-ball collision handling ---
+    else {
       // Enemy-Enemy collision: prevent overlap and exchange momentum
       this.handleEnemyCollision(entity, nearbyEntity, collisionResult, nx, ny, overlap);
     }

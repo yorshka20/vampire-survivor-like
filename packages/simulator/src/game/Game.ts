@@ -1,8 +1,7 @@
-import { type PerformanceSystem, ResourceManager, SoundManager, SpatialGridSystem } from '@ecs';
+import { type PerformanceSystem, ResourceManager, SoundManager } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import { GameStore } from '@ecs/core/store/GameStore';
-import { Viewport } from '@ecs/utils/types';
 import { GameLoop } from './GameLoop';
 
 /**
@@ -123,19 +122,6 @@ export class Game {
    */
   getStore(): GameStore {
     return this.store;
-  }
-
-  /**
-   * Set the game viewport
-   */
-  setViewport(viewport: Viewport): void {
-    const spatialGridSystem = this.world.getSystem<SpatialGridSystem>(
-      'SpatialGridSystem',
-      SystemPriorities.SPATIAL_GRID,
-    );
-    if (spatialGridSystem) {
-      spatialGridSystem.setViewport(viewport);
-    }
   }
 
   private getPerformanceSystem() {
