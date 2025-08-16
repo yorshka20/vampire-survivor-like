@@ -1,166 +1,62 @@
-import { AIComponent, TransformComponent } from '@ecs/components';
-import { SPAWN_CONSTANTS } from '@ecs/constants/spawnConstants';
+import { AIComponent } from '@ecs/components';
+import { SpawnerComponent } from '@ecs/components/state/SpawnerComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { GameStore } from '@ecs/core/store/GameStore';
-import { createEliteEnemyEntity, createEnemyEntity } from '@ecs/entities/Enemy';
 import { PerformanceSystem } from '../core/PerformanceSystem';
 
 export class SpawnSystem extends System {
   private gameStore: GameStore;
-
-  private lastSpawnTime: number = 0;
   private enemyCount: number = 0;
-  private waveNumber: number = 1;
-  private lastWaveTime: number = 0;
-  private enemiesSpawnedThisWave: number = 0;
-  private waveInProgress: boolean = false;
 
-  private spawnInterval: number = SPAWN_CONSTANTS.INITIAL_SPAWN_INTERVAL;
-  private minSpawnDistance: number = SPAWN_CONSTANTS.MIN_SPAWN_DISTANCE;
-  private maxSpawnDistance: number = SPAWN_CONSTANTS.MAX_SPAWN_DISTANCE;
-  private maxEnemies: number = SPAWN_CONSTANTS.MAX_ENEMIES;
-  private waveDuration: number = SPAWN_CONSTANTS.INITIAL_WAVE_DURATION;
-  private enemiesPerWave: number = SPAWN_CONSTANTS.INITIAL_ENEMIES_PER_WAVE;
+  private performanceSystem: PerformanceSystem | null = null;
 
   constructor() {
     super('SpawnSystem', SystemPriorities.SPAWN, 'logic');
     this.gameStore = GameStore.getInstance();
-    this.gameStore.setWaveDuration(this.waveDuration);
   }
 
   update(deltaTime: number): void {
-    const currentTime = Date.now();
+    if (!this.canInvoke()) return;
+
+    // Find all spawner entities and trigger their spawn logic
+    const spawners = this.world.getEntitiesWithComponents([SpawnerComponent]);
+    for (const spawner of spawners) {
+      const spawnerComp = spawner.getComponent<SpawnerComponent>(SpawnerComponent.componentName);
+      const spawnedEntities = spawnerComp.spawn(this.world);
+      for (const entity of spawnedEntities) {
+        this.world.addEntity(entity);
+      }
+    }
 
     // Count current enemies
+    this.updateEnemyCount();
+  }
+
+  private updateEnemyCount(): void {
     const enemies = this.world.getEntitiesWithComponents([AIComponent]);
     this.enemyCount = enemies.length;
 
     // Update game state
     this.gameStore.setEnemyCount(this.enemyCount);
-    this.gameStore.setWave(this.waveNumber);
-    this.gameStore.setTimeUntilNextWave(
-      this.waveInProgress ? Math.max(0, this.waveDuration - (currentTime - this.lastWaveTime)) : 0,
-    );
-
-    // Check if current wave should end based on time
-    if (this.waveInProgress && currentTime - this.lastWaveTime >= this.waveDuration) {
-      this.waveInProgress = false;
-      this.lastWaveTime = currentTime;
-      this.waveNumber++;
-      this.enemiesPerWave = Math.floor(
-        SPAWN_CONSTANTS.INITIAL_ENEMIES_PER_WAVE +
-          this.waveNumber * 10 +
-          SPAWN_CONSTANTS.ENEMIES_PER_WAVE_INCREASE,
-      );
-      this.spawnInterval = Math.max(
-        SPAWN_CONSTANTS.MIN_SPAWN_INTERVAL,
-        this.spawnInterval - SPAWN_CONSTANTS.SPAWN_INTERVAL_DECREASE,
-      );
-      this.waveDuration = Math.max(
-        SPAWN_CONSTANTS.MIN_WAVE_DURATION,
-        this.waveDuration - SPAWN_CONSTANTS.WAVE_DURATION_DECREASE,
-      );
-      this.gameStore.setWaveDuration(this.waveDuration);
-    }
-
-    // Start new wave if previous wave ended
-    if (!this.waveInProgress) {
-      this.waveInProgress = true;
-      this.enemiesSpawnedThisWave = 0;
-    }
-
-    // Find the player
-    const player = this.getPlayer();
-    if (!player) return;
-
-    const playerTransform = player.getComponent<TransformComponent>(
-      TransformComponent.componentName,
-    );
-    const playerPos = playerTransform.getPosition();
-
-    // Elite spawn check: every 1000 normal enemy kills
-    const kills = this.gameStore.getNormalEnemyKills();
-    const elitesSpawned = this.gameStore.getEliteSpawned();
-    if (kills >= (elitesSpawned + 1) * 1000 && this.enemyCount < this.maxEnemies) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance =
-        this.minSpawnDistance + Math.random() * (this.maxSpawnDistance - this.minSpawnDistance);
-      const spawnX = playerPos[0] + Math.cos(angle) * distance;
-      const spawnY = playerPos[1] + Math.sin(angle) * distance;
-
-      // Normal enemy base health formula
-      const normalHealth = 100 * (1 + this.waveNumber * 0.05);
-      const eliteHealth = normalHealth * 10000;
-
-      const elite = createEliteEnemyEntity(this.world, {
-        position: [spawnX, spawnY],
-        speed: Math.max(
-          SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
-          SPAWN_CONSTANTS.MAX_ENEMY_SPEED,
-        ),
-        size: undefined, // will be derived in factory
-        health: eliteHealth,
-        playerId: player.id,
-      });
-      this.world.addEntity(elite);
-      this.gameStore.incrementEliteSpawned(1);
-    }
-
-    // Check if we should spawn
-    if (this.enemyCount >= this.maxEnemies) return;
-    if (currentTime - this.lastSpawnTime < this.spawnInterval) return;
-
-    // Spawn enemies for current wave
-    const remainingEnemies = this.enemiesPerWave - this.enemiesSpawnedThisWave;
-    const enemiesToSpawn = Math.min(
-      Math.floor(this.waveNumber * 10 * SPAWN_CONSTANTS.WAVE_ENEMY_MULTIPLIER),
-      Math.min(remainingEnemies, this.maxEnemies - this.enemyCount),
-    );
-
-    for (let i = 0; i < enemiesToSpawn; i++) {
-      // Generate random spawn position around player
-      const angle = Math.random() * Math.PI * 2;
-      const distance =
-        this.minSpawnDistance + Math.random() * (this.maxSpawnDistance - this.minSpawnDistance);
-      const spawnX = playerPos[0] + Math.cos(angle) * distance;
-      const spawnY = playerPos[1] + Math.sin(angle) * distance;
-
-      this.spawnEnemy(spawnX, spawnY, player.id);
-      this.enemiesSpawnedThisWave++;
-    }
-
-    this.lastSpawnTime = currentTime;
   }
 
-  private spawnEnemy(x: number, y: number, playerId: string): void {
-    // Random enemy stats based on wave
-    const health = 100 * (1 + this.waveNumber * 0.05);
-    const speed = Math.max(
-      SPAWN_CONSTANTS.MIN_ENEMY_SPEED + this.waveNumber * SPAWN_CONSTANTS.ENEMY_SPEED_INCREASE,
-      SPAWN_CONSTANTS.MAX_ENEMY_SPEED,
-    );
-    const size: [number, number] = [40, 40];
+  private getPerformanceSystem(): PerformanceSystem {
+    if (this.performanceSystem) return this.performanceSystem;
 
-    const enemy = createEnemyEntity(this.world, {
-      position: [x, y],
-      speed,
-      size,
-      health,
-      playerId,
-    });
-
-    this.world.addEntity(enemy);
-  }
-
-  canInvoke(): boolean {
-    const performance = this.world.getSystem<PerformanceSystem>(
+    this.performanceSystem = this.world.getSystem<PerformanceSystem>(
       PerformanceSystem.name,
       SystemPriorities.SPAWN,
     );
-    if (performance) {
-      return performance.isFPSAbove(30);
+
+    if (!this.performanceSystem) {
+      throw new Error('PerformanceSystem not found');
     }
-    return true;
+
+    return this.performanceSystem;
+  }
+
+  canInvoke(): boolean {
+    return this.getPerformanceSystem().isFPSAbove(30);
   }
 }
