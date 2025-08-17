@@ -7,13 +7,10 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
-import { CollisionPair, SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
+import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
 import { RenderSystem } from '@ecs/systems';
 import { getNumericPairKey } from '@ecs/utils/name';
-import { RectArea } from '@ecs/utils/types';
-
-// Type definition for a pair of colliding entity IDs
-// Simplified entity data structure for sending to workers
+import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from './collisionUtils';
 
 /**
  * @class ParallelCollisionSystem
@@ -31,10 +28,9 @@ import { RectArea } from '@ecs/utils/types';
  * phase remains on the main thread to ensure deterministic state changes and avoid race conditions.
  */
 export class ParallelCollisionSystem extends System {
-  private defaultCollisionArea: RectArea = [0, 0, 0, 0];
   private workerPoolManager: WorkerPoolManager;
 
-  constructor(private positionalCorrectTimes: number = 10) {
+  constructor(private positionalCorrectTimes: number = 6) {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
@@ -204,14 +200,25 @@ export class ParallelCollisionSystem extends System {
               !entityA.toRemove &&
               !entityB.toRemove
             ) {
-              const result = this.checkObjectObjectCollision(entityA, entityB);
-              if (result) {
+              let result: CollisionResult;
+              // On the first iteration, we will use the pre-calculated result from the worker
+              if (i === 0) {
+                result = { normal: pair.normal, penetration: pair.penetration };
+              } else {
+                // On subsequent iterations, recalculate collision as positions have changed
+                result = this.checkObjectObjectCollision(entityA, entityB);
+              }
+
+              if (result && result.penetration > 0) {
                 this.resolveObjectObjectCollision(entityA, entityB, result);
                 hasCollisions = true;
               } else {
                 // If no collision is detected in this pass, remove it from the set
                 uniqueCollisions.delete(pair);
               }
+            } else {
+              // If entities are no longer valid, remove the pair
+              uniqueCollisions.delete(pair);
             }
           }
           // If no collisions were resolved in a pass, we can stop early
@@ -223,7 +230,7 @@ export class ParallelCollisionSystem extends System {
     }
   }
 
-  // Check exact collision between two entities (circle-circle)
+  // Check exact collision between two entities
   private checkObjectObjectCollision(
     entityA: Entity,
     entityB: Entity,
@@ -239,21 +246,10 @@ export class ParallelCollisionSystem extends System {
     const posB = transformB.getPosition();
     const sizeA = shapeA.getSize();
     const sizeB = shapeB.getSize();
+    const typeA = shapeA.getType();
+    const typeB = shapeB.getType();
 
-    const rA = sizeA[0] / 2;
-    const rB = sizeB[0] / 2;
-    const dx = posA[0] - posB[0];
-    const dy = posA[1] - posB[1];
-    const distSq = dx * dx + dy * dy;
-    const rSum = rA + rB;
-
-    if (distSq >= rSum * rSum) return null;
-
-    const dist = Math.sqrt(distSq) || 1e-6;
-    const normal: [number, number] = [dx / dist, dy / dist];
-    const penetration = rSum - dist;
-
-    return { normal, penetration };
+    return getCollisionNormalAndPenetration(posA, sizeA, typeA, posB, sizeB, typeB);
   }
 
   // Filters out duplicate collision pairs
