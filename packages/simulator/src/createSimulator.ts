@@ -81,7 +81,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
   world.addSystem(new SpawnSystem());
-  world.addSystem(new BorderSystem(1));
+  world.addSystem(new BorderSystem(0.9));
 
   // Add a force field system for basic world forces
   const forceFieldSystem = new ForceFieldSystem();

@@ -12,3 +12,14 @@ export function generateEntityId(type: EntityType): string {
 export function generateWeaponId(weaponType: WeaponType): string {
   return `${weaponType}-${Date.now().toString().slice(-4)}`;
 }
+
+/**
+ * Generate a numeric key for a pair of entities using their numericId
+ * This is much faster than string operations and Set lookups
+ * Ensures order independence (A,B == B,A)
+ */
+export function getNumericPairKey(id1: number, id2: number): number {
+  const a = Math.min(id1, id2);
+  const b = Math.max(id1, id2);
+  return (a << 20) | b;
+}

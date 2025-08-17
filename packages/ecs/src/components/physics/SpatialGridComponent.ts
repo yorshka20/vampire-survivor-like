@@ -29,16 +29,9 @@ interface GridCell {
  * - damage: only collect entities that can deal damage
  * - collision-distant: only collect collidable entities that are further away
  * - pickup: only collect entities that are pickable
- * - object: only collect entities that are objects
  * - obstacle: only collect entities that are obstacles
  */
-export type SpatialQueryType =
-  | 'collision'
-  | 'damage'
-  | 'collision-distant'
-  | 'pickup'
-  | 'object'
-  | 'obstacle';
+export type SpatialQueryType = 'collision' | 'damage' | 'collision-distant' | 'pickup' | 'obstacle';
 
 interface CacheEntry {
   entities: string[]; // Changed from Set<string> to string[] for better performance
@@ -424,8 +417,6 @@ export class SpatialGridComponent extends Component {
         return Array.from(new Set([...cell.enemies, ...cell.projectiles, ...cell.areaEffects]));
       case 'pickup':
         return [...cell.pickups];
-      case 'object':
-        return [...cell.objects];
       case 'obstacle':
         return [...cell.obstacles];
       default:
