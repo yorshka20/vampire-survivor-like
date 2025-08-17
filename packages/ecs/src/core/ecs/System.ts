@@ -47,7 +47,7 @@ export abstract class System implements ISystem {
   }
 
   /** time in seconds. not milliseconds */
-  abstract update(deltaTime: number): void;
+  abstract update(deltaTime: number, systemType: SystemType): void;
 
   setWorld(world: World): void {
     this.world = world;
