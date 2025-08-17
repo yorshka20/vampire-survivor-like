@@ -12,6 +12,12 @@ import { RenderSystem } from '@ecs/systems';
 import { getNumericPairKey } from '@ecs/utils/name';
 import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from './collisionUtils';
 
+interface ClusterInfo {
+  bodies: Set<string>; // Store entity IDs
+  totalEnergy: number;
+  isSleeping: boolean;
+  sleepTimer: number;
+}
 /**
  * @class ParallelCollisionSystem
  * @description A collision system that uses Web Workers to parallelize collision detection.
@@ -29,6 +35,10 @@ import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from
  */
 export class ParallelCollisionSystem extends System {
   private workerPoolManager: WorkerPoolManager;
+  private clusters: Map<string, ClusterInfo> = new Map();
+  private entityToClusterMap: Map<string, string> = new Map();
+  private readonly SLEEP_ENERGY_THRESHOLD = 0.05;
+  private readonly SLEEP_DELAY = 1000; // 1 second
 
   constructor(private positionalCorrectTimes: number = 6) {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
@@ -46,6 +56,8 @@ export class ParallelCollisionSystem extends System {
 
     const grid = this.gridComponent.grid;
     if (!grid || grid.size === 0) return;
+
+    this.updateClusters(deltaTime);
 
     // Start the collision detection process for the current frame
     const activePromises = this.startCollisionDetection(grid);
@@ -73,6 +85,7 @@ export class ParallelCollisionSystem extends System {
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
       if (transform && collider && physics && shape) {
+        if (physics.isAsleep()) continue; // Skip sleeping entities in broadphase
         const position = transform.getPosition();
         simpleEntities[entity.id] = {
           id: entity.id,
@@ -182,6 +195,7 @@ export class ParallelCollisionSystem extends System {
 
       const allCollisions = results.flat();
       const uniqueCollisions = this.filterUniqueCollisions(allCollisions);
+      this.identifyClusters(uniqueCollisions);
 
       if (uniqueCollisions.size > 0) {
         // The resolution process is iterative
@@ -200,6 +214,18 @@ export class ParallelCollisionSystem extends System {
               !entityA.toRemove &&
               !entityB.toRemove
             ) {
+              const physicsA = entityA.getComponent<PhysicsComponent>(
+                PhysicsComponent.componentName,
+              );
+              const physicsB = entityB.getComponent<PhysicsComponent>(
+                PhysicsComponent.componentName,
+              );
+              if (physicsA?.isAsleep() && physicsB?.isAsleep()) {
+                continue;
+              }
+              if (physicsA?.isAsleep() || physicsB?.isAsleep()) {
+                this.wakeUpClusterForEntity(physicsA.isAsleep() ? entityA.id : entityB.id);
+              }
               let result: CollisionResult;
               // On the first iteration, we will use the pre-calculated result from the worker
               if (i === 0) {
@@ -227,6 +253,122 @@ export class ParallelCollisionSystem extends System {
       }
     } catch (error) {
       console.error('Error in collision worker:', error);
+    }
+  }
+
+  private identifyClusters(collisions: Set<CollisionPair>): void {
+    // Reset cluster mapping for this frame
+    this.entityToClusterMap.clear();
+    const visited = new Set<string>();
+
+    const allCollidingEntities = new Set<string>();
+    for (const pair of collisions) {
+      allCollidingEntities.add(pair.a);
+      allCollidingEntities.add(pair.b);
+    }
+
+    for (const entityId of allCollidingEntities) {
+      if (!visited.has(entityId)) {
+        const newCluster: Set<string> = new Set();
+        const queue: string[] = [entityId];
+        visited.add(entityId);
+
+        while (queue.length > 0) {
+          const currentId = queue.shift()!;
+          newCluster.add(currentId);
+
+          // Find all entities colliding with the current one
+          for (const pair of collisions) {
+            let neighborId: string | null = null;
+            if (pair.a === currentId) neighborId = pair.b;
+            if (pair.b === currentId) neighborId = pair.a;
+
+            if (neighborId && !visited.has(neighborId)) {
+              visited.add(neighborId);
+              queue.push(neighborId);
+            }
+          }
+        }
+
+        const clusterId = `cluster_${entityId}`;
+        this.clusters.set(clusterId, {
+          bodies: newCluster,
+          totalEnergy: 0,
+          isSleeping: false,
+          sleepTimer: 0,
+        });
+        newCluster.forEach((id) => this.entityToClusterMap.set(id, clusterId));
+      }
+    }
+  }
+
+  private updateClusters(deltaTime: number): void {
+    for (const [clusterId, cluster] of this.clusters.entries()) {
+      let totalKineticEnergy = 0;
+      let allSleeping = true;
+      for (const entityId of cluster.bodies) {
+        const entity = this.world.getEntityById(entityId);
+        if (entity) {
+          const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+          if (physics) {
+            const vel = physics.getVelocity();
+            totalKineticEnergy += 0.5 * (vel[0] ** 2 + vel[1] ** 2);
+            if (!physics.isAsleep()) {
+              allSleeping = false;
+            }
+          }
+        }
+      }
+      cluster.totalEnergy = totalKineticEnergy;
+
+      if (cluster.totalEnergy < this.SLEEP_ENERGY_THRESHOLD && !allSleeping) {
+        cluster.sleepTimer += deltaTime * 1000; // convert to ms
+        if (cluster.sleepTimer > this.SLEEP_DELAY) {
+          this.putClusterToSleep(cluster);
+        }
+      } else {
+        cluster.sleepTimer = 0;
+        if (cluster.isSleeping) {
+          this.wakeUpCluster(cluster);
+        }
+      }
+    }
+  }
+
+  private putClusterToSleep(cluster: ClusterInfo): void {
+    cluster.isSleeping = true;
+    for (const entityId of cluster.bodies) {
+      const entity = this.world.getEntityById(entityId);
+      if (entity) {
+        const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+        if (physics) {
+          physics.velocity = [0, 0];
+          physics.isSleeping = true;
+        }
+      }
+    }
+  }
+
+  private wakeUpCluster(cluster: ClusterInfo): void {
+    cluster.isSleeping = false;
+    for (const entityId of cluster.bodies) {
+      const entity = this.world.getEntityById(entityId);
+      if (entity) {
+        const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+        if (physics) {
+          physics.wakeUp();
+        }
+      }
+    }
+  }
+
+  private wakeUpClusterForEntity(entityId: string): void {
+    const clusterId = this.entityToClusterMap.get(entityId);
+    if (clusterId) {
+      const cluster = this.clusters.get(clusterId);
+      if (cluster && cluster.isSleeping) {
+        this.wakeUpCluster(cluster);
+      }
     }
   }
 

@@ -120,11 +120,11 @@ export class PhysicsComponent extends Component {
   }
 
   // Sleep methods
-  public isAsleep(): boolean {
+  isAsleep(): boolean {
     return this.isSleeping;
   }
 
-  public wakeUp(): void {
+  wakeUp(): void {
     this.isSleeping = false;
     this.sleepTimer = 0;
   }
@@ -160,6 +160,17 @@ export class PhysicsComponent extends Component {
       if (this.blockedTimer <= 0) {
         this.isBlocked = false;
       }
+    }
+
+    // Sleep logic
+    const speed = Math.sqrt(this.velocity[0] ** 2 + this.velocity[1] ** 2);
+    if (speed < this.SLEEP_VELOCITY_THRESHOLD) {
+      this.sleepTimer += deltaTime * 1000; // convert to ms
+      if (this.sleepTimer >= this.SLEEP_TIME_THRESHOLD) {
+        this.isSleeping = true;
+      }
+    } else {
+      this.wakeUp();
     }
   }
 

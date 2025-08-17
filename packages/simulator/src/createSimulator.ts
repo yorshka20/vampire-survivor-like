@@ -128,7 +128,7 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator2 = createGenerator(world, {
     position: [100, 120],
     maxEntities: 20000,
-    ballSize: 10,
+    ballSize: 20,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
   });
@@ -139,16 +139,16 @@ function initializeEntities(world: World, viewport: Viewport) {
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
   });
-  world.addEntity(generator);
+  // world.addEntity(generator);
   world.addEntity(generator2);
-  world.addEntity(generator3);
+  // world.addEntity(generator3);
 
   createObstacleBlock(world, [200, 700], [100, 100]);
   createObstacleBlock(world, [400, 400], [100, 100]);
 
   createObstacleCircle(world, [200, 1200], 100);
 
-  createObstacleCircle(world, [1200, 1000], 400);
+  createObstacleCircle(world, [1200, 1100], 400);
 
   createObstacleBlock(world, [1200, 1600]);
   createObstacleBlock(world, [1300, 1800]);

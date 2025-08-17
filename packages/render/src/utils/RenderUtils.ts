@@ -49,6 +49,14 @@ export class RenderUtils {
           shape.descriptor.width,
           shape.descriptor.height,
         );
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          -shape.descriptor.width / 2,
+          -shape.descriptor.height / 2,
+          shape.descriptor.width,
+          shape.descriptor.height,
+        );
         break;
     }
   }

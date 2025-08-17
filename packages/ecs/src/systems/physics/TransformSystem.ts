@@ -22,6 +22,8 @@ export class TransformSystem extends System {
   // Scale for mobile devices (smaller to fit more content on screen)
   static mobileScale = 0.6;
 
+  private SMALL_VELOCITY_THRESHOLD: number = 1e-3;
+
   private isMobileDevice: boolean = false;
 
   // Map to store transform data for entities
@@ -52,7 +54,7 @@ export class TransformSystem extends System {
 
       // If entity has velocity component, use velocity-based movement
       if (physics) {
-        this.handleVelocityMovement(state, transform, physics, stats);
+        this.handleVelocityMovement(state, physics, stats);
       } else {
         this.handleDirectMovement(state, transform, physics, stats, deltaTime);
       }
@@ -147,7 +149,6 @@ export class TransformSystem extends System {
 
   private handleVelocityMovement(
     state: InputState,
-    transform: TransformComponent,
     velocity: PhysicsComponent,
     stats: StatsComponent,
   ): void {
@@ -168,7 +169,10 @@ export class TransformSystem extends System {
       vy = (vy / magnitude) * speed;
     }
 
-    if (vx === 0 && vy === 0) {
+    if (
+      Math.abs(vx) < this.SMALL_VELOCITY_THRESHOLD &&
+      Math.abs(vy) < this.SMALL_VELOCITY_THRESHOLD
+    ) {
       velocity.stop();
     } else {
       velocity.setVelocity([vx, vy]);

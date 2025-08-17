@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createSimulator } from '../createSimulator';
+  import type { SpawnerEntityType } from '../entities/generator';
+  import { Game } from '../game/Game';
   import { gameState } from '../game/gameState';
   import { draggable } from './draggable';
 
   const repoUrl = import.meta.env.VITE_REPO_URL;
+  let globalGame: Game;
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
@@ -33,6 +36,7 @@
 
       // Initialize resources first, then start the game
       const game = await createSimulator();
+      globalGame = game;
       gameState.setGame(game);
       gameState.start();
 
@@ -47,6 +51,17 @@
         forceStrength = forceFieldSystem.forceField.strength ?? 200;
         // Copy direction array to avoid reference issues
         forceDirection = forceFieldSystem.forceField.direction ? [...forceFieldSystem.forceField.direction] : [0, 1];
+      }
+    }
+  }
+
+  function stopGenerator() {
+    const world = globalGame.getWorld();
+    const generators = world.getEntitiesByType('spawner');
+    if (generators) {
+      for (const generator of generators) {
+        // stop the generator
+        (generator as SpawnerEntityType).setStopped(v => !v);
       }
     }
   }
@@ -286,10 +301,24 @@
     align-items: center;
     gap: 5px;
   }
-
-  .pause-button:hover {
-    background: rgba(0,0,0,0.7);
-    border-color: rgba(255,255,255,0.5);
+  .stop-button {
+    position: fixed;
+    bottom: 100px;
+    left: 20px;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.5);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.3);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
 
   .pause-icon {
@@ -461,6 +490,8 @@
     {/if}
   </div>
 {/if}
+
+<button class="stop-button" on:click={stopGenerator}>Stop Generator</button>
 
 {#if showPauseButton}
 <button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>

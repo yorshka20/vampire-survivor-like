@@ -2,7 +2,7 @@ import { ISpawnerEntity, SpawnerComponent, TransformComponent, World } from '@ec
 import { Entity } from '@ecs/core/ecs/Entity';
 import { generateEntityId, randomRgb } from '@ecs/utils';
 import { Point, Vec2 } from '@ecs/utils/types';
-import { createBall } from './ball';
+import { createSquare } from './square';
 
 type GeneratorProps = {
   position: Point;
@@ -20,6 +20,8 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   private ballSize: number;
   private currentEntities: number = 0;
   private lastSpawnTime: number = 0;
+
+  private isStopped: boolean = false;
 
   constructor(props: GeneratorProps) {
     super(generateEntityId('spawner'), 'spawner');
@@ -41,6 +43,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
   spawn(world: World): Entity[] {
     const currentTime = Date.now();
+    if (this.isStopped) return [];
     if (!this.canSpawn(currentTime)) return [];
 
     const spawnedEntities: Entity[] = [];
@@ -48,7 +51,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
     const remainingEntities = this.maxEntities - this.currentEntities;
     if (remainingEntities <= 0) return spawnedEntities;
 
-    const ball = createBall(world, {
+    const square = createSquare(world, {
       position: this.position,
       size: this.ballSize,
       velocity: this.velocity,
@@ -58,11 +61,17 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
     this.currentEntities++;
     this.lastSpawnTime = currentTime;
 
-    spawnedEntities.push(ball);
+    spawnedEntities.push(square);
 
     return spawnedEntities;
   }
+
+  setStopped(fn: (value: boolean) => boolean): void {
+    this.isStopped = fn(this.isStopped);
+  }
 }
+
+export type SpawnerEntityType = SpawnerEntity;
 
 export function createGenerator(world: World, props: GeneratorProps) {
   const generator = new SpawnerEntity(props);
