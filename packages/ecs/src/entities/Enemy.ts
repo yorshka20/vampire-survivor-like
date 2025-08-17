@@ -14,9 +14,8 @@ import {
 import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
+import { Color, Point, randomRgb } from '@ecs/utils';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
-import { Color, Point } from '@ecs/utils/types';
-import { randomRgb } from './utils/rgb';
 
 export interface EnemyProps {
   position: Point;

@@ -39,17 +39,13 @@ export function hslToRgb(h: number, s: number, l: number): RgbColor {
   };
 }
 
-/**
- * Generate a random color with high saturation and medium lightness
- * @returns RGB color object with alpha
- */
-export function generateRandomColor(): RgbaColor {
-  const hue = Math.random() * 360;
-  const saturation = 80 + Math.random() * 20; // 80-100%
-  const lightness = 50 + Math.random() * 10; // 50-60%
-
-  const rgb = hslToRgb(hue, saturation, lightness);
-  return { ...rgb, a: 1 };
+export function randomRgb(alpha?: number): RgbaColor {
+  return {
+    r: Math.floor(Math.random() * 256),
+    g: Math.floor(Math.random() * 256),
+    b: Math.floor(Math.random() * 256),
+    a: alpha ?? Math.random(),
+  };
 }
 
 export type RgbColor = {

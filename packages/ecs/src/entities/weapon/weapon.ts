@@ -19,8 +19,7 @@ import {
 } from '@ecs/components/weapon/WeaponTypes';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
-import { Point } from '@ecs/utils/types';
-import { randomRgb } from '../utils/rgb';
+import { Point, randomRgb } from '@ecs/utils';
 import { createWeapon, getDefaultWeaponProperties } from './WeaponFactory';
 
 export interface WeaponProps {
