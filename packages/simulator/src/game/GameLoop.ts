@@ -23,6 +23,8 @@ export class GameLoop {
   private readonly maxFrameTime: number = 0.1; // Maximum time (in seconds) for a single logic frame
   private readonly maxFramesToSkip: number = 3; // Maximum number of frames to skip in one update
 
+  private performanceSystem: PerformanceSystem | null = null;
+
   private get currentTimeStep(): number {
     const performanceSystem = this.world.getSystem<PerformanceSystem>(
       'PerformanceSystem',
@@ -34,7 +36,12 @@ export class GameLoop {
     return this.fixedTimeStep;
   }
 
-  constructor(private world: World) {}
+  constructor(private world: World) {
+    this.performanceSystem = this.world.getSystem<PerformanceSystem>(
+      'PerformanceSystem',
+      SystemPriorities.PERFORMANCE,
+    );
+  }
 
   start(): void {
     if (this.isRunning) return;
@@ -44,9 +51,9 @@ export class GameLoop {
     this.accumulator = 0;
 
     // Start logic update loop
-    this.startLogicLoop();
+    this.startLogicTick();
     // Start render loop
-    this.tick();
+    this.startRenderTick();
   }
 
   stop(): void {
@@ -55,7 +62,7 @@ export class GameLoop {
     this.isRunning = false;
     cancelAnimationFrame(this.rafId);
     if (this.logicTimerId) {
-      clearInterval(this.logicTimerId);
+      clearTimeout(this.logicTimerId);
       this.logicTimerId = null;
     }
   }
@@ -65,19 +72,25 @@ export class GameLoop {
     this.fixedTimeStep = 1 / (15 * this.speedMultiplier);
     // Update logic timer interval based on new speed multiplier
     if (this.logicTimerId) {
-      const newInterval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
-      clearInterval(this.logicTimerId);
-      this.logicTimerId = setInterval(() => this.updateLogic(), newInterval);
+      clearTimeout(this.logicTimerId);
+      this.startLogicTick();
     }
   }
 
-  private startLogicLoop(): void {
-    // Use setInterval for logic updates
-    const interval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
-    this.logicTimerId = setInterval(() => this.updateLogic(), interval);
+  private startLogicTick(): void {
+    const tick = async () => {
+      if (!this.isRunning) return;
+
+      await this.updateLogic();
+
+      const interval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
+      this.logicTimerId = setTimeout(tick, interval);
+    };
+
+    tick();
   }
 
-  private updateLogic(): void {
+  private async updateLogic(): Promise<void> {
     if (!this.isRunning) return;
 
     const frameStartTime = performance.now();
@@ -86,7 +99,8 @@ export class GameLoop {
     // Process accumulated time
     while (this.accumulator >= this.currentTimeStep && framesProcessed < this.maxFramesToSkip) {
       // Update logic with current time step
-      this.world.updateLogic(this.currentTimeStep);
+      await this.world.updateLogic(this.currentTimeStep);
+      this.performanceSystem?.updateLogicFrame();
 
       // Check if frame took too long
       const frameTime = (performance.now() - frameStartTime) / 1000;
@@ -107,7 +121,7 @@ export class GameLoop {
     }
   }
 
-  private tick(): void {
+  private startRenderTick(): void {
     if (!this.isRunning) return;
 
     const currentTime = performance.now();
@@ -121,7 +135,7 @@ export class GameLoop {
     this.world.updateRender(deltaTime);
 
     // Schedule next frame
-    this.rafId = requestAnimationFrame(() => this.tick());
+    this.rafId = requestAnimationFrame(() => this.startRenderTick());
   }
 
   getFixedTimeStep(): number {

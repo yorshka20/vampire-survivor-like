@@ -375,8 +375,11 @@
 {#if showPerformancePanel}
   <div class="performance-panel" use:draggable={{ handle: '.performance-header' }} class:hidden={!isGameStarted}>
     <div class="performance-header">Performance Panel</div>
-    <div class="fps" class:warning={$gameState.performance.fps < 45} class:critical={$gameState.performance.fps < 30}>
-      FPS: {$gameState.performance.fps}
+    <div class="fps" class:warning={$gameState.performance.renderFps < 45} class:critical={$gameState.performance.renderFps < 30}>
+      Render FPS: {$gameState.performance.renderFps}
+    </div>
+    <div class="fps" class:warning={$gameState.performance.logicFps < 45} class:critical={$gameState.performance.logicFps < 30}>
+      Logic FPS: {$gameState.performance.logicFps}
     </div>
     <div class="performance-metrics">
       <div class="metric">Frame: {$gameState.performance.frameTime.toFixed(1)}ms</div>
