@@ -1,5 +1,6 @@
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
+import { SystemType } from '@ecs/core/ecs/types';
 import { PoolManager } from '@ecs/core/pool/PoolManager';
 
 /**
@@ -7,6 +8,8 @@ import { PoolManager } from '@ecs/core/pool/PoolManager';
  */
 export interface PerformanceMetrics {
   fps: number;
+  renderFps: number;
+  logicFps: number;
   frameTime: number;
   deltaTime: number;
   isPerformanceMode: boolean;
@@ -38,9 +41,15 @@ export interface PerformanceThresholds {
  */
 export class PerformanceSystem extends System {
   // Performance tracking
-  private frameCount: number = 0;
-  private lastFpsUpdate: number = 0;
-  private currentFps: number = 60;
+  private renderFrameCount: number = 0;
+  private logicFrameCount: number = 0;
+
+  private lastRenderFpsUpdate: number = 0;
+  private lastLogicFpsUpdate: number = 0;
+
+  private currentRenderFps: number = 60;
+  private currentLogicFps: number = 60;
+
   private frameTime: number = 0;
   private deltaTime: number = 0;
 
@@ -88,20 +97,25 @@ export class PerformanceSystem extends System {
   private readonly maxTimeStep: number = 1 / 30; // Minimum 30 updates per second
 
   constructor() {
-    super('PerformanceSystem', SystemPriorities.PERFORMANCE, 'render');
+    super('PerformanceSystem', SystemPriorities.PERFORMANCE, 'both');
   }
 
-  update(deltaTime: number): void {
+  update(deltaTime: number, systemType: SystemType): void {
+    if (systemType === 'logic') {
+      this.updateLogicFrame();
+      return;
+    }
+
     const currentTime = performance.now();
     this.deltaTime = deltaTime;
     this.frameTime = deltaTime * 1000; // Convert to milliseconds
 
     // Update frame count for FPS calculation
-    this.frameCount++;
+    this.renderFrameCount++;
 
     // Update FPS counter
-    if (currentTime - this.lastFpsUpdate >= this.fpsUpdateInterval) {
-      this.updateFPS(currentTime);
+    if (currentTime - this.lastRenderFpsUpdate >= this.fpsUpdateInterval) {
+      this.updateRenderFPS(currentTime);
 
       // Adjust system priorities based on performance (from GameLoop)
       this.adjustSystemPriorities();
@@ -129,20 +143,38 @@ export class PerformanceSystem extends System {
     }
   }
 
+  public updateLogicFrame(): void {
+    const currentTime = performance.now();
+    this.logicFrameCount++;
+    if (currentTime - this.lastLogicFpsUpdate >= this.fpsUpdateInterval) {
+      this.updateLogicFPS(currentTime);
+    }
+  }
+
   /**
    * Update FPS calculation
    */
-  private updateFPS(currentTime: number): void {
-    this.currentFps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
-    this.frameCount = 0;
-    this.lastFpsUpdate = currentTime;
+  private updateRenderFPS(currentTime: number): void {
+    this.currentRenderFps = Math.round(
+      (this.renderFrameCount * 1000) / (currentTime - this.lastRenderFpsUpdate),
+    );
+    this.renderFrameCount = 0;
+    this.lastRenderFpsUpdate = currentTime;
+  }
+
+  private updateLogicFPS(currentTime: number): void {
+    this.currentLogicFps = Math.round(
+      (this.logicFrameCount * 1000) / (currentTime - this.lastLogicFpsUpdate),
+    );
+    this.logicFrameCount = 0;
+    this.lastLogicFpsUpdate = currentTime;
   }
 
   /**
    * Check if we should enter/exit performance mode
    */
   private checkPerformanceMode(currentTime: number): void {
-    const shouldBeInPerformanceMode = this.currentFps < this.performanceThresholds.critical;
+    const shouldBeInPerformanceMode = this.currentRenderFps < this.performanceThresholds.critical;
 
     // Only change performance mode if enough time has passed (cooldown)
     if (
@@ -165,7 +197,7 @@ export class PerformanceSystem extends System {
    * This includes the logic that was previously in GameLoop.adjustSystemPriorities
    */
   private enterPerformanceMode(): void {
-    console.log('Entering performance mode - FPS:', this.currentFps);
+    console.log('Entering performance mode - FPS:', this.currentRenderFps);
 
     // Notify other systems about performance mode
     this.notifyPerformanceModeChange(true);
@@ -179,7 +211,7 @@ export class PerformanceSystem extends System {
    * This includes the logic that was previously in GameLoop.adjustSystemPriorities
    */
   private exitPerformanceMode(): void {
-    console.log('Exiting performance mode - FPS:', this.currentFps);
+    console.log('Exiting performance mode - FPS:', this.currentRenderFps);
 
     // Notify other systems about performance mode
     this.notifyPerformanceModeChange(false);
@@ -193,7 +225,7 @@ export class PerformanceSystem extends System {
    * This method contains the logic that was previously in GameLoop.adjustSystemPriorities
    */
   private adjustSystemPriorities(): void {
-    const shouldBeInPerformanceMode = this.currentFps < this.performanceThresholds.critical;
+    const shouldBeInPerformanceMode = this.currentRenderFps < this.performanceThresholds.critical;
 
     // Only adjust if performance state has changed
     if (shouldBeInPerformanceMode !== this.isInPerformanceMode) {
@@ -267,10 +299,10 @@ export class PerformanceSystem extends System {
    */
   private adjustTimeStep(): void {
     // Dynamically adjust time step based on performance
-    if (this.currentFps < this.performanceThresholds.critical) {
+    if (this.currentRenderFps < this.performanceThresholds.critical) {
       // If FPS is low, increase time step (decrease update frequency)
       this.currentTimeStep = Math.min(this.currentTimeStep * 1.1, this.maxTimeStep);
-    } else if (this.currentFps > this.performanceThresholds.target * 0.9) {
+    } else if (this.currentRenderFps > this.performanceThresholds.target * 0.9) {
       // If FPS is good, try to decrease time step (increase update frequency)
       this.currentTimeStep = Math.max(this.currentTimeStep * 0.9, this.minTimeStep);
     }
@@ -356,7 +388,9 @@ export class PerformanceSystem extends System {
    */
   getPerformanceMetrics(): PerformanceMetrics {
     return {
-      fps: this.currentFps,
+      fps: this.currentRenderFps,
+      renderFps: this.currentRenderFps,
+      logicFps: this.currentLogicFps,
       frameTime: this.frameTime,
       deltaTime: this.deltaTime,
       isPerformanceMode: this.isInPerformanceMode,
@@ -372,7 +406,7 @@ export class PerformanceSystem extends System {
    * Get current FPS
    */
   getFPS(): number {
-    return this.currentFps;
+    return this.currentRenderFps;
   }
 
   /**
@@ -407,25 +441,25 @@ export class PerformanceSystem extends System {
    * Check if FPS is above a specific threshold
    */
   isFPSAbove(threshold: number): boolean {
-    return this.currentFps > threshold;
+    return this.currentRenderFps > threshold;
   }
 
   /**
    * Check if FPS is below a specific threshold
    */
   isFPSBelow(threshold: number): boolean {
-    return this.currentFps < threshold;
+    return this.currentRenderFps < threshold;
   }
 
   /**
    * Get performance status string
    */
   getPerformanceStatus(): string {
-    if (this.currentFps >= this.performanceThresholds.target) {
+    if (this.currentRenderFps >= this.performanceThresholds.target) {
       return 'Excellent';
-    } else if (this.currentFps >= this.performanceThresholds.warning) {
+    } else if (this.currentRenderFps >= this.performanceThresholds.warning) {
       return 'Good';
-    } else if (this.currentFps >= this.performanceThresholds.critical) {
+    } else if (this.currentRenderFps >= this.performanceThresholds.critical) {
       return 'Warning';
     } else {
       return 'Critical';

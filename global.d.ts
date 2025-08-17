@@ -33,4 +33,11 @@ declare module '*.wav' {
   export default src;
 }
 
+declare module '*?worker' {
+  const workerFactory: {
+    new (): Worker;
+  };
+  export default workerFactory;
+}
+
 type Any = any;

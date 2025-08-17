@@ -164,9 +164,10 @@ export class World implements IWorld {
       return;
     }
     this.systems.set(system.name, system);
-    if (system.systemType === 'logic') {
+    if (system.systemType === 'logic' || system.systemType === 'both') {
       this.logicSystems.push(system);
-    } else {
+    }
+    if (system.systemType === 'render' || system.systemType === 'both') {
       this.renderSystems.push(system);
     }
     this.updateSystemOrder();
@@ -233,30 +234,30 @@ export class World implements IWorld {
     return Array.from(this.entities).filter(condition);
   }
 
-  updateLogic(deltaTime: number): void {
+  async updateLogic(deltaTime: number): Promise<void> {
     for (const system of this.logicSystems) {
       // skip cooldown systems
       if (!system.canInvoke()) continue;
 
       // logic systems are always updated
-      system.update(deltaTime);
+      await system.update(deltaTime, 'logic');
     }
   }
 
-  updateRender(deltaTime: number): void {
+  async updateRender(deltaTime: number): Promise<void> {
     for (const system of this.renderSystems) {
       // skip cooldown systems
       if (!system.canInvoke()) continue;
 
       if (system.shouldUpdate()) {
-        system.update(deltaTime);
+        await system.update(deltaTime, 'render');
       }
     }
   }
 
-  update(deltaTime: number): void {
-    this.updateLogic(deltaTime);
-    this.updateRender(deltaTime);
+  async update(deltaTime: number): Promise<void> {
+    await this.updateLogic(deltaTime);
+    await this.updateRender(deltaTime);
   }
 
   // Add direct event methods

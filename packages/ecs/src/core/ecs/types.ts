@@ -59,7 +59,7 @@ export interface IComponent extends IPoolable {
  * System interface
  */
 
-export type SystemType = 'logic' | 'render';
+export type SystemType = 'logic' | 'render' | 'both';
 
 export interface ISystem {
   readonly name: string;
@@ -73,7 +73,7 @@ export interface ISystem {
   setWorld(world: World): void;
   getWorld(): World;
 
-  update(deltaTime: number): void;
+  update(deltaTime: number, systemType: SystemType): void;
 
   canInvoke(): boolean;
   shouldUpdate(): boolean;
