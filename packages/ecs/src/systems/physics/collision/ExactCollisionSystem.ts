@@ -7,6 +7,7 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { getNumericPairKey } from '@ecs/utils/name';
 import { RectArea } from '@ecs/utils/types';
 import { RenderSystem } from '../../rendering/RenderSystem';
 
@@ -36,17 +37,6 @@ export class ExactCollisionSystem extends System {
 
   private getRenderSystem(): RenderSystem {
     return RenderSystem.getInstance();
-  }
-
-  /**
-   * Generate a numeric key for a pair of entities using their numericId
-   * This is much faster than string operations and Set lookups
-   * Ensures order independence (A,B == B,A)
-   */
-  private getNumericPairKey(id1: number, id2: number): number {
-    const a = Math.min(id1, id2);
-    const b = Math.max(id1, id2);
-    return (a << 20) | b;
   }
 
   /**
@@ -135,7 +125,7 @@ export class ExactCollisionSystem extends System {
             }
 
             // Use numericId to generate a unique, order-independent key
-            const pairKey = this.getNumericPairKey(entityA.numericId, entityB.numericId);
+            const pairKey = getNumericPairKey(entityA.numericId, entityB.numericId);
             if (checkedPairs.has(pairKey)) {
               continue;
             }
