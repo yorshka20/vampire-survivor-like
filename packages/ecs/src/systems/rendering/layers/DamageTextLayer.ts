@@ -61,7 +61,7 @@ export class DamageTextLayer extends DomRenderLayer {
         if (damageText.elapsed >= damageText.lifetime) {
           this.activeElements.delete(entity.id);
           this.domElementPool.returnElement(this.POOL_NAME, pooledElement);
-          this.getWorld().removeEntity(entity);
+          this.getWorld().removeEntity(entity as Entity);
           continue;
         }
 

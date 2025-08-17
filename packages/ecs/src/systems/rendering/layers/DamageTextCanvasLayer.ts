@@ -34,7 +34,7 @@ export class DamageTextCanvasLayer extends CanvasRenderLayer {
 
       // Remove expired damage text entities
       if (dmg.elapsed >= dmg.lifetime) {
-        this.getWorld().removeEntity(entity);
+        this.getWorld().removeEntity(entity as Entity);
         continue;
       }
 
