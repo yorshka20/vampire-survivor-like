@@ -12,7 +12,7 @@ import collisionWorker from './collision.worker.ts?worker';
 
 // Defines the structure for a worker task, including a unique ID for response routing.
 export interface WorkerTask {
-  taskId: string;
+  taskId: number;
   worker: Worker;
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
@@ -22,7 +22,7 @@ export interface WorkerTask {
 
 // Defines the type for data expected from the collision worker.
 export interface CollisionWorkerResult {
-  taskId: string;
+  taskId: number;
   collisions: any[]; // This will be the CollisionPair[] from the worker
 }
 
@@ -31,7 +31,8 @@ export class WorkerPoolManager {
   private workers: Worker[] = [];
   private availableWorkers: Worker[] = [];
   private taskQueue: WorkerTask[] = [];
-  private activeTasks: Map<string, WorkerTask> = new Map();
+  private activeTasks: Map<number, WorkerTask> = new Map();
+  private taskIdCounter: number = 0;
 
   private static workerCount: number = 8;
 
@@ -73,7 +74,7 @@ export class WorkerPoolManager {
    */
   public submitTask(data: any, priority: number): Promise<any> {
     return new Promise((resolve, reject) => {
-      const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const taskId = this.taskIdCounter++;
       const task: WorkerTask = { taskId, worker: null as any, resolve, reject, priority, data };
       this.activeTasks.set(taskId, task);
 
@@ -156,5 +157,6 @@ export class WorkerPoolManager {
     this.availableWorkers = [];
     this.taskQueue = [];
     this.activeTasks.clear();
+    this.taskIdCounter = 0;
   }
 }
