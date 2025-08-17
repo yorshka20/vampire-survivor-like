@@ -128,14 +128,14 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator2 = createGenerator(world, {
     position: [100, 120],
     maxEntities: 20000,
-    ballSize: 8,
+    ballSize: 10,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
   });
   const generator3 = createGenerator(world, {
     position: [100, 140],
     maxEntities: 20000,
-    ballSize: 40,
+    ballSize: 20,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
   });

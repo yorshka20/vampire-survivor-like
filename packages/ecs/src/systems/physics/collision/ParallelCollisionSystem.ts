@@ -7,21 +7,12 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { CollisionPair, SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
 import { RenderSystem } from '@ecs/systems';
 import { RectArea } from '@ecs/utils/types';
 
 // Type definition for a pair of colliding entity IDs
-type CollisionPair = [string, string];
-
 // Simplified entity data structure for sending to workers
-interface SimpleEntity {
-  id: string;
-  numericId: number;
-  isAsleep: boolean;
-  position: [number, number];
-  collisionArea: [number, number, number, number];
-  size: [number, number];
-}
 
 /**
  * @class ParallelCollisionSystem
@@ -39,55 +30,38 @@ interface SimpleEntity {
  * phase remains on the main thread to ensure deterministic state changes and avoid race conditions.
  */
 export class ParallelCollisionSystem extends System {
-  private workers: Worker[] = [];
-  private activePromises: Promise<CollisionPair[]>[] = [];
   private defaultCollisionArea: RectArea = [0, 0, 0, 0];
+  private workerPoolManager: WorkerPoolManager;
 
-  constructor(
-    private positionalCorrectTimes: number = 10,
-    workerCount: number = 0,
-  ) {
+  constructor(private positionalCorrectTimes: number = 10) {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
 
-    // Default to navigator.hardwareConcurrency if workerCount is not specified
-    const numWorkers = workerCount > 0 ? workerCount : navigator.hardwareConcurrency || 2;
-
-    for (let i = 0; i < numWorkers; i++) {
-      // Vite specific syntax for creating a worker
-      const worker = new Worker(new URL('./collision.worker.ts', import.meta.url), {
-        type: 'module',
-      });
-      this.workers.push(worker);
-    }
+    this.workerPoolManager = WorkerPoolManager.getInstance();
   }
 
   private getRenderSystem(): RenderSystem {
     return RenderSystem.getInstance();
   }
 
-  // Teardown workers when the system is removed
-  onRemove(): void {
-    this.workers.forEach((worker) => worker.terminate());
-  }
-
   // Main update loop
   async update(deltaTime: number): Promise<void> {
-    // Wait for any pending worker promises from the previous frame to complete
-    if (this.activePromises.length > 0) {
-      await this.handleWorkerResults();
-    }
-
     if (!this.gridComponent) return;
 
     const grid = this.gridComponent.grid;
     if (!grid || grid.size === 0) return;
 
     // Start the collision detection process for the current frame
-    this.startCollisionDetection(grid);
+    const activePromises = this.startCollisionDetection(grid);
+
+    if (activePromises.length > 0) {
+      await this.handleWorkerResults(activePromises);
+    }
   }
 
   // Distributes collision detection tasks to the workers
-  private startCollisionDetection(grid: Map<string, { objects: Set<string> }>) {
+  private startCollisionDetection(
+    grid: Map<string, { objects: Set<string> }>,
+  ): Promise<CollisionPair[]>[] {
     const allEntities = this.world.entities;
     const simpleEntities: Record<string, SimpleEntity> = {};
     const objectEntities: Entity[] = [];
@@ -109,6 +83,7 @@ export class ParallelCollisionSystem extends System {
             position: position,
             collisionArea: collider.getCollisionArea(position, [0, 0, 0, 0]),
             size: shape.getSize(),
+            type: entity.type,
           };
           objectEntities.push(entity);
         }
@@ -116,46 +91,38 @@ export class ParallelCollisionSystem extends System {
     }
 
     const cellKeys = Array.from(grid.keys());
-    if (cellKeys.length === 0 || objectEntities.length < 2) return;
+    if (cellKeys.length === 0 || objectEntities.length < 2) return [];
 
     // Divide the grid cells among the workers
-    const cellsPerWorker = Math.ceil(cellKeys.length / this.workers.length);
-    this.activePromises = this.workers.map((worker, index) => {
-      const start = index * cellsPerWorker;
+    const workerCount = this.workerPoolManager.getWorkerCount();
+    const cellsPerWorker = Math.ceil(cellKeys.length / workerCount);
+    const activePromises: Promise<CollisionPair[]>[] = [];
+    for (let i = 0; i < workerCount; i++) {
+      const start = i * cellsPerWorker;
       const end = start + cellsPerWorker;
       const assignedCellKeys = cellKeys.slice(start, end);
 
-      return new Promise<CollisionPair[]>((resolve, reject) => {
-        // Handle worker responses
-        const onMessage = (event: MessageEvent<CollisionPair[]>) => {
-          resolve(event.data);
-          worker.removeEventListener('message', onMessage);
-          worker.removeEventListener('error', onError);
-        };
-        const onError = (error: ErrorEvent) => {
-          reject(error);
-          worker.removeEventListener('message', onMessage);
-          worker.removeEventListener('error', onError);
-        };
-
-        worker.addEventListener('message', onMessage);
-        worker.addEventListener('error', onError);
-
-        // Send data to the worker
-        worker.postMessage({
-          entities: simpleEntities,
-          cellKeys: assignedCellKeys,
-          grid: grid,
-        });
-      });
-    });
+      if (assignedCellKeys.length > 0) {
+        activePromises.push(
+          this.workerPoolManager.submitTask(
+            {
+              entities: simpleEntities,
+              cellKeys: assignedCellKeys,
+              grid: grid,
+              pairMode: 'object-object',
+            },
+            this.priority,
+          ),
+        );
+      }
+    }
+    return activePromises;
   }
 
   // Awaits and processes results from all workers
-  private async handleWorkerResults() {
+  private async handleWorkerResults(activePromises: Promise<CollisionPair[]>[]) {
     try {
-      const results = await Promise.all(this.activePromises);
-      this.activePromises = []; // Clear promises for the next frame
+      const results = await Promise.all(activePromises);
 
       const allCollisions = results.flat();
       const uniqueCollisions = this.filterUniqueCollisions(allCollisions);
@@ -164,8 +131,8 @@ export class ParallelCollisionSystem extends System {
         // The resolution process is iterative
         for (let i = 0; i < this.positionalCorrectTimes; i++) {
           let hasCollisions = false;
-          for (const pairKey of uniqueCollisions) {
-            const [idA, idB] = this.decodePairKey(pairKey);
+          for (const pair of uniqueCollisions) {
+            const [idA, idB] = [pair.a, pair.b]; // Accessing a and b from the object
             const entityA = this.world.getEntityById(idA);
             const entityB = this.world.getEntityById(idB);
 
@@ -183,7 +150,7 @@ export class ParallelCollisionSystem extends System {
                 hasCollisions = true;
               } else {
                 // If no collision is detected in this pass, remove it from the set
-                uniqueCollisions.delete(pairKey);
+                uniqueCollisions.delete(pair);
               }
             }
           }
@@ -193,7 +160,6 @@ export class ParallelCollisionSystem extends System {
       }
     } catch (error) {
       console.error('Error in collision worker:', error);
-      this.activePromises = [];
     }
   }
 
@@ -227,10 +193,13 @@ export class ParallelCollisionSystem extends System {
   }
 
   // Filters out duplicate collision pairs
-  private filterUniqueCollisions(allCollisions: CollisionPair[]): Set<string> {
-    const uniquePairs = new Set<string>();
-    for (const [idA, idB] of allCollisions) {
-      uniquePairs.add(this.getPairKey(idA, idB));
+  private filterUniqueCollisions(allCollisions: CollisionPair[]): Set<CollisionPair> {
+    const uniquePairs = new Set<CollisionPair>();
+    for (const pair of allCollisions) {
+      // Assuming CollisionPair objects are referentially unique or can be stringified for Set uniqueness
+      // For now, we will add the object directly if it has a consistent structure.
+      // If simple string keys were used previously, ensure they are still compatible.
+      uniquePairs.add(pair);
     }
     return uniquePairs;
   }

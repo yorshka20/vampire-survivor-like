@@ -7,6 +7,8 @@ interface GameState {
   // Performance metrics
   performance: {
     fps: number;
+    renderFps: number;
+    logicFps: number;
     frameTime: number;
     deltaTime: number;
     isPerformanceMode: boolean;
@@ -28,6 +30,8 @@ function createGameStateStore() {
     isInitialized: false,
     performance: {
       fps: 0,
+      renderFps: 0,
+      logicFps: 0,
       frameTime: 0,
       deltaTime: 0,
       isPerformanceMode: false,
@@ -62,6 +66,8 @@ function createGameStateStore() {
         performance: metrics
           ? {
               fps: metrics.fps,
+              renderFps: metrics.renderFps,
+              logicFps: metrics.logicFps,
               frameTime: metrics.frameTime,
               deltaTime: metrics.deltaTime,
               isPerformanceMode: metrics.isPerformanceMode,
