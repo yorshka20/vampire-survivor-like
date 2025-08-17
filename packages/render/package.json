@@ -1,0 +1,23 @@
+{
+  "name": "@brotov2/render",
+  "version": "0.1.0",
+  "description": "Renderer implementation for ECS.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@brotov2/ecs": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT"
+}

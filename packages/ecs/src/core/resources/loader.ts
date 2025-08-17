@@ -1,4 +1,3 @@
-import { RenderPatternType } from '@ecs/components';
 import {
   explosionEffectAnimations,
   orcAnimations,
@@ -7,33 +6,7 @@ import {
   spiritEffectAnimations,
 } from '@ecs/constants/resources/animation';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
-import { PatternAssetManager } from './PatternAssetManager';
 import { ResourceManager } from './ResourceManager';
-
-/**
- * Initialize pattern assets by preloading all required patterns
- * This should be called during game initialization
- */
-export async function initPatternAssets(): Promise<void> {
-  const patternTypes: RenderPatternType[] = [
-    'player',
-    'enemy',
-    'heart',
-    'star',
-    'diamond',
-    'triangle',
-    'square',
-    'circle',
-    'rect',
-    'exp',
-    'magnet',
-    'projectile',
-    'burst',
-  ];
-
-  const patternManager = PatternAssetManager.getInstance();
-  await patternManager.preloadPatterns(patternTypes);
-}
 
 export async function initAudioAssets() {
   const resourceManager = ResourceManager.getInstance();

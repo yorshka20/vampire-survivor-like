@@ -2,8 +2,8 @@ import { TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { System } from '@ecs/core/ecs/System';
 import { IEntity } from '@ecs/core/ecs/types';
+import { RenderSystem } from '@ecs/systems';
 import { Color, RectArea } from '@ecs/utils/types';
-import { RenderSystem } from '../RenderSystem';
 
 export interface RenderLayer {
   identifier: RenderLayerIdentifier;

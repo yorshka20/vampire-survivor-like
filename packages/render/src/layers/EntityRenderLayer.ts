@@ -10,8 +10,8 @@ import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/rende
 import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
-import { PatternState } from '../../../core/resources/PatternAssetManager';
 import { CanvasRenderLayer } from '../base';
+import { PatternState } from '../resource/PatternAssetManager';
 import { RenderUtils } from '../utils/RenderUtils';
 
 export class EntityRenderLayer extends CanvasRenderLayer {

@@ -4,11 +4,11 @@ import { World } from '@ecs/core/ecs/World';
 import {
   initAudioAssets,
   initImageAssets,
-  initPatternAssets,
   initSpriteSheetAssets,
 } from '@ecs/core/resources/loader';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
+import { initPatternAssets } from '@render/resource/loader';
 import { GameLoop } from './GameLoop';
 
 /**
