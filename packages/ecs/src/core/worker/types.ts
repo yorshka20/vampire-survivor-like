@@ -21,14 +21,3 @@ export interface WorkerData {
   pairMode: 'object-object' | 'object-obstacle' | 'all';
   taskId: number;
 }
-
-/**
- * A pair of entity IDs that are colliding, with type, normal, and penetration
- */
-export type CollisionPair = {
-  a: string;
-  b: string;
-  type: 'object-object' | 'object-obstacle';
-  normal?: [number, number];
-  penetration?: number;
-};

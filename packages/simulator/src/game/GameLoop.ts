@@ -26,14 +26,15 @@ export class GameLoop {
   private performanceSystem: PerformanceSystem | null = null;
 
   private get currentTimeStep(): number {
+    if (this.performanceSystem) {
+      return this.performanceSystem.getCurrentTimeStep();
+    }
     const performanceSystem = this.world.getSystem<PerformanceSystem>(
       'PerformanceSystem',
       SystemPriorities.PERFORMANCE,
     );
-    if (performanceSystem) {
-      return performanceSystem.getCurrentTimeStep();
-    }
-    return this.fixedTimeStep;
+    this.performanceSystem = performanceSystem;
+    return performanceSystem?.getCurrentTimeStep() ?? this.fixedTimeStep;
   }
 
   constructor(private world: World) {
@@ -100,7 +101,6 @@ export class GameLoop {
     while (this.accumulator >= this.currentTimeStep && framesProcessed < this.maxFramesToSkip) {
       // Update logic with current time step
       await this.world.updateLogic(this.currentTimeStep);
-      this.performanceSystem?.updateLogicFrame();
 
       // Check if frame took too long
       const frameTime = (performance.now() - frameStartTime) / 1000;
