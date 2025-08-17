@@ -39,6 +39,7 @@
   "dependencies": {
     "@brotov2/ecs": "workspace:*",
     "@brotov2/simulator": "workspace:*",
-    "@brotov2/web-client": "workspace:*"
+    "@brotov2/web-client": "workspace:*",
+    "@brotov2/render": "workspace:*"
   }
 }

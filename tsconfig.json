@@ -3,7 +3,7 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
@@ -22,9 +22,12 @@
       "@ecs": ["packages/ecs/src/index.ts"],
       "@ecs/*": ["packages/ecs/src/*"],
       "@web-client": ["packages/web-client/src/main.ts"],
-      "@web-client/*": ["packages/web-client/src/*"]
-    }
+      "@web-client/*": ["packages/web-client/src/*"],
+      "@render": ["packages/render/src/index.ts"],
+      "@render/*": ["packages/render/src/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./global.d.ts"]
   },
-  "include": ["packages/*/src/**/*.ts", "global.d.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["packages/*/src/**/*.ts", "packages/*/src/**/*.d.ts", "global.d.ts"],
+  "exclude": ["node_modules", "**/dist"]
 }

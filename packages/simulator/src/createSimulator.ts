@@ -1,9 +1,7 @@
 import {
   BorderSystem,
   createShapeDescriptor,
-  EntityRenderLayer,
   ForceFieldSystem,
-  GridDebugLayer,
   isInRect,
   ParallelCollisionSystem,
   PerformanceSystem,
@@ -17,8 +15,8 @@ import {
   World,
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
-import { BackgroundRenderLayer } from '@ecs/systems/rendering/layers/BackgroundLayer';
 import { Point, Viewport } from '@ecs/utils/types';
+import { BackgroundRenderLayer, EntityRenderLayer, GridDebugLayer } from '@render/layers';
 import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
 import { Game } from './game/Game';
@@ -83,7 +81,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
   world.addSystem(new SpawnSystem());
-  world.addSystem(new BorderSystem(0.8));
+  world.addSystem(new BorderSystem(1));
 
   // Add a force field system for basic world forces
   const forceFieldSystem = new ForceFieldSystem();
@@ -122,18 +120,35 @@ function initializeEntities(world: World, viewport: Viewport) {
   const initialV = 10 + (Math.random() * 4 - 2); // [8, 12]
   const generator = createGenerator(world, {
     position: [100, 100],
-    maxEntities: 2000,
-    ballSize: 20,
-    velocity: [initialV * 50, initialV],
+    maxEntities: 20000,
+    ballSize: 2,
+    velocity: [initialV * 110, initialV],
+    spawnGap: 50,
+  });
+  const generator2 = createGenerator(world, {
+    position: [100, 120],
+    maxEntities: 20000,
+    ballSize: 8,
+    velocity: [initialV * 110, initialV],
+    spawnGap: 50,
+  });
+  const generator3 = createGenerator(world, {
+    position: [100, 140],
+    maxEntities: 20000,
+    ballSize: 40,
+    velocity: [initialV * 110, initialV],
     spawnGap: 50,
   });
   world.addEntity(generator);
+  world.addEntity(generator2);
+  world.addEntity(generator3);
 
   createObstacleBlock(world, [200, 700], [100, 100]);
   createObstacleBlock(world, [400, 400], [100, 100]);
-  createObstacleBlock(world, [200, 1200], [100, 100]);
 
-  createObstacleBlock(world, [1200, 1000], [800, 100]);
+  createObstacleCircle(world, [200, 1200], 100);
+
+  createObstacleCircle(world, [1200, 1000], 400);
 
   createObstacleBlock(world, [1200, 1600]);
   createObstacleBlock(world, [1300, 1800]);
@@ -186,6 +201,17 @@ function createObstacleBlock(world: World, position: Point, size: [number, numbe
         width: size[0],
         height: size[1],
       }),
+    }),
+    color: { r: 255, g: 255, b: 255, a: 1 },
+  });
+  world.addEntity(obstacle);
+}
+
+function createObstacleCircle(world: World, position: Point, radius: number) {
+  const obstacle = createObstacle(world, {
+    position,
+    shape: world.createComponent(ShapeComponent, {
+      descriptor: createShapeDescriptor('circle', { radius }),
     }),
     color: { r: 255, g: 255, b: 255, a: 1 },
   });

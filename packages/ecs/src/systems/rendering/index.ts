@@ -1,2 +1,2 @@
-export * from './layers';
+export * from './IRenderer';
 export * from './RenderSystem';

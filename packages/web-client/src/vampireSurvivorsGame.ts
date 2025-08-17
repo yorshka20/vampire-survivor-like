@@ -1,20 +1,15 @@
 import {
   AISystem,
   AnimationSystem,
-  BackgroundRenderLayer,
   ChaseSystem,
   CollisionSystem,
   DamageSystem,
-  DamageTextCanvasLayer,
   DeathSystem,
-  EntityRenderLayer,
   InputSystem,
-  ItemRenderLayer,
   LifecycleSystem,
   PerformanceSystem,
   PhysicsSystem,
   PickupSystem,
-  ProjectileRenderLayer,
   RenderSystem,
   SpatialGridSystem,
   SpawnSystem,
@@ -23,6 +18,13 @@ import {
   WeaponSystem,
 } from '@ecs';
 import { Viewport } from '@ecs/utils/types';
+import {
+  BackgroundRenderLayer,
+  DamageTextCanvasLayer,
+  EntityRenderLayer,
+  ItemRenderLayer,
+  ProjectileRenderLayer,
+} from '@render/layers';
 import { createPlayerEntity } from './entities';
 import { createSpawnerEntity } from './entities/Spawner';
 import { Game } from './game/Game';

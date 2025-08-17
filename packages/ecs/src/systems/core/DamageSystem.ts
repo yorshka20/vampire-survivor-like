@@ -14,7 +14,8 @@ import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
 import { CollisionSystem } from '../physics/collision';
-import { GridDebugLayer, RenderSystem } from '../rendering';
+import { RenderSystem } from '../rendering';
+import { IRenderLayer } from '../rendering/IRenderer';
 
 export class DamageSystem extends System {
   private collisionSystem: CollisionSystem | null = null;
@@ -355,7 +356,7 @@ export class DamageSystem extends System {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  private getGridDebugLayer(): GridDebugLayer | null {
+  private getGridDebugLayer(): IRenderLayer | null {
     const gridDebugLayer = this.getRenderSystem().getGridDebugLayer();
     if (!gridDebugLayer) {
       return null;
@@ -377,7 +378,7 @@ export class DamageSystem extends System {
       return;
     }
     if (this.highlightedCells.length === 0) return;
-    gridDebugLayer.setHighlightedCells(this.highlightedCells);
+    (gridDebugLayer as Any).setHighlightedCells(this.highlightedCells);
     this.highlightedCells.length = 0;
   }
 

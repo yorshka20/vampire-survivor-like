@@ -3,10 +3,9 @@ import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
-import { RenderLayer } from './base/RenderLayer';
-import { BackgroundRenderLayer, GridDebugLayer } from './layers';
+import { IRenderer, IRenderLayer } from './IRenderer';
 
-export class RenderSystem extends System {
+export class RenderSystem extends System implements IRenderer {
   static getInstance(): RenderSystem {
     if (!RenderSystem.instance) {
       throw new Error('RenderSystem instance not initialized');
@@ -20,7 +19,7 @@ export class RenderSystem extends System {
   private viewport: RectArea;
   private cameraTargetId?: string;
   private cameraFollow: boolean = false;
-  private layers: RenderLayer[] = [];
+  private layers: IRenderLayer[] = [];
   private mainCanvas: HTMLCanvasElement;
   private mainCtx: CanvasRenderingContext2D;
   private dpr: number = 1;
@@ -57,20 +56,22 @@ export class RenderSystem extends System {
     this.layers = [];
 
     // handle window resize
-    window.addEventListener('resize', () => {
-      const dpr = this.getDPR();
-      this.updateCtxConfig(dpr);
-      this.layers.forEach((layer) => {
-        layer.onResize();
-      });
-      this.setViewport([0, 0, window.innerWidth, window.innerHeight]);
-    });
+    window.addEventListener('resize', this.onResize.bind(this));
 
     RenderSystem.instance = this;
   }
 
   private getDPR(): number {
     return this.coarseMode ? 1 : window.devicePixelRatio || 1;
+  }
+
+  onResize(): void {
+    const dpr = this.getDPR();
+    this.updateCtxConfig(dpr);
+    this.layers.forEach((layer) => {
+      layer.onResize();
+    });
+    this.setViewport([0, 0, window.innerWidth, window.innerHeight]);
   }
 
   setCoarseMode(coarse: boolean): void {
@@ -100,7 +101,7 @@ export class RenderSystem extends System {
     this.mainCtx.scale(this.dpr, this.dpr);
   }
 
-  addRenderLayer(ctor: new (...args: any[]) => RenderLayer): void {
+  addRenderLayer(ctor: new (...args: any[]) => IRenderLayer): void {
     this.layers.push(new ctor(this.mainCanvas, this.mainCtx));
   }
 
@@ -109,7 +110,7 @@ export class RenderSystem extends System {
       (l) => l.identifier === RenderLayerIdentifier.BACKGROUND,
     );
     if (backgroundLayer) {
-      (backgroundLayer as BackgroundRenderLayer).setBackgroundImage(image);
+      (backgroundLayer as Any).setBackgroundImage(image);
     }
   }
 
@@ -207,9 +208,7 @@ export class RenderSystem extends System {
   }
 
   // Add method to get grid debug layer
-  getGridDebugLayer(): GridDebugLayer | undefined {
-    return this.layers.find(
-      (layer) => layer.identifier === RenderLayerIdentifier.GRID_DEBUG,
-    ) as GridDebugLayer;
+  getGridDebugLayer(): IRenderLayer | undefined {
+    return this.layers.find((layer) => layer.identifier === RenderLayerIdentifier.GRID_DEBUG);
   }
 }

@@ -32,3 +32,5 @@ declare module '*.wav' {
   const src: string;
   export default src;
 }
+
+type Any = any;
