@@ -111,6 +111,7 @@ export class BorderSystem extends System {
               collisionArea: collider.getCollisionArea(position, [0, 0, 0, 0]),
               size: size,
               type: shape.getType(),
+              entityType: 'object',
             };
             objectEntities.push(entity);
           }
@@ -124,6 +125,7 @@ export class BorderSystem extends System {
             collisionArea: [position[0] - size[0] / 2, position[1] - size[1] / 2, size[0], size[1]],
             size: size,
             type: shape.getType(),
+            entityType: 'obstacle',
           };
           obstacleEntities.push(entity);
         }
@@ -134,29 +136,73 @@ export class BorderSystem extends System {
       }
     }
 
-    const cellKeys = Array.from(grid.keys());
-    if (cellKeys.length === 0 || objectEntities.length === 0 || obstacleEntities.length === 0)
-      return [];
+    // Generate all unique object-obstacle pairs
+    const pairs: { a: string; b: string }[] = [];
+    const checkedPairs = new Set<string>();
 
-    // Divide the grid cells among the workers
+    for (const cellKey of grid.keys()) {
+      const cell = grid.get(cellKey);
+      if (!cell || !cell.objects || !cell.obstacles) continue;
+
+      const neighborKeys: string[] = [];
+      const [cellX, cellY] = cellKey.split(',').map(Number);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          neighborKeys.push(`${cellX + dx},${cellY + dy}`);
+        }
+      }
+
+      const nearbyObstacles = new Set<string>();
+      for (const key of neighborKeys) {
+        const neighborCell = grid.get(key);
+        if (neighborCell && neighborCell.obstacles) {
+          for (const obsId of neighborCell.obstacles) {
+            nearbyObstacles.add(obsId);
+          }
+        }
+      }
+
+      for (const objId of cell.objects) {
+        for (const obsId of nearbyObstacles) {
+          const pairKey = objId < obsId ? `${objId},${obsId}` : `${obsId},${objId}`;
+          if (!checkedPairs.has(pairKey)) {
+            pairs.push({ a: objId, b: obsId });
+            checkedPairs.add(pairKey);
+          }
+        }
+      }
+    }
+
+    if (pairs.length === 0) return [];
+
+    // Distribute pairs among workers
     const workerCount = this.workerPoolManager.getWorkerCount();
-    const cellsPerWorker = Math.ceil(cellKeys.length / workerCount);
-
-    // Submit tasks to the WorkerPoolManager
+    const pairsPerWorker = Math.ceil(pairs.length / workerCount);
     const activePromises: Promise<CollisionPair[]>[] = [];
-    for (let i = 0; i < workerCount; i++) {
-      const start = i * cellsPerWorker;
-      const end = start + cellsPerWorker;
-      const assignedCellKeys = cellKeys.slice(start, end);
 
-      if (assignedCellKeys.length > 0) {
+    for (let i = 0; i < workerCount; i++) {
+      const start = i * pairsPerWorker;
+      const end = start + pairsPerWorker;
+      const assignedPairs = pairs.slice(start, end);
+
+      if (assignedPairs.length > 0) {
+        // Collect only the entities needed for this worker's pairs
+        const workerEntities: Record<string, SimpleEntity> = {};
+        for (const pair of assignedPairs) {
+          if (simpleEntities[pair.a] && !workerEntities[pair.a]) {
+            workerEntities[pair.a] = simpleEntities[pair.a];
+          }
+          if (simpleEntities[pair.b] && !workerEntities[pair.b]) {
+            workerEntities[pair.b] = simpleEntities[pair.b];
+          }
+        }
+
         activePromises.push(
           this.workerPoolManager.submitTask(
             {
-              entities: simpleEntities,
-              cellKeys: assignedCellKeys,
-              grid: grid,
-              pairMode: 'object-obstacle', // Only check object-obstacle collisions in BorderSystem
+              entities: workerEntities,
+              pairs: assignedPairs,
+              pairMode: 'object-obstacle',
             },
             this.priority,
           ),

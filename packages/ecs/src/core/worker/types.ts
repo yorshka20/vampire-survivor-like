@@ -1,25 +1,34 @@
+import { RectArea } from '@ecs/utils';
+
 export interface SimpleEntity {
   id: string;
   numericId: number;
   isAsleep: boolean;
   position: [number, number];
-  collisionArea: [number, number, number, number];
+  collisionArea: RectArea;
   size: [number, number];
   type: string;
+  entityType: 'object' | 'obstacle' | 'unknown';
 }
 
-export interface CollisionPair {
+/**
+ * The data payload received from the main thread.
+ * Added pairMode parameter to support multiple pair detection modes
+ */
+export interface WorkerData {
+  entities: Record<string, SimpleEntity>;
+  pairs: { a: string; b: string }[];
+  pairMode: 'object-object' | 'object-obstacle' | 'all';
+  taskId: number;
+}
+
+/**
+ * A pair of entity IDs that are colliding, with type, normal, and penetration
+ */
+export type CollisionPair = {
   a: string;
   b: string;
   type: 'object-object' | 'object-obstacle';
   normal?: [number, number];
   penetration?: number;
-}
-
-export interface WorkerData {
-  entities: Record<string, SimpleEntity & { type: string }>;
-  cellKeys: string[];
-  grid: Map<string, { objects: Set<string>; obstacles?: Set<string> }>;
-  pairMode?: 'object-object' | 'object-obstacle' | 'all';
-  taskId: string;
-}
+};

@@ -9,6 +9,7 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { CollisionPair, SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
 import { RenderSystem } from '@ecs/systems';
+import { getNumericPairKey } from '@ecs/utils/name';
 import { RectArea } from '@ecs/utils/types';
 
 // Type definition for a pair of colliding entity IDs
@@ -62,53 +63,112 @@ export class ParallelCollisionSystem extends System {
   private startCollisionDetection(
     grid: Map<string, { objects: Set<string> }>,
   ): Promise<CollisionPair[]>[] {
-    const allEntities = this.world.entities;
+    // !NOTICE: be sure to make object entity contain all necessary components.
+    const allEntities = this.world.getEntitiesByCondition(
+      (entity) => entity.active && !entity.toRemove && entity.isType('object'),
+    );
     const simpleEntities: Record<string, SimpleEntity> = {};
-    const objectEntities: Entity[] = [];
 
     // Prepare a simplified dataset for the workers
     for (const entity of allEntities) {
-      if (entity.isType('object') && entity.active && !entity.toRemove) {
-        const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-        const collider = entity.getComponent<ColliderComponent>(ColliderComponent.componentName);
-        const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
-        const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const collider = entity.getComponent<ColliderComponent>(ColliderComponent.componentName);
+      const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+      const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
-        if (transform && collider && physics && shape) {
-          const position = transform.getPosition();
-          simpleEntities[entity.id] = {
-            id: entity.id,
-            numericId: entity.numericId,
-            isAsleep: physics.isAsleep(),
-            position: position,
-            collisionArea: collider.getCollisionArea(position, [0, 0, 0, 0]),
-            size: shape.getSize(),
-            type: entity.type,
-          };
-          objectEntities.push(entity);
+      if (transform && collider && physics && shape) {
+        const position = transform.getPosition();
+        simpleEntities[entity.id] = {
+          id: entity.id,
+          numericId: entity.numericId,
+          isAsleep: physics.isAsleep(),
+          position: position,
+          collisionArea: collider.getCollisionArea(position, [0, 0, 0, 0]),
+          size: shape.getSize(),
+          type: shape.getType(),
+          entityType: 'object',
+        };
+      }
+    }
+
+    if (Object.keys(simpleEntities).length < 2) return [];
+
+    // Generate all unique object-object pairs from the grid
+    const pairs: { a: string; b: string }[] = [];
+    const checkedPairs = new Set<number>();
+
+    for (const cellKey of grid.keys()) {
+      const cell = grid.get(cellKey);
+      if (!cell || !cell.objects || cell.objects.size < 1) continue;
+
+      const neighborKeys: string[] = [];
+      const [cellX, cellY] = cellKey.split(',').map(Number);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          neighborKeys.push(`${cellX + dx},${cellY + dy}`);
+        }
+      }
+
+      const potentialPartners = new Set<string>(cell.objects);
+      for (const key of neighborKeys) {
+        const neighborCell = grid.get(key);
+        if (neighborCell && neighborCell.objects) {
+          for (const partnerId of neighborCell.objects) {
+            potentialPartners.add(partnerId);
+          }
+        }
+      }
+
+      const cellObjects = Array.from(cell.objects);
+      const partnerObjects = Array.from(potentialPartners);
+
+      for (let i = 0; i < cellObjects.length; i++) {
+        for (let j = 0; j < partnerObjects.length; j++) {
+          const idA = cellObjects[i];
+          const idB = partnerObjects[j];
+
+          if (idA === idB) continue; // An object cannot collide with itself
+
+          const pairKey = getNumericPairKey(
+            simpleEntities[idA].numericId,
+            simpleEntities[idB].numericId,
+          );
+          if (!checkedPairs.has(pairKey)) {
+            pairs.push({ a: idA, b: idB });
+            checkedPairs.add(pairKey);
+          }
         }
       }
     }
 
-    const cellKeys = Array.from(grid.keys());
-    if (cellKeys.length === 0 || objectEntities.length < 2) return [];
+    if (pairs.length === 0) return [];
 
-    // Divide the grid cells among the workers
+    // Distribute pairs among workers
     const workerCount = this.workerPoolManager.getWorkerCount();
-    const cellsPerWorker = Math.ceil(cellKeys.length / workerCount);
+    const pairsPerWorker = Math.ceil(pairs.length / workerCount);
     const activePromises: Promise<CollisionPair[]>[] = [];
-    for (let i = 0; i < workerCount; i++) {
-      const start = i * cellsPerWorker;
-      const end = start + cellsPerWorker;
-      const assignedCellKeys = cellKeys.slice(start, end);
 
-      if (assignedCellKeys.length > 0) {
+    for (let i = 0; i < workerCount; i++) {
+      const start = i * pairsPerWorker;
+      const end = start + pairsPerWorker;
+      const assignedPairs = pairs.slice(start, end);
+
+      if (assignedPairs.length > 0) {
+        const workerEntities: Record<string, SimpleEntity> = {};
+        for (const pair of assignedPairs) {
+          if (simpleEntities[pair.a] && !workerEntities[pair.a]) {
+            workerEntities[pair.a] = simpleEntities[pair.a];
+          }
+          if (simpleEntities[pair.b] && !workerEntities[pair.b]) {
+            workerEntities[pair.b] = simpleEntities[pair.b];
+          }
+        }
+
         activePromises.push(
           this.workerPoolManager.submitTask(
             {
-              entities: simpleEntities,
-              cellKeys: assignedCellKeys,
-              grid: grid,
+              entities: workerEntities,
+              pairs: assignedPairs,
               pairMode: 'object-object',
             },
             this.priority,
@@ -144,7 +204,7 @@ export class ParallelCollisionSystem extends System {
               !entityA.toRemove &&
               !entityB.toRemove
             ) {
-              const result = this.checkExactCollision(entityA, entityB);
+              const result = this.checkObjectObjectCollision(entityA, entityB);
               if (result) {
                 this.resolveObjectObjectCollision(entityA, entityB, result);
                 hasCollisions = true;
@@ -163,33 +223,37 @@ export class ParallelCollisionSystem extends System {
     }
   }
 
-  // Check exact collision between two entities (AABB)
-  private checkExactCollision(
-    entity1: Entity,
-    entity2: Entity,
-  ): { overlapX: number; overlapY: number } | null {
-    const transform1 = entity1.getComponent<TransformComponent>(TransformComponent.componentName);
-    const transform2 = entity2.getComponent<TransformComponent>(TransformComponent.componentName);
-    const collider1 = entity1.getComponent<ColliderComponent>(ColliderComponent.componentName);
-    const collider2 = entity2.getComponent<ColliderComponent>(ColliderComponent.componentName);
+  // Check exact collision between two entities (circle-circle)
+  private checkObjectObjectCollision(
+    entityA: Entity,
+    entityB: Entity,
+  ): { normal: [number, number]; penetration: number } | null {
+    const transformA = entityA.getComponent<TransformComponent>(TransformComponent.componentName);
+    const transformB = entityB.getComponent<TransformComponent>(TransformComponent.componentName);
+    const shapeA = entityA.getComponent<ShapeComponent>(ShapeComponent.componentName);
+    const shapeB = entityB.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
-    if (!transform1 || !transform2 || !collider1 || !collider2) return null;
+    if (!transformA || !transformB || !shapeA || !shapeB) return null;
 
-    const area1 = collider1.getCollisionArea(transform1.getPosition(), this.defaultCollisionArea);
-    const area2 = collider2.getCollisionArea(transform2.getPosition(), this.defaultCollisionArea);
+    const posA = transformA.getPosition();
+    const posB = transformB.getPosition();
+    const sizeA = shapeA.getSize();
+    const sizeB = shapeB.getSize();
 
-    const isColliding =
-      area1[0] < area2[0] + area2[2] &&
-      area1[0] + area1[2] > area2[0] &&
-      area1[1] < area2[1] + area2[3] &&
-      area1[1] + area1[3] > area2[1];
+    const rA = sizeA[0] / 2;
+    const rB = sizeB[0] / 2;
+    const dx = posA[0] - posB[0];
+    const dy = posA[1] - posB[1];
+    const distSq = dx * dx + dy * dy;
+    const rSum = rA + rB;
 
-    if (!isColliding) return null;
+    if (distSq >= rSum * rSum) return null;
 
-    return {
-      overlapX: Math.min(area1[0] + area1[2], area2[0] + area2[2]) - Math.max(area1[0], area2[0]),
-      overlapY: Math.min(area1[1] + area1[3], area2[1] + area2[3]) - Math.max(area1[1], area2[1]),
-    };
+    const dist = Math.sqrt(distSq) || 1e-6;
+    const normal: [number, number] = [dx / dist, dy / dist];
+    const penetration = rSum - dist;
+
+    return { normal, penetration };
   }
 
   // Filters out duplicate collision pairs
@@ -204,16 +268,6 @@ export class ParallelCollisionSystem extends System {
     return uniquePairs;
   }
 
-  // Creates a consistent key for a pair of IDs
-  private getPairKey(idA: string, idB: string): string {
-    return idA < idB ? `${idA},${idB}` : `${idB},${idA}`;
-  }
-
-  // Decodes a pair key back into two IDs
-  private decodePairKey(key: string): [string, string] {
-    return key.split(',') as [string, string];
-  }
-
   /**
    * Resolve collision for two dynamic objects (balls) with iterative positional correction.
    * Moves both objects out of overlap along the Minimum Translation Vector (MTV) and reflects/dampens their velocities.
@@ -225,7 +279,7 @@ export class ParallelCollisionSystem extends System {
   private resolveObjectObjectCollision(
     entityA: Entity,
     entityB: Entity,
-    result: { overlapX: number; overlapY: number },
+    result: { normal: [number, number]; penetration: number },
   ) {
     const transformA = entityA.getComponent<TransformComponent>(TransformComponent.componentName);
     const transformB = entityB.getComponent<TransformComponent>(TransformComponent.componentName);
@@ -245,45 +299,30 @@ export class ParallelCollisionSystem extends System {
 
     const currentPosA = transformA.getPosition();
     const currentPosB = transformB.getPosition();
+    const { normal, penetration } = result;
 
-    // Calculate the distance between centers
-    const dx = currentPosB[0] - currentPosA[0];
-    const dy = currentPosB[1] - currentPosA[1];
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Get radii
-    const radiusA = shapeA.getSize()[0] / 2;
-    const radiusB = shapeB.getSize()[0] / 2;
-    const separationDistance = radiusA + radiusB;
-    const overlap = separationDistance - dist;
-
-    if (overlap <= SLOP) return;
-
-    // Normalize the direction vector
-    const invDist = dist === 0 ? 0 : 1 / dist;
-    const nx = dx * invDist;
-    const ny = dy * invDist;
+    if (penetration <= SLOP) return;
 
     // Apply positional correction
-    const correctionAmount = (overlap - SLOP) * POSITIONAL_CORRECTION_BIAS;
-    const pushX = (nx * correctionAmount) / 2;
-    const pushY = (ny * correctionAmount) / 2;
+    const correctionAmount = (penetration - SLOP) * POSITIONAL_CORRECTION_BIAS;
+    const pushX = (normal[0] * correctionAmount) / 2;
+    const pushY = (normal[1] * correctionAmount) / 2;
 
-    transformA.setPosition([currentPosA[0] - pushX, currentPosA[1] - pushY]);
-    transformB.setPosition([currentPosB[0] + pushX, currentPosB[1] + pushY]);
+    transformA.setPosition([currentPosA[0] + pushX, currentPosA[1] + pushY]);
+    transformB.setPosition([currentPosB[0] - pushX, currentPosB[1] - pushY]);
 
     // Velocity reflection
     const velA = physicsA.getVelocity();
     const velB = physicsB.getVelocity();
     const relVelX = velB[0] - velA[0];
     const relVelY = velB[1] - velA[1];
-    const velAlongNormal = relVelX * nx + relVelY * ny;
+    const velAlongNormal = relVelX * normal[0] + relVelY * normal[1];
 
-    if (velAlongNormal < 0) {
+    if (velAlongNormal > 0) {
       const restitution = 0.5;
       const impulse = (-(1 + restitution) * velAlongNormal) / 2;
-      const impulseX = impulse * nx;
-      const impulseY = impulse * ny;
+      const impulseX = impulse * normal[0];
+      const impulseY = impulse * normal[1];
       physicsA.setVelocity([velA[0] - impulseX, velA[1] - impulseY]);
       physicsB.setVelocity([velB[0] + impulseX, velB[1] + impulseY]);
     }
