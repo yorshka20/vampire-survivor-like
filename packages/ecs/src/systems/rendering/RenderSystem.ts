@@ -3,7 +3,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
 import { RenderLayerIdentifier } from '@render/constant';
-import { IRenderLayer } from '@render/types';
+import { IRenderer, IRenderLayer } from '@render/types';
 
 export class RenderSystem extends System {
   static getInstance(): RenderSystem {
@@ -15,13 +15,13 @@ export class RenderSystem extends System {
 
   private static instance: RenderSystem;
 
+  private renderer!: IRenderer;
+
   private rootElement: HTMLElement;
   private viewport: RectArea;
   private cameraTargetId?: string;
   private cameraFollow: boolean = false;
-  private layers: IRenderLayer[] = [];
-  private mainCanvas: HTMLCanvasElement;
-  private mainCtx: CanvasRenderingContext2D;
+
   private dpr: number = 1;
   private coarseMode: boolean = false;
 
@@ -30,53 +30,42 @@ export class RenderSystem extends System {
 
   constructor(rootElement: HTMLElement, bgImage?: HTMLImageElement) {
     super('RenderSystem', SystemPriorities.RENDER, 'render');
+
     this.rootElement = rootElement;
-    const width = rootElement.clientWidth;
-    const height = rootElement.clientHeight;
-
-    // Create main canvas for game rendering
-    this.mainCanvas = document.createElement('canvas');
-    this.mainCtx = this.mainCanvas.getContext('2d')!;
-
-    // Set canvas size based on device pixel ratio
     const dpr = this.getDPR();
-    // set actual viewport size
-    this.viewport = [0, 0, width * dpr, height * dpr];
-    this.updateCtxConfig(dpr);
-
-    this.mainCanvas.id = 'main-game-canvas';
-    this.mainCanvas.style.width = `${width}px`;
-    this.mainCanvas.style.height = `${height}px`;
-    this.mainCanvas.width = width * dpr;
-    this.mainCanvas.height = height * dpr;
-
-    this.rootElement.appendChild(this.mainCanvas);
-
-    // inject renderLayer by client
-    this.layers = [];
-
-    // handle window resize
-    window.addEventListener('resize', this.onResize.bind(this));
+    this.viewport = [0, 0, rootElement.clientWidth * dpr, rootElement.clientHeight * dpr];
 
     RenderSystem.instance = this;
+
+    if (bgImage) {
+      this.setBackgroundImage(bgImage);
+    }
   }
 
   private getDPR(): number {
     return this.coarseMode ? 1 : window.devicePixelRatio || 1;
   }
 
+  setRenderer(renderer: IRenderer): void {
+    this.renderer = renderer;
+  }
+
+  init() {
+    this.renderer.init(this);
+  }
+
   onResize(): void {
-    const dpr = this.getDPR();
-    this.updateCtxConfig(dpr);
-    this.layers.forEach((layer) => {
-      layer.onResize();
-    });
+    this.renderer.onResize();
     this.setViewport([0, 0, window.innerWidth, window.innerHeight]);
   }
 
   setCoarseMode(coarse: boolean): void {
     this.coarseMode = coarse;
-    this.updateCtxConfig(this.getDPR());
+    this.renderer.updateContextConfig({
+      dpr: this.getDPR(),
+      width: this.rootElement.clientWidth,
+      height: this.rootElement.clientHeight,
+    });
   }
 
   getDevicePixelRatio(): number {
@@ -87,31 +76,8 @@ export class RenderSystem extends System {
     return this.viewport;
   }
 
-  private updateCtxConfig(dpr: number): void {
-    // reset transform before scale
-    this.mainCtx.setTransform(1, 0, 0, 1, 0, 0);
-    this.dpr = dpr;
-    const width = this.rootElement.clientWidth;
-    const height = this.rootElement.clientHeight;
-    this.viewport = [0, 0, width * this.dpr, height * this.dpr];
-    this.mainCanvas.width = width * this.dpr;
-    this.mainCanvas.height = height * this.dpr;
-    this.mainCanvas.style.width = `${width}px`;
-    this.mainCanvas.style.height = `${height}px`;
-    this.mainCtx.scale(this.dpr, this.dpr);
-  }
-
-  addRenderLayer(ctor: new (...args: any[]) => IRenderLayer): void {
-    this.layers.push(new ctor(this.mainCanvas, this.mainCtx));
-  }
-
   setBackgroundImage(image: HTMLImageElement): void {
-    const backgroundLayer = this.layers.find(
-      (l) => l.identifier === RenderLayerIdentifier.BACKGROUND,
-    );
-    if (backgroundLayer) {
-      (backgroundLayer as Any).setBackgroundImage(image);
-    }
+    this.renderer.setBackgroundImage(image);
   }
 
   setViewport(viewport: RectArea): void {
@@ -130,15 +96,6 @@ export class RenderSystem extends System {
     this.cameraFollow = true;
   }
 
-  init() {
-    // sort layers by priority
-    this.layers.sort((a, b) => a.priority - b.priority);
-    // initialize layers
-    this.layers.forEach((layer) => {
-      layer.initialize(this);
-    });
-  }
-
   update(deltaTime: number): void {
     // Update player position every frame. Used in isInViewport check.
     this.updatePlayerPosition();
@@ -149,18 +106,8 @@ export class RenderSystem extends System {
     // Clear main canvas
     this.clear();
 
-    // Update all layers
-    for (const layer of this.layers) {
-      if (layer.visible) {
-        // During rendering, geometry information should be obtained from ShapeComponent,
-        // and rendering style should be obtained from RenderComponent.
-        // Example:
-        //   const shapeComp = entity.getComponent(ShapeComponent)
-        //   const renderComp = entity.getComponent(RenderComponent)
-        //   shapeComp.descriptor.type, renderComp.color, etc.
-        layer.update(deltaTime, this.viewport, this.cameraOffset);
-      }
-    }
+    // call renderer update
+    this.renderer.update(deltaTime, this.viewport, this.cameraOffset);
   }
 
   getPlayerPosition(): [number, number] | undefined {
@@ -168,7 +115,7 @@ export class RenderSystem extends System {
   }
 
   private clear(): void {
-    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+    this.renderer.clear();
   }
 
   private updatePlayerPosition() {
@@ -199,16 +146,13 @@ export class RenderSystem extends System {
   }
 
   onDestroy(): void {
-    // Clean up layers
-    for (const layer of this.layers) {
-      layer.onDestroy();
-    }
-    this.layers.length = 0;
-    this.rootElement.removeChild(this.mainCanvas);
+    this.renderer.onDestroy();
   }
 
   // Add method to get grid debug layer
   getGridDebugLayer(): IRenderLayer | undefined {
-    return this.layers.find((layer) => layer.identifier === RenderLayerIdentifier.GRID_DEBUG);
+    return this.renderer
+      .getLayers()
+      .find((layer) => layer.identifier === RenderLayerIdentifier.GRID_DEBUG);
   }
 }

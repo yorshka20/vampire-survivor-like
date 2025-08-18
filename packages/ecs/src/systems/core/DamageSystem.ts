@@ -13,9 +13,9 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createDamageTextEntity } from '@ecs/entities';
+import { IRenderLayer } from '@render/types/IRenderLayer';
 import { CollisionSystem } from '../physics/collision';
 import { RenderSystem } from '../rendering';
-import { IRenderLayer } from '../rendering/IRenderer';
 
 export class DamageSystem extends System {
   private collisionSystem: CollisionSystem | null = null;

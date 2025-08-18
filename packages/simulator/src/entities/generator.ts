@@ -2,11 +2,13 @@ import { ISpawnerEntity, SpawnerComponent, TransformComponent, World } from '@ec
 import { Entity } from '@ecs/core/ecs/Entity';
 import { generateEntityId, randomRgb } from '@ecs/utils';
 import { Point, Vec2 } from '@ecs/utils/types';
+import { createBall } from './ball';
 import { createSquare } from './square';
 
 type GeneratorProps = {
   position: Point;
   velocity?: Vec2;
+  generatorType: 'ball' | 'square';
   ballSize?: number;
   maxEntities: number;
   spawnGap?: number;
@@ -20,6 +22,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   private ballSize: number;
   private currentEntities: number = 0;
   private lastSpawnTime: number = 0;
+  private generatorType: 'ball' | 'square';
 
   private isStopped: boolean = false;
 
@@ -30,6 +33,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
     this.velocity = props.velocity ?? [0, 0];
     this.spawnGap = props.spawnGap ?? 0;
     this.ballSize = props.ballSize ?? 10;
+    this.generatorType = props.generatorType;
 
     this.addComponent(new TransformComponent({ position: this.position, fixed: true }));
     this.addComponent(new SpawnerComponent({ spawnerEntity: this, position: this.position }));
@@ -51,19 +55,33 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
     const remainingEntities = this.maxEntities - this.currentEntities;
     if (remainingEntities <= 0) return spawnedEntities;
 
-    const square = createSquare(world, {
-      position: this.position,
-      size: this.ballSize,
-      velocity: this.velocity,
-      color: randomRgb(Math.random()),
-    });
+    const entity = this.createEntity(world);
 
     this.currentEntities++;
     this.lastSpawnTime = currentTime;
 
-    spawnedEntities.push(square);
+    spawnedEntities.push(entity);
 
     return spawnedEntities;
+  }
+
+  private createEntity(world: World): Entity {
+    switch (this.generatorType) {
+      case 'ball':
+        return createBall(world, {
+          position: this.position,
+          size: this.ballSize,
+          velocity: this.velocity,
+          color: randomRgb(Math.random()),
+        });
+      case 'square':
+        return createSquare(world, {
+          position: this.position,
+          size: this.ballSize,
+          velocity: this.velocity,
+          color: randomRgb(Math.random()),
+        });
+    }
   }
 
   setStopped(fn: (value: boolean) => boolean): void {

@@ -1,2 +1,2 @@
 export * from './canvas2d';
-export * from './Renderer';
+export * from './types';
