@@ -1,15 +1,15 @@
 import { IEntity } from '@ecs/core/ecs/types';
-import { IRenderLayer, IRenderer } from '@ecs/systems/rendering/IRenderer';
 import { RectArea } from '@ecs/utils/types';
-import { RenderLayerType } from './canvas2d/base/RenderLayer';
+import { RenderLayerType } from '../canvas2d/base/RenderLayer';
+import { IRenderer } from './IRenderer';
 
-export abstract class RenderLayer implements IRenderLayer {
+export abstract class IRenderLayer {
   identifier: string;
   priority: number;
   visible: boolean = true;
 
   abstract type: RenderLayerType;
-  protected abstract renderer: IRenderer | null;
+  protected renderer: IRenderer | null = null;
 
   constructor(identifier: string, priority: number) {
     this.identifier = identifier;

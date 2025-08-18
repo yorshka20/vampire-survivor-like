@@ -3,9 +3,9 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
 import { RenderLayerIdentifier } from '@render/constant';
-import { IRenderer, IRenderLayer } from './IRenderer';
+import { IRenderLayer } from '@render/types';
 
-export class RenderSystem extends System implements IRenderer {
+export class RenderSystem extends System {
   static getInstance(): RenderSystem {
     if (!RenderSystem.instance) {
       throw new Error('RenderSystem instance not initialized');
@@ -147,7 +147,7 @@ export class RenderSystem extends System implements IRenderer {
     this.updateCameraOffset();
 
     // Clear main canvas
-    this.clearCanvas();
+    this.clear();
 
     // Update all layers
     for (const layer of this.layers) {
@@ -167,7 +167,7 @@ export class RenderSystem extends System implements IRenderer {
     return this.playerPosition;
   }
 
-  private clearCanvas(): void {
+  private clear(): void {
     this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
   }
 

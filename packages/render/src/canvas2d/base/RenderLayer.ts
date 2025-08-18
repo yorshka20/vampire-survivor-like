@@ -1,16 +1,17 @@
 import { TransformComponent } from '@ecs/components';
 import { IEntity } from '@ecs/core/ecs/types';
-import { IRenderer, RenderSystem } from '@ecs/systems';
+import { RenderSystem } from '@ecs/systems';
 import { Color, RectArea } from '@ecs/utils/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
-import { RenderLayer } from '../../RenderLayer';
+import { IRenderer } from '../../types/IRenderer';
+import { IRenderLayer } from '../../types/IRenderLayer';
 
 export enum RenderLayerType {
   CANVAS = 'canvas',
   DOM = 'dom',
 }
 
-export abstract class BaseRenderLayer extends RenderLayer {
+export abstract class BaseRenderLayer extends IRenderLayer {
   type: RenderLayerType = RenderLayerType.CANVAS;
   visible: boolean = true;
   protected renderer: IRenderer | null = null;
@@ -24,8 +25,8 @@ export abstract class BaseRenderLayer extends RenderLayer {
     super(identifier, priority);
   }
 
-  initialize(renderer: IRenderer): void {
-    this.renderer = renderer;
+  initialize(renderSystem: RenderSystem): void {
+    this.renderSystem = renderSystem;
   }
 
   protected getPlayerPosition(): [number, number] | undefined {
