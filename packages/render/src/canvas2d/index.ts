@@ -1,3 +1,4 @@
+export * from './base';
 export * from './base/RenderLayer';
 export * from './create';
 export * from './layers';

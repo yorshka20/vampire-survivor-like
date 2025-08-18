@@ -1,8 +1,10 @@
 import {
   BorderSystem,
+  CameraComponent,
   createShapeDescriptor,
   ForceFieldSystem,
   isInRect,
+  LightSourceComponent,
   ParallelCollisionSystem,
   PhysicsSystem,
   RecycleSystem,
@@ -10,12 +12,15 @@ import {
   ShapeComponent,
   SpatialGridSystem,
   SpawnSystem,
+  TransformComponent,
   TransformSystem,
   World,
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { RgbaColor } from '@ecs/utils/color';
 import { Point, Viewport } from '@ecs/utils/types';
 import { createCanvas2dRenderer } from '@render/canvas2d';
+import { createBall } from './entities/ball';
 import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
 import { Game } from './game/Game';
@@ -99,6 +104,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
 
   const renderSystem = new RenderSystem(rootElement);
   const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator');
+
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
   // init renderSystem after adding all layers
@@ -123,11 +129,11 @@ function initializeEntities(world: World, viewport: Viewport) {
     generatorType: 'ball',
   });
   const generator2 = createGenerator(world, {
-    position: [100, 120],
-    maxEntities: 20000,
-    ballSize: 20,
-    velocity: [initialV * 110, initialV],
-    spawnGap: 50,
+    position: [10, 10],
+    maxEntities: 50,
+    ballSize: 15,
+    velocity: [2, 2],
+    spawnGap: 1000,
     generatorType: 'ball',
   });
   const generator3 = createGenerator(world, {
@@ -139,15 +145,23 @@ function initializeEntities(world: World, viewport: Viewport) {
     generatorType: 'square',
   });
   world.addEntity(generator);
-  world.addEntity(generator2);
-  world.addEntity(generator3);
+  // world.addEntity(generator2);
+  // world.addEntity(generator3);
+
+  const ball = createBall(world, {
+    position: [100, 100],
+    size: 50,
+    velocity: [0, 0],
+    color: { r: 22, g: 23, b: 24, a: 1 },
+  });
+  world.addEntity(ball);
 
   createObstacleBlock(world, [200, 700], [100, 100]);
   createObstacleBlock(world, [400, 400], [100, 100]);
 
   createObstacleCircle(world, [200, 1200], 100);
 
-  createObstacleCircle(world, [1200, 1100], 400);
+  createObstacleCircle(world, [1200, 1100], 200);
 
   createObstacleBlock(world, [1200, 1600]);
   createObstacleBlock(world, [1300, 1800]);
@@ -192,6 +206,20 @@ function initializeEntities(world: World, viewport: Viewport) {
   }
 }
 
+function createLightSource(world: World, position: Point, color: RgbaColor, radius: number) {
+  const light = world.createEntity('light');
+  light.addComponent(world.createComponent(TransformComponent, { position }));
+  light.addComponent(
+    world.createComponent(LightSourceComponent, {
+      position,
+      color,
+      radius,
+      intensity: 1,
+    }),
+  );
+  world.addEntity(light);
+}
+
 function createObstacleBlock(world: World, position: Point, size: [number, number] = [100, 100]) {
   const obstacle = createObstacle(world, {
     position,
@@ -215,4 +243,31 @@ function createObstacleCircle(world: World, position: Point, radius: number) {
     color: { r: 255, g: 255, b: 255, a: 1 },
   });
   world.addEntity(obstacle);
+}
+
+function createRayTracingEntity(world: World, viewport: Viewport) {
+  // Add a camera entity
+  const camera = world.createEntity('camera');
+  camera.addComponent(
+    world.createComponent(TransformComponent, {
+      position: [viewport[2] / 2, viewport[3] / 2],
+    }),
+  );
+  camera.addComponent(
+    world.createComponent(CameraComponent, {
+      fov: 120,
+      facing: 0,
+      position: [100, 100],
+    }),
+  );
+  world.addEntity(camera);
+
+  // Add light sources
+  createLightSource(world, [viewport[2] / 4, viewport[3] / 4], { r: 255, g: 0, b: 0, a: 1 }, 800);
+  createLightSource(
+    world,
+    [viewport[2] * 0.75, viewport[3] * 0.75],
+    { r: 0, g: 255, b: 255, a: 1 },
+    1200,
+  );
 }
