@@ -10,7 +10,7 @@ import {
   Vec2,
   World,
 } from '@ecs';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
+import { RenderLayerIdentifier } from '@render/constant';
 
 type SquareProps = {
   position: Point;

@@ -9,10 +9,10 @@ import {
   TransformComponent,
 } from '@ecs/components';
 import { Weapon } from '@ecs/components/weapon/WeaponTypes';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Point } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface ItemProps {
   position: Point;

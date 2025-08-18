@@ -11,11 +11,11 @@ import {
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Color, Point, randomRgb } from '@ecs/utils';
 import { SpriteSheetLoader } from '@ecs/utils/SpriteSheetLoader';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface EnemyProps {
   position: Point;

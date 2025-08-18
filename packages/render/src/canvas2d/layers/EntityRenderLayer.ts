@@ -6,10 +6,10 @@ import {
   StateComponent,
   TransformComponent,
 } from '@ecs/components';
-import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';
 import { RenderUtils } from '../utils/RenderUtils';

@@ -4,8 +4,8 @@ import {
   RenderComponent,
   ShapeComponent,
 } from '@ecs/components';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { World } from '@ecs/core/ecs/World';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface DamageTextProps {
   damage: number;

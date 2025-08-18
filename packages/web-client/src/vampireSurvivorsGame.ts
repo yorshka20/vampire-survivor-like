@@ -24,7 +24,7 @@ import {
   EntityRenderLayer,
   ItemRenderLayer,
   ProjectileRenderLayer,
-} from '@render/layers';
+} from '@render/canvas2d/layers';
 import { createPlayerEntity } from './entities';
 import { createSpawnerEntity } from './entities/Spawner';
 import { Game } from './game/Game';

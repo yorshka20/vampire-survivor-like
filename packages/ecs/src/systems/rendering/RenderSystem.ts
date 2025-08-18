@@ -1,8 +1,8 @@
 import { TransformComponent } from '@ecs/components';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 import { IRenderer, IRenderLayer } from './IRenderer';
 
 export class RenderSystem extends System implements IRenderer {

@@ -1,6 +1,6 @@
 import { PhysicsComponent, RenderComponent, ShapeComponent, TransformComponent, World } from '@ecs';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Color, Point } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 
 type ObstacleProps = {
   position: Point;

@@ -100,7 +100,7 @@ export class PerformanceSystem extends System {
     super('PerformanceSystem', SystemPriorities.PERFORMANCE, 'both');
   }
 
-  update(deltaTime: number, systemType: SystemType): void {
+  update(deltaTime: number, systemType?: SystemType): void {
     if (systemType === 'logic') {
       this.updateLogicFrame();
       return;
