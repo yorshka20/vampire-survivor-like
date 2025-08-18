@@ -16,7 +16,7 @@ import {
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Point, Viewport } from '@ecs/utils/types';
-import { BackgroundRenderLayer, EntityRenderLayer, GridDebugLayer } from '@render/layers';
+import { BackgroundRenderLayer, EntityRenderLayer, GridDebugLayer } from '@render/canvas2d/layers';
 import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
 import { Game } from './game/Game';

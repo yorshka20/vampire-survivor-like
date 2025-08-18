@@ -1,8 +1,8 @@
 import { DamageTextComponent } from '@ecs/components';
-import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { DomElementPool, PoolableDomElement } from '@ecs/core/pool/DomElementPool';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { DomRenderLayer } from '../base';
 
 export class DamageTextLayer extends DomRenderLayer {

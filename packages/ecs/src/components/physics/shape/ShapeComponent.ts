@@ -1,6 +1,10 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { PatternAssetManager, PatternEffect, PatternState } from '@ecs/core/resources';
 import { Point } from '@ecs/utils/types';
+import {
+  PatternAssetManager,
+  PatternEffect,
+  PatternState,
+} from '@render/canvas2d/resource/PatternAssetManager';
 import { CircleDescriptor, PatternDescriptor, RenderPatternType, ShapeDescriptor } from './types';
 
 interface ShapeProps {
@@ -163,42 +167,8 @@ export class ShapeComponent extends Component {
    * @returns [halfWidth, halfHeight]
    */
   getHalfExtents(): [number, number] {
-    const desc = this.descriptor;
-    switch (desc.type) {
-      case 'circle':
-        // Circle: half extents are [radius, radius]
-        return [desc.radius, desc.radius];
-      case 'rect':
-        // Rect: half extents are [width/2, height/2]
-        return [desc.width / 2, desc.height / 2];
-      case 'polygon':
-        // Polygon: use bounding box if available
-        if (this.bounds) {
-          return [
-            (this.bounds.max[0] - this.bounds.min[0]) / 2,
-            (this.bounds.max[1] - this.bounds.min[1]) / 2,
-          ];
-        }
-        return [0, 0];
-      case 'pattern':
-        // Pattern: use half of descriptor.size if present
-        if (desc.size) {
-          return [desc.size[0] / 2, desc.size[1] / 2];
-        }
-        return [0, 0];
-      case 'bezier':
-      case 'composite':
-        // Bezier/composite: use bounding box if available
-        if (this.bounds) {
-          return [
-            (this.bounds.max[0] - this.bounds.min[0]) / 2,
-            (this.bounds.max[1] - this.bounds.min[1]) / 2,
-          ];
-        }
-        return [0, 0];
-      default:
-        return [0, 0];
-    }
+    const size = this.getSize();
+    return [size[0] / 2, size[1] / 2];
   }
 
   /**

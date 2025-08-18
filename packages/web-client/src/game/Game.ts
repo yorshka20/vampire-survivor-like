@@ -8,7 +8,7 @@ import {
 } from '@ecs/core/resources/loader';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
-import { initPatternAssets } from '@render/resource/loader';
+import { initPatternAssets } from '@render/canvas2d/resource/loader';
 import { GameLoop } from './GameLoop';
 
 /**

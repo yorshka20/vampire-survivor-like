@@ -9,10 +9,10 @@ import {
   TransformComponent,
   Weapon,
 } from '@ecs/components';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Color, Point, randomRgb } from '@ecs/utils';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface AreaEffectProps {
   position: Point;

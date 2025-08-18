@@ -1,6 +1,6 @@
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Component } from '@ecs/core/ecs/Component';
 import { Color, Point } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface RenderProperties {
   color: Color;

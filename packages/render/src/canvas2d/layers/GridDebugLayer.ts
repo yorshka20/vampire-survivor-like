@@ -1,5 +1,5 @@
-import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
 
 export class GridDebugLayer extends CanvasRenderLayer {

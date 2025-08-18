@@ -219,22 +219,14 @@ export class BorderSystem extends System {
       const results = await Promise.all(activePromises);
 
       const allCollisions = results.flat();
-      // Filter out invalid collisions (e.g., if entity was removed during worker processing)
-      const validCollisions = allCollisions.filter(
-        (pair) => pair.normal && pair.penetration !== undefined,
-      ) as CollisionPair[];
+      for (const collision of allCollisions) {
+        // Filter out invalid collisions (e.g., if entity was removed during worker processing)
+        if (collision.normal === undefined || collision.penetration === undefined) continue;
 
-      for (const collision of validCollisions) {
         const { a: objectId, b: obstacleId, normal, penetration } = collision;
         const objectEntity = this.getWorld().getEntityById(objectId);
 
-        if (
-          !objectEntity ||
-          !objectEntity.active ||
-          objectEntity.toRemove ||
-          !normal ||
-          penetration === undefined
-        ) {
+        if (!objectEntity || !objectEntity.active || objectEntity.toRemove) {
           continue;
         }
 

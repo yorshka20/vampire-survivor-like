@@ -1,7 +1,7 @@
 import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
-import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { BaseRenderLayer, RenderLayerType } from './RenderLayer';
 
 export class CanvasRenderLayer extends BaseRenderLayer {

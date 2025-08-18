@@ -14,11 +14,11 @@ import {
   TransformComponent,
   WeaponComponent,
 } from '@ecs/components';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { WeaponMap } from '@ecs/constants/resources/weapon/weaponList';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Point } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 
 interface PlayerProps {
   id?: string;

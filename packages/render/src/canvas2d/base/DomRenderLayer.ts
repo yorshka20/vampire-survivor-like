@@ -1,7 +1,7 @@
 import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
-import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { RectArea } from '@ecs/utils/types';
+import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { BaseRenderLayer, RenderLayerType } from './RenderLayer';
 
 export class DomRenderLayer extends BaseRenderLayer {

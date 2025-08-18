@@ -6,10 +6,10 @@ import {
   TransformComponent,
 } from '@ecs/components';
 import { createShapeDescriptor } from '@ecs/components/physics/shape/factory';
-import { RenderLayerIdentifier } from '@ecs/constants/renderLayerPriority';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
 import { Point } from '@ecs/utils/types';
+import { RenderLayerIdentifier } from '@render/constant';
 
 export interface EffectProps {
   position: Point;
