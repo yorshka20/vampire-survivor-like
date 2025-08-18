@@ -1,4 +1,4 @@
-import { type PerformanceSystem, ResourceManager, SoundManager } from '@ecs';
+import { PerformanceSystem, ResourceManager, SoundManager, SpatialGridSystem } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import { GameStore } from '@ecs/core/store/GameStore';
@@ -68,6 +68,11 @@ export class Game {
     this.initializationPromise = (async () => {
       try {
         console.log('Initializing game...');
+        // Register core systems
+        this.world.addSystem(new SpatialGridSystem());
+        this.world.addSystem(new PerformanceSystem());
+
+        this.world.initSystems();
 
         this.initialized = true;
         console.log('Game initialized successfully');

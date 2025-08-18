@@ -4,7 +4,6 @@ import {
   ForceFieldSystem,
   isInRect,
   ParallelCollisionSystem,
-  PerformanceSystem,
   PhysicsSystem,
   RecycleSystem,
   RenderSystem,
@@ -71,14 +70,11 @@ export async function createSimulator(): Promise<Game> {
 }
 
 function initializeSystems(world: World, rootElement: HTMLElement) {
-  // Register core systems required by the simulator
-  world.addSystem(new SpatialGridSystem());
   // world.addSystem(new ExactCollisionSystem());
   world.addSystem(new ParallelCollisionSystem());
   // world.addSystem(new CollisionSystem());
   world.addSystem(new PhysicsSystem());
   world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
-  world.addSystem(new PerformanceSystem());
   world.addSystem(new TransformSystem());
   world.addSystem(new SpawnSystem());
   world.addSystem(new BorderSystem(0.9));
@@ -102,7 +98,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(forceFieldSystem);
 
   const renderSystem = new RenderSystem(rootElement);
-  const canvas2dRenderer = createCanvas2dRenderer(rootElement);
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator');
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
   // init renderSystem after adding all layers

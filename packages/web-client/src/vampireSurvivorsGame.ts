@@ -56,7 +56,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement);
-  const canvas2dRenderer = createCanvas2dRenderer(rootElement);
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'vampire-survivors');
   canvas2dRenderer.addRenderLayer(EntityRenderLayer);
   canvas2dRenderer.addRenderLayer(BackgroundRenderLayer);
   canvas2dRenderer.addRenderLayer(ItemRenderLayer);

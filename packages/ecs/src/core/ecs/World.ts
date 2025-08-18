@@ -171,12 +171,24 @@ export class World implements IWorld {
       this.renderSystems.push(system);
     }
     this.updateSystemOrder();
-    system.init();
   }
 
   removeSystem(systemName: string): void {
     this.systems.delete(systemName);
     this.updateSystemOrder();
+  }
+
+  /**
+   * Initialize systems in the order of their priority
+   *
+   * all systems should be sorted by priority and initialized in the order of their priority
+   */
+  initSystems() {
+    const systems = Array.from(this.systems.values());
+    systems.sort((a, b) => a.priority - b.priority);
+    for (const system of systems) {
+      system.init();
+    }
   }
 
   private updateSystemOrder(): void {

@@ -8,7 +8,6 @@ import { ContextConfig, IRenderer } from '../types/IRenderer';
  * Implements all required properties from IRenderer, including priority and systemType.
  */
 export class Canvas2dRenderer implements IRenderer {
-  name: string;
   /** Whether the renderer is enabled */
   enabled: boolean;
   /** Whether debug mode is active */
@@ -26,15 +25,16 @@ export class Canvas2dRenderer implements IRenderer {
   protected frameCounter: number;
   protected dpr: number = 1;
 
-  protected rootElement!: HTMLElement;
-  protected mainCanvas!: HTMLCanvasElement;
-  protected mainCtx!: CanvasRenderingContext2D;
-  protected viewport!: RectArea;
+  protected mainCanvas: HTMLCanvasElement;
+  protected mainCtx: CanvasRenderingContext2D;
+  protected viewport: RectArea;
 
   protected layers: IRenderLayer[] = [];
 
-  constructor(rootElement: HTMLElement) {
-    this.rootElement = rootElement;
+  constructor(
+    protected rootElement: HTMLElement,
+    public name: string,
+  ) {
     const width = rootElement.clientWidth;
     const height = rootElement.clientHeight;
 
@@ -48,7 +48,7 @@ export class Canvas2dRenderer implements IRenderer {
     this.viewport = [0, 0, width * dpr, height * dpr];
     this.updateContextConfig({ width, height, dpr });
 
-    this.mainCanvas.id = 'main-game-canvas';
+    this.mainCanvas.id = `${this.name}-canvas`;
     this.mainCanvas.style.width = `${width}px`;
     this.mainCanvas.style.height = `${height}px`;
     this.mainCanvas.width = width * dpr;
