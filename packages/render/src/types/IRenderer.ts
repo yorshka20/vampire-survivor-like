@@ -1,3 +1,4 @@
+import { RenderSystem } from '@ecs/systems';
 import { RectArea } from '@ecs/utils/types';
 import { IRenderLayer } from './IRenderLayer';
 
@@ -16,12 +17,22 @@ export interface IRenderer {
   debug: boolean;
   priority: number;
 
+  init(renderSystem: RenderSystem): void;
+
+  addRenderLayer(ctor: new (...args: any[]) => IRenderLayer): void;
+
+  getLayers(): IRenderLayer[];
+
   updateContextConfig(config: ContextConfig): void;
 
+  // TODO: do we need this?
+  setBackgroundImage(image: HTMLImageElement): void;
+
+  clear(): void;
+
+  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void;
+
   onResize(): void;
-  setViewport(viewport: RectArea): void;
-  setCameraTarget(entityId: string): void;
-  setCameraFollow(entityId: string): void;
-  addRenderLayer(ctor: new (...args: any[]) => IRenderLayer): void;
-  getPlayerPosition(): [number, number] | undefined;
+
+  onDestroy(): void;
 }

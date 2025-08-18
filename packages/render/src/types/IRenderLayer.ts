@@ -1,4 +1,5 @@
 import { IEntity } from '@ecs/core/ecs/types';
+import { RenderSystem } from '@ecs/systems';
 import { RectArea } from '@ecs/utils/types';
 import { RenderLayerType } from '../canvas2d/base/RenderLayer';
 import { IRenderer } from './IRenderer';
@@ -10,6 +11,7 @@ export abstract class IRenderLayer {
 
   abstract type: RenderLayerType;
   protected renderer: IRenderer | null = null;
+  protected renderSystem: RenderSystem | null = null;
 
   constructor(identifier: string, priority: number) {
     this.identifier = identifier;
@@ -20,11 +22,19 @@ export abstract class IRenderLayer {
     this.renderer = renderer;
     // TODO: initialize render layer
   }
+
+  setRenderSystem(renderSystem: RenderSystem): void {
+    this.renderSystem = renderSystem;
+  }
+
   abstract update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void;
+
   abstract filterEntity(entity: IEntity, viewport: RectArea): boolean;
+
   onResize(): void {
     // TODO: handle window resize
   }
+
   onDestroy(): void {
     // TODO: destroy render layer
   }

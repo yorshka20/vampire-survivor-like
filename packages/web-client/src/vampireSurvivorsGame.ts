@@ -18,6 +18,7 @@ import {
   WeaponSystem,
 } from '@ecs';
 import { Viewport } from '@ecs/utils/types';
+import { createCanvas2dRenderer } from '@render/canvas2d/create';
 import {
   BackgroundRenderLayer,
   DamageTextCanvasLayer,
@@ -55,13 +56,14 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
 
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement);
-  // Game layers using main canvas
-  renderSystem.addRenderLayer(EntityRenderLayer);
-  renderSystem.addRenderLayer(ItemRenderLayer);
-  renderSystem.addRenderLayer(ProjectileRenderLayer);
-  renderSystem.addRenderLayer(BackgroundRenderLayer);
-  // UI layers drawn on main canvas to avoid DOM overhead
-  renderSystem.addRenderLayer(DamageTextCanvasLayer);
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement);
+  canvas2dRenderer.addRenderLayer(EntityRenderLayer);
+  canvas2dRenderer.addRenderLayer(BackgroundRenderLayer);
+  canvas2dRenderer.addRenderLayer(ItemRenderLayer);
+  canvas2dRenderer.addRenderLayer(ProjectileRenderLayer);
+  canvas2dRenderer.addRenderLayer(DamageTextCanvasLayer);
+  // inject renderer
+  renderSystem.setRenderer(canvas2dRenderer);
   // init renderSystem after adding all layers
   renderSystem.init();
   world.addSystem(renderSystem);

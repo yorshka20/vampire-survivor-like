@@ -16,7 +16,7 @@ import {
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Point, Viewport } from '@ecs/utils/types';
-import { BackgroundRenderLayer, EntityRenderLayer, GridDebugLayer } from '@render/canvas2d/layers';
+import { createCanvas2dRenderer } from '@render/canvas2d';
 import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
 import { Game } from './game/Game';
@@ -102,9 +102,9 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(forceFieldSystem);
 
   const renderSystem = new RenderSystem(rootElement);
-  renderSystem.addRenderLayer(BackgroundRenderLayer);
-  renderSystem.addRenderLayer(GridDebugLayer);
-  renderSystem.addRenderLayer(EntityRenderLayer);
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement);
+  // inject renderer
+  renderSystem.setRenderer(canvas2dRenderer);
   // init renderSystem after adding all layers
   renderSystem.init();
   // Add renderer last so it has access to a fully configured world
@@ -124,6 +124,7 @@ function initializeEntities(world: World, viewport: Viewport) {
     ballSize: 2,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
+    generatorType: 'ball',
   });
   const generator2 = createGenerator(world, {
     position: [100, 120],
@@ -131,6 +132,7 @@ function initializeEntities(world: World, viewport: Viewport) {
     ballSize: 20,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
+    generatorType: 'ball',
   });
   const generator3 = createGenerator(world, {
     position: [100, 140],
@@ -138,10 +140,11 @@ function initializeEntities(world: World, viewport: Viewport) {
     ballSize: 20,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
+    generatorType: 'square',
   });
-  // world.addEntity(generator);
+  world.addEntity(generator);
   world.addEntity(generator2);
-  // world.addEntity(generator3);
+  world.addEntity(generator3);
 
   createObstacleBlock(world, [200, 700], [100, 100]);
   createObstacleBlock(world, [400, 400], [100, 100]);

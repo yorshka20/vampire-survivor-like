@@ -1,6 +1,6 @@
+import { RenderSystem } from '@ecs';
 import { TransformComponent } from '@ecs/components';
 import { IEntity } from '@ecs/core/ecs/types';
-import { RenderSystem } from '@ecs/systems';
 import { Color, RectArea } from '@ecs/utils/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { IRenderer } from '../../types/IRenderer';
@@ -15,7 +15,6 @@ export abstract class BaseRenderLayer extends IRenderLayer {
   type: RenderLayerType = RenderLayerType.CANVAS;
   visible: boolean = true;
   protected renderer: IRenderer | null = null;
-
   protected renderSystem: RenderSystem | null = null;
 
   constructor(
@@ -25,7 +24,11 @@ export abstract class BaseRenderLayer extends IRenderLayer {
     super(identifier, priority);
   }
 
-  initialize(renderSystem: RenderSystem): void {
+  initialize(renderer: IRenderer): void {
+    this.renderer = renderer;
+  }
+
+  setRenderSystem(renderSystem: RenderSystem): void {
     this.renderSystem = renderSystem;
   }
 
