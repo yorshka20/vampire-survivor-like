@@ -1,39 +1,31 @@
 import { TransformComponent } from '@ecs/components';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@ecs/constants/renderLayerPriority';
-import { System } from '@ecs/core/ecs/System';
 import { IEntity } from '@ecs/core/ecs/types';
-import { RenderSystem } from '@ecs/systems';
+import { IRenderer, RenderSystem } from '@ecs/systems';
 import { Color, RectArea } from '@ecs/utils/types';
-
-export interface RenderLayer {
-  identifier: RenderLayerIdentifier;
-  type: RenderLayerType;
-  priority: RenderLayerPriority;
-  visible: boolean;
-  initialize(system: System): void;
-  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void;
-  onResize(): void;
-  onDestroy(): void;
-}
+import { RenderLayer } from '../../RenderLayer';
 
 export enum RenderLayerType {
   CANVAS = 'canvas',
   DOM = 'dom',
 }
 
-export abstract class BaseRenderLayer implements RenderLayer {
+export abstract class BaseRenderLayer extends RenderLayer {
   type: RenderLayerType = RenderLayerType.CANVAS;
   visible: boolean = true;
+  protected renderer: IRenderer | null = null;
 
   protected renderSystem: RenderSystem | null = null;
 
   constructor(
     public identifier: RenderLayerIdentifier,
     public priority: RenderLayerPriority,
-  ) {}
+  ) {
+    super(identifier, priority);
+  }
 
-  initialize(system: RenderSystem): void {
-    this.renderSystem = system;
+  initialize(renderer: IRenderer): void {
+    this.renderer = renderer;
   }
 
   protected getPlayerPosition(): [number, number] | undefined {

@@ -1,4 +1,2 @@
-export * from './base';
-export * from './layers';
+export * from './canvas2d';
 export * from './Renderer';
-export * from './RenderLayer';
