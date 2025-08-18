@@ -19,4 +19,5 @@ export enum RenderLayerIdentifier {
   ITEM = 'item',
   PROJECTILE = 'projectile',
   GRID_DEBUG = 'grid-debug',
+  RAY_TRACING = 'ray-tracing',
 }
