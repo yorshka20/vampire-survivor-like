@@ -14,26 +14,27 @@ export interface SimpleEntity {
 export interface WorkerMessage {
   taskType: WorkerTaskType;
   taskId: number;
-  data: WorkerData | Any;
+  data: PickWorkerTaskDataType<WorkerTaskType>;
 }
 
-/**
- * The data payload received from the main thread.
- * Added pairMode parameter to support multiple pair detection modes
- */
-export interface WorkerData {
-  entities: Record<string, SimpleEntity>;
-  pairs: { a: string; b: string }[];
-  pairMode: 'object-object' | 'object-obstacle' | 'all';
-  taskId: number;
+export interface BaseWorkerData {
+  [key: string]: any;
 }
 
-export interface GeneralWorkerTask {
-  taskType: 'collision' | 'rayTracing';
-  task: CollisionWorkerTask | RayTracingWorkerTask;
+export interface GeneralWorkerTask<T extends WorkerTaskType> {
+  taskType: T;
+  task: PickWorkerTaskType<T>;
 }
 
-export type WorkerTaskType = GeneralWorkerTask['taskType'];
+export type WorkerTaskType = 'collision' | 'rayTracing';
+
+export type PickWorkerTaskDataType<T extends WorkerTaskType> = T extends 'collision'
+  ? CollisionWorkerData
+  : RayTracingWorkerData;
+
+export type PickWorkerTaskType<T extends WorkerTaskType> = T extends 'collision'
+  ? CollisionWorkerTask
+  : RayTracingWorkerTask;
 
 // Defines the structure for a worker task, including a unique ID for response routing.
 export interface CollisionWorkerTask {
@@ -42,13 +43,17 @@ export interface CollisionWorkerTask {
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
   priority: number;
-  data: WorkerData;
+  data: CollisionWorkerData;
 }
 
-// Defines the type for data expected from the collision worker.
-export interface WorkerResult {
-  taskId: number;
-  result: any[]; // This will be the CollisionPair[] from the worker
+/**
+ * The data payload received from the main thread.
+ * Added pairMode parameter to support multiple pair detection modes
+ */
+export interface CollisionWorkerData extends BaseWorkerData {
+  entities: Record<string, SimpleEntity>;
+  pairs: { a: string; b: string }[];
+  pairMode: 'object-object' | 'object-obstacle' | 'all';
 }
 
 export interface RayTracingWorkerTask {
@@ -57,5 +62,17 @@ export interface RayTracingWorkerTask {
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
   priority: number;
-  data: any;
+  data: RayTracingWorkerData;
+}
+
+export interface RayTracingWorkerData extends BaseWorkerData {
+  entities: Record<string, SimpleEntity>;
+  viewport: RectArea;
+  cameraOffset: [number, number];
+}
+
+// Defines the type for data expected from the collision worker.
+export interface WorkerResult {
+  taskId: number;
+  result: any[]; // This will be the CollisionPair[] from the worker
 }
