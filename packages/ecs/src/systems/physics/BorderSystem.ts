@@ -200,10 +200,11 @@ export class BorderSystem extends System {
 
         activePromises.push(
           this.workerPoolManager.submitTask(
+            'collision',
             {
               entities: workerEntities,
               pairs: assignedPairs,
-              pairMode: 'object-obstacle',
+              pairMode: 'object-obstacle' as const,
             },
             this.priority,
           ),

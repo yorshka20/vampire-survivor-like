@@ -3,11 +3,25 @@ import {
   getCollisionNormalAndPenetration,
 } from '@ecs/systems/physics/collision/collisionUtils';
 import { getNumericPairKey } from '@ecs/utils/name';
-import { WorkerData } from './types';
+import { RayTracingWorkerTask, WorkerData, WorkerMessage } from './types';
 
 // Listen for messages from the main thread
-self.onmessage = (event: MessageEvent<WorkerData>) => {
-  const { entities, pairs, pairMode = 'object-object', taskId } = event.data;
+self.onmessage = (event: MessageEvent<WorkerMessage>) => {
+  const { taskType, taskId } = event.data;
+  switch (taskType) {
+    case 'collision':
+      const collisions = handleCollision(event.data.data as WorkerData);
+      self.postMessage({ taskId, result: collisions });
+      break;
+    case 'rayTracing':
+      const result = handleRayTracing(event.data.data as RayTracingWorkerTask);
+      self.postMessage({ taskId, result });
+      break;
+  }
+};
+
+function handleCollision(data: WorkerData): CollisionPair[] {
+  const { entities, pairs, pairMode = 'object-object' } = data;
   const collisions: CollisionPair[] = [];
   const checkedPairs = new Set<number>();
 
@@ -77,5 +91,10 @@ self.onmessage = (event: MessageEvent<WorkerData>) => {
     }
   }
 
-  self.postMessage({ taskId, collisions });
-};
+  return collisions;
+}
+
+function handleRayTracing(data: RayTracingWorkerTask): any[] {
+  console.log('ray tracing', data);
+  return [];
+}
