@@ -1,44 +1,29 @@
 /**
  * @file WorkerPoolManager.ts
- * @description Manages a pool of Web Workers for collision detection, distributing tasks and routing results.
+ * @description Manages a pool of Web Workers for general tasks, distributing tasks and routing results.
  *
  * This manager ensures that worker resources are efficiently shared among different systems
- * (e.g., BorderSystem, ParallelCollisionSystem) that require collision computations.
+ * (e.g., BorderSystem, ParallelCollisionSystem) that require general tasks.
  * It assigns a unique taskId to each request, allowing results to be accurately returned
  * to the initiating system.
  */
 
-import collisionWorker from './collision.worker.ts?worker';
-
-// Defines the structure for a worker task, including a unique ID for response routing.
-export interface WorkerTask {
-  taskId: number;
-  worker: Worker;
-  resolve: (value: any) => void;
-  reject: (reason?: any) => void;
-  priority: number;
-  data: any;
-}
-
-// Defines the type for data expected from the collision worker.
-export interface CollisionWorkerResult {
-  taskId: number;
-  collisions: any[]; // This will be the CollisionPair[] from the worker
-}
+import generalWorker from './general.worker.ts?worker';
+import { GeneralWorkerTask, WorkerResult, WorkerTaskType } from './types';
 
 export class WorkerPoolManager {
   private static instance: WorkerPoolManager;
   private workers: Worker[] = [];
   private availableWorkers: Worker[] = [];
-  private taskQueue: WorkerTask[] = [];
-  private activeTasks: Map<number, WorkerTask> = new Map();
+  private taskQueue: GeneralWorkerTask[] = [];
+  private activeTasks: Map<number, GeneralWorkerTask> = new Map();
   private taskIdCounter: number = 0;
 
-  private static workerCount: number = 8;
+  private static workerCount: number = navigator.hardwareConcurrency || 4;
 
   private constructor() {
     for (let i = 0; i < WorkerPoolManager.workerCount; i++) {
-      const worker = new collisionWorker();
+      const worker = new generalWorker();
       worker.onmessage = this.handleWorkerMessage.bind(this);
       worker.onerror = this.handleWorkerError.bind(this);
       this.workers.push(worker);
@@ -72,18 +57,28 @@ export class WorkerPoolManager {
    * @param priority - The priority of the task (lower number is higher priority).
    * @returns A promise that resolves with the worker's result.
    */
-  public submitTask(data: any, priority: number): Promise<any> {
+  public submitTask(taskType: WorkerTaskType, data: any, priority: number): Promise<any> {
     return new Promise((resolve, reject) => {
       const taskId = this.taskIdCounter++;
-      const task: WorkerTask = { taskId, worker: null as any, resolve, reject, priority, data };
+      const task: GeneralWorkerTask = {
+        taskType,
+        task: {
+          taskId,
+          worker: null as any,
+          resolve,
+          reject,
+          priority,
+          data,
+        },
+      };
+
       this.activeTasks.set(taskId, task);
 
       if (this.availableWorkers.length > 0) {
         this.assignTaskToWorker(task);
       } else {
         this.taskQueue.push(task);
-        // Sort queue by priority (lower number = higher priority)
-        this.taskQueue.sort((a, b) => a.priority - b.priority);
+        this.taskQueue.sort((a, b) => a.task.priority - b.task.priority);
       }
     });
   }
@@ -92,17 +87,21 @@ export class WorkerPoolManager {
    * Assigns a task to an available worker or queues it if no workers are available.
    * @param task - The WorkerTask to be assigned.
    */
-  private assignTaskToWorker(task: WorkerTask): void {
+  private assignTaskToWorker(task: GeneralWorkerTask): void {
     const worker = this.availableWorkers.shift();
     if (worker) {
-      task.worker = worker;
+      task.task.worker = worker;
       // Include the taskId in the data sent to the worker
-      worker.postMessage({ ...task.data, taskId: task.taskId });
+      worker.postMessage({
+        taskType: task.taskType,
+        taskId: task.task.taskId,
+        data: task.task.data,
+      });
     } else {
       // This case should ideally not be hit if called only when availableWorkers > 0
       // but as a safeguard, re-queue the task and sort.
       this.taskQueue.push(task);
-      this.taskQueue.sort((a, b) => a.priority - b.priority);
+      this.taskQueue.sort((a, b) => a.task.priority - b.task.priority);
     }
   }
 
@@ -110,18 +109,17 @@ export class WorkerPoolManager {
    * Handles messages received from a worker.
    * @param event - The MessageEvent from the worker.
    */
-  private handleWorkerMessage(event: MessageEvent<CollisionWorkerResult>): void {
-    const { taskId, collisions } = event.data;
+  private handleWorkerMessage(event: MessageEvent<WorkerResult>): void {
+    const { taskId } = event.data;
     const task = this.activeTasks.get(taskId);
-
-    if (task) {
-      task.resolve(collisions);
-      this.activeTasks.delete(taskId);
-      this.availableWorkers.push(task.worker);
-      this.processQueue();
-    } else {
-      console.warn(`WorkerPoolManager: Received message for unknown task ID: ${taskId}`);
+    if (!task) {
+      return;
     }
+
+    task.task.resolve(event.data.result);
+    this.activeTasks.delete(taskId);
+    this.availableWorkers.push(task.task.worker);
+    this.processQueue();
   }
 
   /**

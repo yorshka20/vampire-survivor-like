@@ -176,6 +176,7 @@ export class ParallelCollisionSystem extends System {
 
         activePromises.push(
           this.workerPoolManager.submitTask(
+            'collision',
             {
               entities: workerEntities,
               pairs: assignedPairs,
