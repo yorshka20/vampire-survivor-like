@@ -9,14 +9,20 @@
  */
 
 import generalWorker from './general.worker.ts?worker';
-import { GeneralWorkerTask, WorkerResult, WorkerTaskType } from './types';
+import {
+  GeneralWorkerTask,
+  PickWorkerTaskDataType,
+  PickWorkerTaskType,
+  WorkerResult,
+  WorkerTaskType,
+} from './types';
 
 export class WorkerPoolManager {
   private static instance: WorkerPoolManager;
   private workers: Worker[] = [];
   private availableWorkers: Worker[] = [];
-  private taskQueue: GeneralWorkerTask[] = [];
-  private activeTasks: Map<number, GeneralWorkerTask> = new Map();
+  private taskQueue: GeneralWorkerTask<WorkerTaskType>[] = [];
+  private activeTasks: Map<number, GeneralWorkerTask<WorkerTaskType>> = new Map();
   private taskIdCounter: number = 0;
 
   private static workerCount: number = navigator.hardwareConcurrency || 4;
@@ -57,10 +63,14 @@ export class WorkerPoolManager {
    * @param priority - The priority of the task (lower number is higher priority).
    * @returns A promise that resolves with the worker's result.
    */
-  public submitTask(taskType: WorkerTaskType, data: any, priority: number): Promise<any> {
+  public submitTask<T extends WorkerTaskType>(
+    taskType: T,
+    data: PickWorkerTaskDataType<T>,
+    priority: number,
+  ): Promise<any> {
     return new Promise((resolve, reject) => {
       const taskId = this.taskIdCounter++;
-      const task: GeneralWorkerTask = {
+      const task: GeneralWorkerTask<T> = {
         taskType,
         task: {
           taskId,
@@ -69,7 +79,7 @@ export class WorkerPoolManager {
           reject,
           priority,
           data,
-        },
+        } as PickWorkerTaskType<T>,
       };
 
       this.activeTasks.set(taskId, task);
@@ -87,7 +97,7 @@ export class WorkerPoolManager {
    * Assigns a task to an available worker or queues it if no workers are available.
    * @param task - The WorkerTask to be assigned.
    */
-  private assignTaskToWorker(task: GeneralWorkerTask): void {
+  private assignTaskToWorker(task: GeneralWorkerTask<WorkerTaskType>): void {
     const worker = this.availableWorkers.shift();
     if (worker) {
       task.task.worker = worker;
