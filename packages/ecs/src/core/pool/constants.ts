@@ -1,6 +1,7 @@
 import {
   AIComponent,
   AnimationComponent,
+  CameraComponent,
   ChaseComponent,
   ColliderComponent,
   DamageComponent,
@@ -10,6 +11,7 @@ import {
   HealthComponent,
   InputComponent,
   LifecycleComponent,
+  LightSourceComponent,
   PhysicsComponent,
   PickupComponent,
   RenderComponent,
@@ -35,6 +37,8 @@ export const EntityPoolList: EntityType[] = [
   'other',
   'object',
   'obstacle',
+  'light',
+  'camera',
 ];
 
 export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
@@ -59,4 +63,6 @@ export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
   StateComponent,
   AnimationComponent,
   ShapeComponent,
+  LightSourceComponent,
+  CameraComponent,
 ];

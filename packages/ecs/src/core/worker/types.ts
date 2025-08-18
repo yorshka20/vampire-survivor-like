@@ -1,4 +1,5 @@
-import { RectArea } from '@ecs/utils';
+import { ShapeDescriptor } from '@ecs/components/physics';
+import { Point, RectArea } from '@ecs/utils';
 
 export interface SimpleEntity {
   id: string;
@@ -66,13 +67,50 @@ export interface RayTracingWorkerTask {
 }
 
 export interface RayTracingWorkerData extends BaseWorkerData {
-  entities: Record<string, SimpleEntity>;
+  entities: Record<string, SerializedEntity>;
+  lights: SerializedLight[];
+  camera: SerializedCamera;
   viewport: RectArea;
   cameraOffset: [number, number];
+  tiles: { x: number; y: number; width: number; height: number }[];
+  sampling: SamplingConfig;
+  previousFrameData?: Uint8ClampedArray; // previous frame's accumulated result
+}
+
+interface AccumulationBuffer {
+  colorSum: Float32Array; // RGB accumulation
+  sampleCount: Uint32Array; // sample count per pixel
+}
+
+export interface SerializedEntity {
+  id: string;
+  shape: ShapeDescriptor;
+  position: Point;
+  rotation?: number; // Add rotation property
+  // Add other properties as needed for rendering
+}
+
+export interface SerializedLight {
+  position: [number, number];
+  color: any;
+  intensity: number;
+  radius: number;
+}
+
+export interface SerializedCamera {
+  position: [number, number];
+  fov: number;
+  facing: number;
 }
 
 // Defines the type for data expected from the collision worker.
 export interface WorkerResult {
   taskId: number;
   result: any[]; // This will be the CollisionPair[] from the worker
+}
+
+export interface SamplingConfig {
+  totalPasses: number; // total sampling rounds
+  currentPass: number; // current round
+  pattern: 'checkerboard' | 'random' | 'spiral';
 }
