@@ -137,6 +137,7 @@ export class ParallelCollisionSystem extends System {
           const idB = partnerObjects[j];
 
           if (idA === idB) continue; // An object cannot collide with itself
+          if (!simpleEntities[idA] || !simpleEntities[idB]) continue;
 
           const pairKey = getNumericPairKey(
             simpleEntities[idA].numericId,
