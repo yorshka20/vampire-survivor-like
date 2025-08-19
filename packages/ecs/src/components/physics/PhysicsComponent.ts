@@ -1,6 +1,6 @@
 import { SPEED_MULTIPLIERS, calculateSpeed, calculateSpeedPerSecond } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
-import { Vec2 } from '@ecs/utils/types';
+import { Vec2 } from '@ecs/types/types';
 
 type EntityType = 'PLAYER' | 'ENEMY' | 'PROJECTILE' | 'ITEM' | 'OBSTACLE';
 

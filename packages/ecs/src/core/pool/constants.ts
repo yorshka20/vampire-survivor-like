@@ -1,7 +1,7 @@
 import {
   AIComponent,
   AnimationComponent,
-  CameraComponent,
+  Camera3DComponent,
   ChaseComponent,
   ColliderComponent,
   DamageComponent,
@@ -64,5 +64,5 @@ export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
   AnimationComponent,
   ShapeComponent,
   LightSourceComponent,
-  CameraComponent,
+  Camera3DComponent,
 ];

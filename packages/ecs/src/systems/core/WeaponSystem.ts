@@ -23,8 +23,8 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SoundManager } from '@ecs/core/resources/SoundManager';
 import { createAreaEffectEntity, createEffectEntity, createProjectileEntity } from '@ecs/entities';
+import { Point } from '@ecs/types/types';
 import { TimeUtil } from '@ecs/utils/timeUtil';
-import { Point } from '@ecs/utils/types';
 import { InputSystem } from '../interaction';
 import { RenderSystem } from '../rendering';
 

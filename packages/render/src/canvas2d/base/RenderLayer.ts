@@ -1,7 +1,7 @@
+import { Color, RectArea } from '@brotov2/ecs/src/types/types';
 import { RenderSystem } from '@ecs';
 import { TransformComponent } from '@ecs/components';
 import { IEntity } from '@ecs/core/ecs/types';
-import { Color, RectArea } from '@ecs/utils/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { IRenderer } from '../../types/IRenderer';
 import { IRenderLayer } from '../../types/IRenderLayer';

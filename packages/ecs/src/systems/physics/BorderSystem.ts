@@ -9,7 +9,7 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
 import { RenderSystem } from '@ecs/systems';
-import { Vec2 } from '@ecs/utils/types';
+import { Vec2 } from '@ecs/types/types';
 import { CollisionPair } from './collision/collisionUtils';
 
 /**

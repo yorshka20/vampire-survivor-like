@@ -3,8 +3,8 @@ import { TransformComponent } from '@ecs/components/physics/TransformComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { Point } from '@ecs/types/types';
 import { isMobileDevice } from '@ecs/utils/platform';
-import { Point } from '@ecs/utils/types';
 
 const KEY_MAP = {
   ArrowUp: 'up',

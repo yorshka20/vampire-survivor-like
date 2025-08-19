@@ -1,4 +1,4 @@
-import { Color } from '@ecs/utils/types';
+import { Color } from '@ecs/types/types';
 
 export type PowerupItem = {
   stat: 'damage' | 'attackSpeed' | 'moveSpeed' | 'maxHealth';

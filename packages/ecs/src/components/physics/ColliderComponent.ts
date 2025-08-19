@@ -1,5 +1,5 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { Point, RectArea } from '@ecs/utils/types';
+import { Point, RectArea } from '@ecs/types/types';
 import { TransformComponent } from './TransformComponent';
 
 export interface ColliderProps {

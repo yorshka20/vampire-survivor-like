@@ -1,24 +1,19 @@
 import {
-  BorderSystem,
-  CameraComponent,
+  Camera3DComponent,
   createShapeDescriptor,
   ForceFieldSystem,
-  isInRect,
   LightSourceComponent,
-  ParallelCollisionSystem,
   PhysicsSystem,
-  RecycleSystem,
   RenderSystem,
   ShapeComponent,
   SpatialGridSystem,
-  SpawnSystem,
   TransformComponent,
   TransformSystem,
   World,
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { Point, Viewport } from '@ecs/types/types';
 import { RgbaColor } from '@ecs/utils/color';
-import { Point, Viewport } from '@ecs/utils/types';
 import { createCanvas2dRenderer } from '@render/canvas2d';
 import { createBall } from './entities/ball';
 import { createGenerator } from './entities/generator';
@@ -75,14 +70,13 @@ export async function createSimulator(): Promise<Game> {
 }
 
 function initializeSystems(world: World, rootElement: HTMLElement) {
-  // world.addSystem(new ExactCollisionSystem());
-  world.addSystem(new ParallelCollisionSystem());
-  // world.addSystem(new CollisionSystem());
+  // skip systems for testing rayTracing renderer
+  // world.addSystem(new ParallelCollisionSystem());
+  // world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
+  // world.addSystem(new SpawnSystem());
+  // world.addSystem(new BorderSystem(0.9));
   world.addSystem(new PhysicsSystem());
-  world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
   world.addSystem(new TransformSystem());
-  world.addSystem(new SpawnSystem());
-  world.addSystem(new BorderSystem(0.9));
 
   // Add a force field system for basic world forces
   const forceFieldSystem = new ForceFieldSystem();
@@ -90,7 +84,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
     // Gravity-like force pointing downward
     direction: [0, 1],
     // Acceleration magnitude in units/s^2 (approx. gravity); tune as needed
-    strength: 200,
+    strength: 0,
     // Affect everything within the viewport (viewport = [x, y, width, height])
     area: (position, vp) =>
       position[0] >= vp[0] &&
@@ -100,10 +94,10 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   });
   // Optional: enable to inspect acceleration application
   // forceFieldSystem.setDebug(true);
-  world.addSystem(forceFieldSystem);
+  // world.addSystem(forceFieldSystem);
 
   const renderSystem = new RenderSystem(rootElement);
-  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator');
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator', true);
 
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
@@ -117,6 +111,8 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
 }
 
 function initializeEntities(world: World, viewport: Viewport) {
+  createRayTracingEntity(world, viewport);
+
   // Initial velocity requirements for testing physics:
   //   We randomize in [8, 12] to add slight variation
   const initialV = 10 + (Math.random() * 4 - 2); // [8, 12]
@@ -144,27 +140,27 @@ function initializeEntities(world: World, viewport: Viewport) {
     spawnGap: 50,
     generatorType: 'square',
   });
-  world.addEntity(generator);
+  // world.addEntity(generator);
   // world.addEntity(generator2);
   // world.addEntity(generator3);
 
   const ball = createBall(world, {
-    position: [100, 100],
-    size: 50,
+    position: [888, 888],
+    size: 400,
     velocity: [0, 0],
     color: { r: 22, g: 23, b: 24, a: 1 },
   });
   world.addEntity(ball);
 
-  createObstacleBlock(world, [200, 700], [100, 100]);
-  createObstacleBlock(world, [400, 400], [100, 100]);
+  // createObstacleBlock(world, [200, 700], [100, 100]);
+  // createObstacleBlock(world, [400, 400], [100, 100]);
 
-  createObstacleCircle(world, [200, 1200], 100);
+  // createObstacleCircle(world, [200, 1200], 100);
 
-  createObstacleCircle(world, [1200, 1100], 200);
+  // createObstacleCircle(world, [1200, 1100], 200);
 
-  createObstacleBlock(world, [1200, 1600]);
-  createObstacleBlock(world, [1300, 1800]);
+  // createObstacleBlock(world, [1200, 1600]);
+  // createObstacleBlock(world, [1300, 1800]);
 
   // Wall thickness for left/right, wall height for top/bottom
   const wallWidth = 200;
@@ -202,7 +198,7 @@ function initializeEntities(world: World, viewport: Viewport) {
       }),
       color: { r: 255, g: 255, b: 255, a: 1 },
     });
-    world.addEntity(wallObstacle);
+    // world.addEntity(wallObstacle);
   }
 }
 
@@ -246,28 +242,56 @@ function createObstacleCircle(world: World, position: Point, radius: number) {
 }
 
 function createRayTracingEntity(world: World, viewport: Viewport) {
+  // 以屏幕中心为相机中心
+  const camX = viewport[2] / 2;
+  const camY = viewport[3] / 2;
+  const w = viewport[2];
+  const h = viewport[3];
   // Add a camera entity
-  const camera = world.createEntity('camera');
-  camera.addComponent(
+  const topDownCameraEntity = world.createEntity('camera');
+  const topDownCamera = new Camera3DComponent({
+    position: [camX, camY],
+    height: 100,
+    cameraMode: 'topdown',
+    projectionMode: 'orthographic',
+    resolution: { width: w, height: h },
+    viewBounds: {
+      left: camX - w / 2,
+      right: camX + w / 2,
+      top: camY + h / 2,
+      bottom: camY - h / 2,
+    },
+  });
+  topDownCameraEntity.addComponent(topDownCamera);
+  topDownCameraEntity.addComponent(
     world.createComponent(TransformComponent, {
-      position: [viewport[2] / 2, viewport[3] / 2],
+      position: [camX, camY],
     }),
   );
-  camera.addComponent(
-    world.createComponent(CameraComponent, {
-      fov: 120,
-      facing: 0,
+  world.addEntity(topDownCameraEntity);
+
+  // Add light sources
+  const lightEntity = world.createEntity('light');
+  // const ambientLight = new LightSourceComponent();
+  // ambientLight.setAsAmbientLight(0.2);
+
+  const sunLight = new LightSourceComponent();
+  sunLight.setAsDirectionalLight([1, -1, -1], 0.8);
+
+  // const torch = new LightSourceComponent({
+  //   position: [100, 100],
+  //   height: 0,
+  //   color: { r: 255, g: 200, b: 100, a: 1 },
+  // });
+  // torch.setAsPointLight(50, 1.5);
+
+  // lightEntity.addComponent(ambientLight);
+  lightEntity.addComponent(sunLight);
+  lightEntity.addComponent(
+    world.createComponent(TransformComponent, {
       position: [100, 100],
     }),
   );
-  world.addEntity(camera);
-
-  // Add light sources
-  createLightSource(world, [viewport[2] / 4, viewport[3] / 4], { r: 255, g: 0, b: 0, a: 1 }, 800);
-  createLightSource(
-    world,
-    [viewport[2] * 0.75, viewport[3] * 0.75],
-    { r: 0, g: 255, b: 255, a: 1 },
-    1200,
-  );
+  // lightEntity.addComponent(torch);
+  world.addEntity(lightEntity);
 }

@@ -1,4 +1,4 @@
-import { Color } from '@ecs/utils/types';
+import { Color } from '@ecs/types/types';
 
 export enum WeaponType {
   RANGED_AUTO_AIM = 'RANGED_AUTO_AIM',

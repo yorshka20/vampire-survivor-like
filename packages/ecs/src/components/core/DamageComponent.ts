@@ -1,6 +1,6 @@
 import { AreaWeapon, BombWeapon, Weapon, WeaponType } from '@ecs/components/weapon/WeaponTypes';
 import { Component } from '@ecs/core/ecs/Component';
-import { Point } from '@ecs/utils/types';
+import { Point } from '@ecs/types/types';
 
 export interface DamageProps {
   damage: number;

@@ -1,5 +1,5 @@
 import {
-  CameraComponent,
+  Camera3DComponent,
   LightSourceComponent,
   RectArea,
   ShapeComponent,
@@ -36,6 +36,53 @@ interface ProgressiveRenderState {
   isComplete: boolean;
 }
 
+// Enhanced type definitions for better camera and light support
+interface EnhancedSerializedCamera extends SerializedCamera {
+  // 3D positioning
+  height: number;
+  pitch: number;
+  roll: number;
+
+  // Projection and view settings
+  projectionMode: 'perspective' | 'orthographic';
+  cameraMode: 'topdown' | 'sideview' | 'custom';
+  aspect: number;
+  near: number;
+  far: number;
+
+  // View bounds and resolution
+  viewBounds: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
+  resolution: {
+    width: number;
+    height: number;
+  };
+  zoom: number;
+}
+
+interface EnhancedSerializedLight extends SerializedLight {
+  // 3D positioning
+  height: number;
+
+  // Light type and behavior
+  type: 'point' | 'directional' | 'ambient' | 'spot';
+  castShadows: boolean;
+  attenuation: 'none' | 'linear' | 'quadratic' | 'realistic';
+
+  // Direction and spot light properties
+  direction: [number, number, number];
+  spotAngle: number;
+  spotPenumbra: number;
+
+  // Control properties
+  enabled: boolean;
+  layer: number;
+}
+
 /**
  * The RayTracingLayer is a specialized rendering layer that uses progressive ray tracing to render the scene.
  * It works by dividing the canvas into smaller tiles and assigning each tile to a web worker.
@@ -55,7 +102,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   // Progressive rendering state
   private progressiveState: ProgressiveRenderState = {
     currentPass: 0,
-    totalPasses: 4, // Split rendering across 4 frames
+    totalPasses: 1, // Split rendering across 4 frames
     samplingPattern: 'checkerboard',
     accumBuffer: null,
     colorAccumBuffer: null,
@@ -63,9 +110,9 @@ export class RayTracingLayer extends CanvasRenderLayer {
     isComplete: false,
   };
 
-  // Scene change detection for resetting progressive render
-  private lastFrameEntityCount = 0;
-  private lastFrameLightCount = 0;
+  // Enhanced scene change detection
+  private lastSceneHash = '';
+  private lastViewport: RectArea | null = null;
 
   constructor(
     protected mainCanvas: HTMLCanvasElement,
@@ -90,6 +137,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
     viewport: RectArea,
     cameraOffset: [number, number],
   ): Promise<void> {
+    this.lastViewport = viewport;
+
     // Start the ray tracing process and get promises for the results from each worker.
     const activePromises = this.startRayTracing(viewport, cameraOffset);
 
@@ -102,7 +151,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private getCameras(): IEntity[] {
     if (this.cameraEntities.length === 0) {
       this.cameraEntities = this.getWorld().getEntitiesByCondition((entity) =>
-        entity.hasComponent(CameraComponent.componentName),
+        entity.hasComponent(Camera3DComponent.componentName),
       );
     }
     return this.cameraEntities;
@@ -118,6 +167,41 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
+   * Generates a hash representing the current scene state for change detection.
+   */
+  private getSceneHash(): string {
+    if (!this.lastViewport) return '';
+
+    const entityData = this.getLayerEntities(this.lastViewport)
+      .map((e) => {
+        const transform = e.getComponent<TransformComponent>('Transform');
+        const shape = e.getComponent<ShapeComponent>('Shape');
+        return `${e.id}:${JSON.stringify(transform?.position)}:${transform?.rotation}:${JSON.stringify(shape?.descriptor)}`;
+      })
+      .join('|');
+
+    const lightData = this.getLights()
+      .map((e) => {
+        const light = e.getComponent<LightSourceComponent>('LightSource');
+        const transform = e.getComponent<TransformComponent>('Transform');
+        if (!light || !transform) return '';
+        return `${e.id}:${JSON.stringify(transform.position)}:${light.height}:${light.intensity}:${light.type}:${light.enabled}`;
+      })
+      .join('|');
+
+    const cameraData = this.getCameras()
+      .map((e) => {
+        const camera = e.getComponent<Camera3DComponent>('Camera');
+        const transform = e.getComponent<TransformComponent>('Transform');
+        if (!camera || !transform) return '';
+        return `${JSON.stringify(transform.position)}:${camera.facing}:${camera.height}:${camera.pitch}:${camera.cameraMode}:${camera.zoom}`;
+      })
+      .join('|');
+
+    return `${entityData}|${lightData}|${cameraData}`;
+  }
+
+  /**
    * Prepares and distributes progressive ray tracing tasks to the worker pool.
    * @returns An array of Promises, each resolving with the result from a worker.
    */
@@ -126,42 +210,42 @@ export class RayTracingLayer extends CanvasRenderLayer {
     cameraOffset: [number, number],
   ): Promise<ProgressiveTileResult[]>[] {
     // 1. Scene Change Detection: Check if we need to reset progressive rendering
-    const currentEntityCount = this.getLayerEntities(viewport).length;
-    const currentLightCount = this.getLights().length;
+    // const currentSceneHash = this.getSceneHash();
+    // if (currentSceneHash !== this.lastSceneHash) {
+    //   this.resetProgressiveRender();
+    //   this.lastSceneHash = currentSceneHash;
+    //   console.log('Scene changed, resetting progressive render');
+    // }
+    // LOG: hash check skipped
+    // console.log('[RayTracingLayer] Scene hash check skipped (debug mode)');
 
-    // Scene has changed significantly, reset progressive rendering
-    if (
-      currentEntityCount !== this.lastFrameEntityCount ||
-      currentLightCount !== this.lastFrameLightCount
-    ) {
-      this.resetProgressiveRender();
-      this.lastFrameEntityCount = currentEntityCount;
-      this.lastFrameLightCount = currentLightCount;
-    }
-
-    // 完成一轮后，只重置pass计数，不清空缓冲区
+    // Complete a round and reset pass count without clearing buffers
     if (this.progressiveState.isComplete) {
       this.progressiveState.currentPass = 0;
       this.progressiveState.isComplete = false;
-      // 注意：不调用 resetProgressiveRender()，保持累积结果
+      // Note: Don't call resetProgressiveRender() here to maintain accumulated results
     }
 
-    // If we've completed all sampling passes, skip rendering until scene changes
-    // if (this.progressiveState.isComplete) {
-    //   return [];
-    // }
-
     // 2. Scene Preparation: Gather all necessary data about the scene.
-    // We get only the entities that have passed the filterEntity() check for this layer.
     const entities = this.getLayerEntities(viewport);
-    // Serialize the entities, lights, and camera data into a format that can be sent to workers.
     const serializedEntities = this.serializeEntities(entities);
     const serializedLights = this.serializeLights(this.getLights());
     const serializedCamera = this.serializeCamera(this.getCameras());
 
-    // If there's no camera, we can't render anything.
+    // LOG: scene content
+    // console.log('[RayTracingLayer] Entities:', entities.length, Object.keys(serializedEntities));
+    // console.log('[RayTracingLayer] Lights:', this.getLights().length, serializedLights);
+    // console.log('[RayTracingLayer] Cameras:', this.getCameras().length, serializedCamera);
+
+    // If there's no active camera, we can't render anything.
     if (!serializedCamera) {
-      console.warn('RayTracingLayer: No camera found. Skipping render.');
+      console.warn('RayTracingLayer: No active camera found. Skipping render.');
+      return [];
+    }
+
+    // Validate camera configuration
+    if (!this.validateCameraConfiguration(serializedCamera)) {
+      console.warn('RayTracingLayer: Invalid camera configuration. Skipping render.');
       return [];
     }
 
@@ -224,35 +308,61 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
+   * Validates camera configuration to ensure all required properties are present.
+   */
+  private validateCameraConfiguration(camera: EnhancedSerializedCamera): boolean {
+    if (!camera.resolution || camera.resolution.width <= 0 || camera.resolution.height <= 0) {
+      console.error('Invalid camera resolution:', camera.resolution);
+      return false;
+    }
+
+    if (!camera.viewBounds) {
+      console.error('Missing camera view bounds');
+      return false;
+    }
+
+    if (!['topdown', 'sideview', 'custom'].includes(camera.cameraMode)) {
+      console.error('Invalid camera mode:', camera.cameraMode);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Collects results from all workers and accumulates them into the progressive buffer.
    */
   private async handleWorkerResults(
     activePromises: Promise<ProgressiveTileResult[]>[],
   ): Promise<void> {
-    // Wait for all workers to finish their tasks.
-    const results = await Promise.all(activePromises);
+    try {
+      // Wait for all workers to finish their tasks.
+      const results = await Promise.all(activePromises);
 
-    // Initialize the accumulation buffer if it doesn't exist or if canvas size changed.
-    if (
-      !this.progressiveState.accumBuffer ||
-      this.progressiveState.accumBuffer.width !== this.mainCanvas.width ||
-      this.progressiveState.accumBuffer.height !== this.mainCanvas.height
-    ) {
-      this.initializeAccumBuffer();
-    }
+      // Initialize the accumulation buffer if it doesn't exist or if canvas size changed.
+      if (
+        !this.progressiveState.accumBuffer ||
+        this.progressiveState.accumBuffer.width !== this.mainCanvas.width ||
+        this.progressiveState.accumBuffer.height !== this.mainCanvas.height
+      ) {
+        this.initializeAccumBuffer();
+      }
 
-    // Process the results from each worker and accumulate samples.
-    for (const result of results) {
-      if (result) {
-        // Each worker can return multiple tile results.
-        for (const tileResult of result) {
-          this.accumulateTile(tileResult);
+      // Process the results from each worker and accumulate samples.
+      for (const result of results) {
+        if (result) {
+          // Each worker can return multiple tile results.
+          for (const tileResult of result) {
+            this.accumulateTile(tileResult);
+          }
         }
       }
-    }
 
-    // Update the display with current accumulated results.
-    this.updateDisplayFromAccumBuffer();
+      // Update the display with current accumulated results.
+      this.updateDisplayFromAccumBuffer();
+    } catch (error) {
+      console.error('Error handling worker results:', error);
+    }
   }
 
   /**
@@ -284,6 +394,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.progressiveState.accumBuffer.data[index + 2] = 0; // B
       this.progressiveState.accumBuffer.data[index + 3] = 255; // A (opaque)
     }
+
+    console.log(`Initialized accumulation buffer: ${width}x${height} (${totalPixels} pixels)`);
   }
 
   /**
@@ -301,6 +413,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
         const canvasX = x + i;
         const canvasY = y + j;
 
+        // Skip pixels that weren't sampled in this pass
         if (!sampledPixels || !sampledPixels[j * width + i]) {
           sourcePixelIndex += 4;
           continue;
@@ -313,12 +426,12 @@ export class RayTracingLayer extends CanvasRenderLayer {
           const currentSampleCount = this.progressiveState.sampleCounts[pixelIndex];
 
           if (currentSampleCount === 0) {
-            // 第一次采样，直接赋值
+            // First sample, directly assign values
             this.progressiveState.colorAccumBuffer[accumIndex] = pixels[sourcePixelIndex];
             this.progressiveState.colorAccumBuffer[accumIndex + 1] = pixels[sourcePixelIndex + 1];
             this.progressiveState.colorAccumBuffer[accumIndex + 2] = pixels[sourcePixelIndex + 2];
           } else {
-            // 使用移动平均，避免溢出
+            // Use moving average to prevent overflow
             const weight = 1.0 / (currentSampleCount + 1);
             this.progressiveState.colorAccumBuffer[accumIndex] =
               this.progressiveState.colorAccumBuffer[accumIndex] * (1 - weight) +
@@ -364,21 +477,22 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const accumIndex = i * 3;
 
       if (sampleCount > 0) {
-        // 直接使用平均值，不需要再除以 sampleCount
+        // Use averaged values directly, no need to divide by sampleCount again
         this.imageData.data[destIndex] = Math.min(
           255,
-          Math.max(0, this.progressiveState.colorAccumBuffer[accumIndex]),
+          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex])),
         );
         this.imageData.data[destIndex + 1] = Math.min(
           255,
-          Math.max(0, this.progressiveState.colorAccumBuffer[accumIndex + 1]),
+          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex + 1])),
         );
         this.imageData.data[destIndex + 2] = Math.min(
           255,
-          Math.max(0, this.progressiveState.colorAccumBuffer[accumIndex + 2]),
+          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex + 2])),
         );
         this.imageData.data[destIndex + 3] = 255;
       } else {
+        // No samples yet, use black
         this.imageData.data[destIndex] = 0;
         this.imageData.data[destIndex + 1] = 0;
         this.imageData.data[destIndex + 2] = 0;
@@ -460,7 +574,13 @@ export class RayTracingLayer extends CanvasRenderLayer {
     for (const entity of entities) {
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-
+      // 输出详细实体参数
+      console.log('[RayTracingLayer] Entity:', entity.id, {
+        shape: shape?.descriptor,
+        position: transform?.getPosition(),
+        rotation: transform?.rotation,
+        entity,
+      });
       // We already filtered, but it's good practice to check again.
       if (shape && transform) {
         serialized[entity.id] = {
@@ -475,41 +595,151 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Finds all entities with a LightSourceComponent and serializes their data for the workers.
+   * Enhanced light serialization with full 3D support and all light types.
    */
-  private serializeLights(entities: IEntity[]): SerializedLight[] {
-    const lights: SerializedLight[] = [];
+  private serializeLights(entities: IEntity[]): EnhancedSerializedLight[] {
+    const lights: EnhancedSerializedLight[] = [];
     for (const entity of entities) {
       const light = entity.getComponent<LightSourceComponent>(LightSourceComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (light && transform) {
-        lights.push({
+        // 输出详细光源参数
+        console.log('[RayTracingLayer] Light:', entity.id, {
           position: transform.getPosition(),
+          height: light.height,
           color: light.color,
           intensity: light.intensity,
           radius: light.radius,
+          type: light.type,
+          castShadows: light.castShadows,
+          attenuation: light.attenuation,
+          direction: light.direction,
+          spotAngle: light.spotAngle,
+          spotPenumbra: light.spotPenumbra,
+          enabled: light.enabled,
+          layer: light.layer,
+        });
+        if (!light.enabled) continue;
+        lights.push({
+          position: transform.getPosition(),
+          height: light.height,
+          color: light.color,
+          intensity: light.intensity,
+          radius: light.radius,
+          type: light.type,
+          castShadows: light.castShadows,
+          attenuation: light.attenuation,
+          direction: light.direction,
+          spotAngle: light.spotAngle,
+          spotPenumbra: light.spotPenumbra,
+          enabled: light.enabled,
+          layer: light.layer,
         });
       }
     }
+    console.log(`[RayTracingLayer] Serialized ${lights.length} enabled lights`);
     return lights;
   }
 
   /**
-   * Finds the entity with a CameraComponent and serializes its data for the workers.
-   * This implementation assumes there is only one camera in the scene.
+   * Enhanced camera serialization with full 3D support and multiple view modes.
    */
-  private serializeCamera(entities: IEntity[]): SerializedCamera | null {
+  private serializeCamera(entities: IEntity[]): EnhancedSerializedCamera | null {
     for (const entity of entities) {
-      const camera = entity.getComponent<CameraComponent>(CameraComponent.componentName);
+      const camera = entity.getComponent<Camera3DComponent>(Camera3DComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      if (camera && transform) {
+      if (camera && transform && camera.isActive) {
+        // 输出详细相机参数
+        console.log('[RayTracingLayer] Camera:', entity.id, {
+          position: transform.getPosition(),
+          fov: camera.fov,
+          facing: camera.facing,
+          height: camera.height,
+          pitch: camera.pitch,
+          roll: camera.roll,
+          projectionMode: camera.projectionMode,
+          cameraMode: camera.cameraMode,
+          aspect: camera.aspect,
+          near: camera.near,
+          far: camera.far,
+          viewBounds: camera.viewBounds,
+          resolution: camera.resolution,
+          zoom: camera.zoom,
+        });
         return {
           position: transform.getPosition(),
           fov: camera.fov,
           facing: camera.facing,
+          height: camera.height,
+          pitch: camera.pitch,
+          roll: camera.roll,
+          projectionMode: camera.projectionMode,
+          cameraMode: camera.cameraMode,
+          aspect: camera.aspect,
+          near: camera.near,
+          far: camera.far,
+          viewBounds: camera.viewBounds,
+          resolution: camera.resolution,
+          zoom: camera.zoom,
         };
       }
     }
-    return null; // No camera found
+    return null; // No active camera found
+  }
+
+  /**
+   * Public method to force a scene update and reset progressive rendering.
+   * Useful for when external systems know the scene has changed.
+   */
+  public forceSceneUpdate(): void {
+    this.resetProgressiveRender();
+    this.lastSceneHash = '';
+    // Clear cached entities to force re-fetching
+    this.cameraEntities = [];
+    this.lightEntities = [];
+  }
+
+  /**
+   * Public method to adjust progressive rendering quality.
+   * @param totalPasses Number of passes for progressive rendering (higher = better quality, slower)
+   * @param tileSize Size of rendering tiles (smaller = better load balancing, more overhead)
+   */
+  public setRenderingQuality(totalPasses: number, tileSize: number): void {
+    if (totalPasses !== this.progressiveState.totalPasses || tileSize !== this.tileSize) {
+      this.progressiveState.totalPasses = Math.max(1, totalPasses);
+      this.tileSize = Math.max(1, tileSize);
+      this.resetProgressiveRender(); // Reset to apply new settings
+      console.log(`Updated rendering quality: ${totalPasses} passes, ${tileSize}px tiles`);
+    }
+  }
+
+  /**
+   * Returns current progressive rendering statistics.
+   */
+  public getRenderingStats(): {
+    currentPass: number;
+    totalPasses: number;
+    isComplete: boolean;
+    sampledPixels: number;
+    totalPixels: number;
+  } {
+    const totalPixels = this.mainCanvas.width * this.mainCanvas.height;
+    let sampledPixels = 0;
+
+    if (this.progressiveState.sampleCounts) {
+      for (let i = 0; i < this.progressiveState.sampleCounts.length; i++) {
+        if (this.progressiveState.sampleCounts[i] > 0) {
+          sampledPixels++;
+        }
+      }
+    }
+
+    return {
+      currentPass: this.progressiveState.currentPass,
+      totalPasses: this.progressiveState.totalPasses,
+      isComplete: this.progressiveState.isComplete,
+      sampledPixels,
+      totalPixels,
+    };
   }
 }

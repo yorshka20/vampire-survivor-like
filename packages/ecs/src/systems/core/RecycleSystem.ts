@@ -3,7 +3,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { RenderSystem } from '@ecs/systems';
-import { Point, RectArea } from '@ecs/utils/types';
+import { Point, RectArea } from '@ecs/types/types';
 
 /**
  * RecycleSystem

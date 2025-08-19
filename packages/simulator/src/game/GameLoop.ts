@@ -12,10 +12,25 @@ export class GameLoop {
   private lastTime: number = 0;
   private rafId: number = 0;
   private logicTimerId: NodeJS.Timeout | null = null;
-  private speedMultiplier: number = 4; // Add speed multiplier. 1x, 2x, 4x
+  private speedMultiplier: number = 1; // Add speed multiplier. 1x, 2x, 4x
+
+  /**
+   * Logic frame rate (updates per second)
+   * Controls how often the game logic updates per second
+   * Can be modified to change logic update frequency
+   */
+  private logicFrameRate: number = 2;
+
+  /**
+   * Render frame rate (frames per second)
+   * Controls how often the game renders per second
+   * Can be modified to change render update frequency
+   * If set to 0 or less, will use requestAnimationFrame (uncapped)
+   */
+  private renderFrameRate: number = 0;
 
   // Fixed time step for logic updates (now managed by PerformanceSystem)
-  private fixedTimeStep: number = 1 / (15 * this.speedMultiplier); // 60 updates per second
+  private fixedTimeStep: number = 1 / this.logicFrameRate;
   private accumulator: number = 0;
   private readonly maxAccumulator: number = 0.2; // Cap accumulator to prevent spiral of death
 
@@ -70,12 +85,29 @@ export class GameLoop {
 
   setSpeedMultiplier(multiplier: number): void {
     this.speedMultiplier = multiplier;
-    this.fixedTimeStep = 1 / (15 * this.speedMultiplier);
-    // Update logic timer interval based on new speed multiplier
+    // The fixedTimeStep is now managed by setLogicFrameRate
+  }
+
+  setLogicFrameRate(rate: number): void {
+    /**
+     * Set the logic update frame rate (updates per second)
+     * @param rate New logic frame rate
+     */
+    this.logicFrameRate = rate;
+    this.fixedTimeStep = 1 / this.logicFrameRate;
     if (this.logicTimerId) {
       clearTimeout(this.logicTimerId);
       this.startLogicTick();
     }
+  }
+
+  setRenderFrameRate(rate: number): void {
+    /**
+     * Set the render frame rate (frames per second)
+     * @param rate New render frame rate (0 or less = uncapped, uses requestAnimationFrame)
+     */
+    this.renderFrameRate = rate;
+    // No need to restart render loop, as it checks this value each frame
   }
 
   private startLogicTick(): void {
@@ -84,7 +116,8 @@ export class GameLoop {
 
       await this.updateLogic();
 
-      const interval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
+      // Use logicFrameRate to control logic update interval
+      const interval = Math.max(1, Math.floor((1 / this.logicFrameRate) * 1000));
       this.logicTimerId = setTimeout(tick, interval);
     };
 
@@ -134,11 +167,32 @@ export class GameLoop {
     // Render update (variable time step)
     this.world.updateRender(deltaTime);
 
-    // Schedule next frame
-    this.rafId = requestAnimationFrame(() => this.startRenderTick());
+    // Schedule next frame based on renderFrameRate
+    if (this.renderFrameRate > 0) {
+      // Use setTimeout for capped frame rate
+      const interval = Math.max(1, Math.floor((1 / this.renderFrameRate) * 1000));
+      this.rafId = window.setTimeout(() => this.startRenderTick(), interval);
+    } else {
+      // Use requestAnimationFrame for uncapped frame rate
+      this.rafId = requestAnimationFrame(() => this.startRenderTick());
+    }
   }
 
   getFixedTimeStep(): number {
     return this.fixedTimeStep;
+  }
+
+  /**
+   * Get the current logic frame rate
+   */
+  getLogicFrameRate(): number {
+    return this.logicFrameRate;
+  }
+
+  /**
+   * Get the current render frame rate
+   */
+  getRenderFrameRate(): number {
+    return this.renderFrameRate;
   }
 }

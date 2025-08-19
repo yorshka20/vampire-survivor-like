@@ -1,5 +1,5 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { Color } from '@ecs/utils/types';
+import { Color } from '@ecs/types/types';
 
 export type EnemyType = 'normal' | 'magic' | 'elite' | 'boss' | 'legendary';
 

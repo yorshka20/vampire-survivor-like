@@ -1,5 +1,5 @@
+import { RectArea } from '@brotov2/ecs/src/types/types';
 import { RenderSystem } from '@ecs/systems';
-import { RectArea } from '@ecs/utils/types';
 import { IRenderLayer } from './IRenderLayer';
 
 export interface ContextConfig {

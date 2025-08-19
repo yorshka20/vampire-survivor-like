@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point, Viewport } from '@ecs/utils/types';
+import { Point, Viewport } from '@ecs/types/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance

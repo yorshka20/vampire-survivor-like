@@ -1,4 +1,4 @@
-import { Point } from '@ecs/utils/types';
+import { Point } from '@ecs/types/types';
 import { GetParametricParams, GetSDFParams, ParametricCurveName, SDFName } from './types';
 
 // Type-safe equation definitions
