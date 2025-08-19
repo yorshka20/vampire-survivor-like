@@ -1,6 +1,6 @@
 import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components/index';
 import { IEntity } from '@ecs/core/ecs/types';
-import { RectArea } from '@ecs/utils/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { BaseRenderLayer, RenderLayerType } from './RenderLayer';
 

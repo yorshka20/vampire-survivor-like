@@ -96,6 +96,14 @@ export class Canvas2dRenderer implements IRenderer {
     return this.layers;
   }
 
+  skipRayTracing(skip: boolean): void {
+    this.layers.forEach((layer) => {
+      if (layer.identifier === RenderLayerIdentifier.RAY_TRACING) {
+        layer.visible = !skip;
+      }
+    });
+  }
+
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     for (const layer of this.layers) {
       if (layer.visible) {

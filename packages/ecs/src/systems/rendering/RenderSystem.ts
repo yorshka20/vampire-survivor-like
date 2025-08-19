@@ -50,6 +50,10 @@ export class RenderSystem extends System {
     this.renderer = renderer;
   }
 
+  getRenderer(): IRenderer {
+    return this.renderer;
+  }
+
   init() {
     this.renderer.init(this);
   }

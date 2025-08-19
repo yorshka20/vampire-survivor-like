@@ -10,14 +10,14 @@ export function createCanvas2dRenderer(
 ): IRenderer {
   const renderer = new Canvas2dRenderer(rootElement, name);
 
+  // add necessary layers
+  renderer.addRenderLayer(EntityRenderLayer);
+  renderer.addRenderLayer(BackgroundRenderLayer);
+  renderer.addRenderLayer(GridDebugLayer);
+
   // Add the RayTracingLayer
   if (rayTracing) {
     renderer.addRenderLayer(RayTracingLayer);
-  } else {
-    // add necessary layers
-    renderer.addRenderLayer(EntityRenderLayer);
-    renderer.addRenderLayer(BackgroundRenderLayer);
-    renderer.addRenderLayer(GridDebugLayer);
   }
 
   return renderer;

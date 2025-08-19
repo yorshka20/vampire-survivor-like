@@ -94,19 +94,19 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
-  console.log('[Worker] Ray tracing started with:', {
-    entitiesCount: entityList.length,
-    lightsCount: lights.length,
-    tilesCount: tiles.length,
-    viewport,
-    camera: camera.position,
-    sampling,
-    entities: entityList.map((e) => ({
-      id: e.id,
-      position: e.position,
-      shape: e.shape,
-    })),
-  });
+  // console.log('[Worker] Ray tracing started with:', {
+  //   entitiesCount: entityList.length,
+  //   lightsCount: lights.length,
+  //   tilesCount: tiles.length,
+  //   viewport,
+  //   camera: camera.position,
+  //   sampling,
+  //   entities: entityList.map((e) => ({
+  //     id: e.id,
+  //     position: e.position,
+  //     shape: e.shape,
+  //   })),
+  // });
 
   for (const tile of tiles) {
     // Initialize pixel and sampling arrays
@@ -137,21 +137,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
           const ray = generateCameraRay(x, y, camera);
           const intersection = findClosestIntersection3D(ray, entityList);
 
-          // Debug: 输出中心像素的ray信息
-          if (
-            x === Math.floor(camera.resolution.width / 2) &&
-            y === Math.floor(camera.resolution.height / 2)
-          ) {
-            console.log('[Worker] Center pixel ray:', {
-              pixelPos: [x, y],
-              rayOrigin: ray.origin,
-              rayDirection: ray.direction,
-              ballPos: entityList[0]?.position,
-              ballRadius: entityList[0]?.shape?.radius,
-              hasIntersection: !!intersection,
-            });
-          }
-
           if (intersection) {
             color = shade3D(intersection, entityList, lights, camera);
             // Debug removed for performance
@@ -179,7 +164,7 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
     });
   }
 
-  console.log('[Worker] Ray tracing completed, returning', tileResults.length, 'tiles');
+  // console.log('[Worker] Ray tracing completed, returning', tileResults.length, 'tiles');
 
   return tileResults;
 }
