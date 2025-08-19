@@ -143,12 +143,13 @@ function initializeEntities(world: World, viewport: Viewport) {
   // world.addEntity(generator);
   // world.addEntity(generator2);
   // world.addEntity(generator3);
-
+  const camX = viewport[2] / 2;
+  const camY = viewport[3] / 2;
   const ball = createBall(world, {
-    position: [888, 888],
-    size: 400,
+    position: [camX, camY], // 将球放在屏幕中心
+    size: 200, // 减小尺寸使其更容易看到
     velocity: [0, 0],
-    color: { r: 22, g: 23, b: 24, a: 1 },
+    color: { r: 255, g: 100, b: 100, a: 1 }, // 使用更明显的红色
   });
   world.addEntity(ball);
 
@@ -251,7 +252,7 @@ function createRayTracingEntity(world: World, viewport: Viewport) {
   const topDownCameraEntity = world.createEntity('camera');
   const topDownCamera = new Camera3DComponent({
     position: [camX, camY],
-    height: 100,
+    height: 50, // 降低相机高度使其更接近z=0平面的物体
     cameraMode: 'topdown',
     projectionMode: 'orthographic',
     resolution: { width: w, height: h },

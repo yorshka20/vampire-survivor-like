@@ -94,6 +94,20 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
+  console.log('[Worker] Ray tracing started with:', {
+    entitiesCount: entityList.length,
+    lightsCount: lights.length,
+    tilesCount: tiles.length,
+    viewport,
+    camera: camera.position,
+    sampling,
+    entities: entityList.map((e) => ({
+      id: e.id,
+      position: e.position,
+      shape: e.shape,
+    })),
+  });
+
   for (const tile of tiles) {
     // Initialize pixel and sampling arrays
     const pixels = new Array(tile.width * tile.height * 4).fill(0);
@@ -123,8 +137,24 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
           const ray = generateCameraRay(x, y, camera);
           const intersection = findClosestIntersection3D(ray, entityList);
 
+          // Debug: 输出中心像素的ray信息
+          if (
+            x === Math.floor(camera.resolution.width / 2) &&
+            y === Math.floor(camera.resolution.height / 2)
+          ) {
+            console.log('[Worker] Center pixel ray:', {
+              pixelPos: [x, y],
+              rayOrigin: ray.origin,
+              rayDirection: ray.direction,
+              ballPos: entityList[0]?.position,
+              ballRadius: entityList[0]?.shape?.radius,
+              hasIntersection: !!intersection,
+            });
+          }
+
           if (intersection) {
             color = shade3D(intersection, entityList, lights, camera);
+            // Debug removed for performance
           } else {
             // Apply ambient lighting to background
             color = applyAmbientLighting(color, lights);
@@ -148,6 +178,8 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
       sampledPixels,
     });
   }
+
+  console.log('[Worker] Ray tracing completed, returning', tileResults.length, 'tiles');
 
   return tileResults;
 }
@@ -341,10 +373,46 @@ function findClosestIntersection3D(
   ray: Ray3D,
   entities: SerializedEntity[],
 ): Intersection3D | null {
-  // For 2D entities, we intersect with their projection on the z=0 plane
-  const ray2D = ray.to2D();
+  // For topdown camera with vertical rays, we check point-in-shape instead of ray intersection
+  if (Math.abs(ray.direction.x) < 1e-6 && Math.abs(ray.direction.y) < 1e-6) {
+    // Vertical ray - calculate intersection with z=0 plane
+    let t = 0;
+    if (Math.abs(ray.direction.z) > 1e-6) {
+      t = -ray.origin.z / ray.direction.z;
+    }
 
-  // Use existing 2D intersection logic
+    const intersectionPoint = ray.pointAt(t);
+    const point2D: Point = [intersectionPoint.x, intersectionPoint.y];
+
+    // Check if point is inside any entity
+    for (const entity of entities) {
+      if (entity.shape.type === 'circle') {
+        const dx = point2D[0] - entity.position[0];
+        const dy = point2D[1] - entity.position[1];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= entity.shape.radius) {
+          // Found intersection - calculate normal pointing outward from circle center
+          const normal2D: Vec2 = distance > 1e-6 ? [dx / distance, dy / distance] : [0, 1];
+
+          return {
+            point: intersectionPoint,
+            normal: { x: normal2D[0], y: normal2D[1], z: 0 },
+            distance: t,
+            entity,
+            point2D,
+            normal2D,
+          };
+        }
+      }
+      // Add more shape types here if needed
+    }
+
+    return null;
+  }
+
+  // For non-vertical rays, use original 2D ray logic
+  const ray2D = ray.to2D();
   const intersection2D = findClosestIntersection(ray2D, entities);
 
   if (!intersection2D) return null;
@@ -383,8 +451,8 @@ function shade3D(
 ): RgbaColor {
   let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: 255 };
 
-  // Base material color (could be enhanced with actual material properties)
-  const materialColor: RgbaColor = { r: 200, g: 200, b: 200, a: 255 };
+  // Base material color
+  const materialColor: RgbaColor = { r: 255, g: 100, b: 100, a: 255 };
 
   for (const light of lights) {
     if (!light.enabled) continue;
@@ -401,6 +469,12 @@ function shade3D(
     finalColor.g += lightContribution.g;
     finalColor.b += lightContribution.b;
   }
+
+  // Add some ambient lighting to ensure visibility
+  const ambient = 0.3;
+  finalColor.r += materialColor.r * ambient;
+  finalColor.g += materialColor.g * ambient;
+  finalColor.b += materialColor.b * ambient;
 
   // Clamp colors to valid range
   finalColor.r = Math.min(255, Math.max(0, finalColor.r));
@@ -437,6 +511,7 @@ function calculateLightContribution(
         z: -light.direction[2],
       };
       distance = Infinity; // Directional lights have no distance falloff
+      // Debug removed for performance
       break;
 
     case 'ambient':
@@ -470,6 +545,8 @@ function calculateLightContribution(
   // Calculate light intensity with distance attenuation
   let intensity = calculateLightIntensity(intersection.point, light, distance);
 
+  // Debug removed for performance
+
   if (intensity <= 0) {
     return { r: 0, g: 0, b: 0, a: 255 };
   }
@@ -500,13 +577,13 @@ function calculateLightContribution(
       intersection.normal.z * lightDirection.z,
   );
 
-  // Combine material color, light color, and intensity
-  const colorScale = (intensity * dotProduct) / 255; // Normalize color values
+  // Calculate final light contribution
+  const lightContrib = intensity * Math.max(0.1, dotProduct); // Small ambient term
 
   return {
-    r: (materialColor.r * light.color.r * colorScale) / 255,
-    g: (materialColor.g * light.color.g * colorScale) / 255,
-    b: (materialColor.b * light.color.b * colorScale) / 255,
+    r: Math.min(255, materialColor.r * lightContrib),
+    g: Math.min(255, materialColor.g * lightContrib),
+    b: Math.min(255, materialColor.b * lightContrib),
     a: 255,
   };
 }
@@ -519,7 +596,15 @@ function calculateLightIntensity(
   light: EnhancedSerializedLight,
   distance: number,
 ): number {
-  if (!light.enabled || distance > light.radius) return 0;
+  if (!light.enabled) return 0;
+
+  // Directional lights have infinite range
+  if (light.type === 'directional') {
+    return light.intensity;
+  }
+
+  // Other light types check distance
+  if (distance > light.radius) return 0;
 
   let intensity = light.intensity;
 
