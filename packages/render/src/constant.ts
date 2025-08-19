@@ -10,6 +10,8 @@ export enum RenderLayerPriority {
   DAMAGE_TEXT,
   /** grid debug */
   GRID_DEBUG,
+
+  RAY_TRACING,
 }
 
 export enum RenderLayerIdentifier {

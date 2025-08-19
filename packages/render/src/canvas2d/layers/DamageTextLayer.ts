@@ -1,7 +1,7 @@
 import { DamageTextComponent } from '@ecs/components';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { DomElementPool, PoolableDomElement } from '@ecs/core/pool/DomElementPool';
-import { RectArea } from '@ecs/utils/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { DomRenderLayer } from '../base';
 

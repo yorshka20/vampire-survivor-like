@@ -5,7 +5,7 @@ import {
   TransformComponent,
 } from '@ecs/components';
 import { IEntity } from '@ecs/core/ecs/types';
-import { RectArea } from '@ecs/utils/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
 import { RenderUtils } from '../utils/RenderUtils';

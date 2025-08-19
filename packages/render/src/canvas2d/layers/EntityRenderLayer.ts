@@ -8,7 +8,7 @@ import {
 } from '@ecs/components';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
-import { RectArea } from '@ecs/utils/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';

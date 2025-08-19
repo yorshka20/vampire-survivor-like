@@ -1,4 +1,4 @@
-import { RectArea } from '@ecs/utils/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
 
