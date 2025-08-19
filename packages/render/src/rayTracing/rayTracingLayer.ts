@@ -3,8 +3,11 @@ import {
   LightSourceComponent,
   RectArea,
   ShapeComponent,
+  SpatialGridComponent,
+  SpatialGridSystem,
   TransformComponent,
 } from '@ecs';
+import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { IEntity } from '@ecs/core/ecs/types';
 import {
   RayTracingWorkerData,
@@ -14,7 +17,7 @@ import {
   WorkerPoolManager,
 } from '@ecs/core/worker';
 import { ProgressiveTileResult } from '@ecs/core/worker/rayTracing';
-import { CanvasRenderLayer, RenderLayerType } from '@render/canvas2d';
+import { CanvasRenderLayer } from '@render/canvas2d';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@render/constant';
 
 // Extended interface for progressive ray tracing
@@ -93,17 +96,26 @@ interface EnhancedSerializedLight extends SerializedLight {
  */
 export class RayTracingLayer extends CanvasRenderLayer {
   private workerPoolManager: WorkerPoolManager;
-  private tileSize = 50; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
+  private tileSize = 100; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
   private imageData: ImageData | null = null; // Stores the pixel data for the entire canvas.
 
   private cameraEntities: IEntity[] = [];
   private lightEntities: IEntity[] = [];
 
+  private offscreenCanvas: OffscreenCanvas;
+  private offscreenCtx: OffscreenCanvasRenderingContext2D;
+
+  private spatialGridComponent: SpatialGridComponent | null = null;
+
+  private frameCount: number = 0;
+
+  private opacity: number = 100;
+
   // Progressive rendering state
   private progressiveState: ProgressiveRenderState = {
     currentPass: 0,
-    totalPasses: 1, // Split rendering across 4 frames
-    samplingPattern: 'checkerboard',
+    totalPasses: 60, // Split rendering across 4 frames
+    samplingPattern: 'random',
     accumBuffer: null,
     colorAccumBuffer: null,
     sampleCounts: null,
@@ -118,8 +130,12 @@ export class RayTracingLayer extends CanvasRenderLayer {
     protected mainCanvas: HTMLCanvasElement,
     protected mainCtx: CanvasRenderingContext2D,
   ) {
-    super(RenderLayerIdentifier.RAY_TRACING, RenderLayerPriority.ENTITY, mainCanvas, mainCtx); // 使用更高的优先级
-    this.type = RenderLayerType.CANVAS;
+    super(RenderLayerIdentifier.RAY_TRACING, RenderLayerPriority.RAY_TRACING, mainCanvas, mainCtx);
+
+    this.offscreenCanvas = new OffscreenCanvas(mainCanvas.width, mainCanvas.height);
+    this.offscreenCtx = this.offscreenCanvas.getContext('2d', {
+      willReadFrequently: true,
+    })!;
 
     // Get a reference to the worker pool manager singleton
     this.workerPoolManager = WorkerPoolManager.getInstance();
@@ -132,16 +148,16 @@ export class RayTracingLayer extends CanvasRenderLayer {
   /**
    * The main update loop for the layer. Called once per frame.
    */
-  async update(
-    deltaTime: number,
-    viewport: RectArea,
-    cameraOffset: [number, number],
-  ): Promise<void> {
+  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
+    if (!this.getSpatialGridComponent()) {
+      return;
+    }
+
     this.lastViewport = viewport;
 
     // First, draw the current accumulated result (if any) to prevent flicker
     if (this.imageData) {
-      this.mainCtx.putImageData(this.imageData, 0, 0);
+      this.mainCtx.drawImage(this.offscreenCanvas, 0, 0);
     }
 
     // Start the ray tracing process and get promises for the results from each worker.
@@ -149,8 +165,10 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     // If there are active rendering tasks, wait for them to complete and process the results.
     if (activePromises.length > 0) {
-      await this.handleWorkerResults(activePromises);
+      this.handleWorkerResults(activePromises);
     }
+
+    this.frameCount++;
   }
 
   private getCameras(): IEntity[] {
@@ -169,6 +187,21 @@ export class RayTracingLayer extends CanvasRenderLayer {
       );
     }
     return this.lightEntities;
+  }
+
+  private getSpatialGridComponent(): SpatialGridComponent {
+    if (this.spatialGridComponent) {
+      return this.spatialGridComponent;
+    }
+    const spatialGridSystem = this.getWorld().getSystem<SpatialGridSystem>(
+      'SpatialGridSystem',
+      SystemPriorities.SPATIAL_GRID,
+    );
+    if (!spatialGridSystem) {
+      throw new Error('SpatialGridSystem not found');
+    }
+    this.spatialGridComponent = spatialGridSystem.getSpatialGridComponent();
+    return this.spatialGridComponent;
   }
 
   /**
@@ -216,13 +249,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
   ): Promise<ProgressiveTileResult[]>[] {
     // 1. Scene Change Detection: Check if we need to reset progressive rendering
     // const currentSceneHash = this.getSceneHash();
-    // if (currentSceneHash !== this.lastSceneHash) {
-    //   this.resetProgressiveRender();
-    //   this.lastSceneHash = currentSceneHash;
-    //   console.log('Scene changed, resetting progressive render');
-    // }
-    // LOG: hash check skipped
-    // console.log('[RayTracingLayer] Scene hash check skipped (debug mode)');
+    if (this.frameCount > 120) {
+      this.resetProgressiveRender();
+      this.frameCount = 0;
+      console.log('Scene changed, resetting progressive render');
+    }
 
     // Complete a round and reset pass count without clearing buffers
     if (this.progressiveState.isComplete) {
@@ -233,14 +264,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     // 2. Scene Preparation: Gather all necessary data about the scene.
     const entities = this.getLayerEntities(viewport);
-    const serializedEntities = this.serializeEntities(entities);
     const serializedLights = this.serializeLights(this.getLights());
     const serializedCamera = this.serializeCamera(this.getCameras());
-
-    // LOG: scene content
-    // console.log('[RayTracingLayer] Entities:', entities.length, Object.keys(serializedEntities));
-    // console.log('[RayTracingLayer] Lights:', this.getLights().length, serializedLights);
-    // console.log('[RayTracingLayer] Cameras:', this.getCameras().length, serializedCamera);
 
     // If there's no active camera, we can't render anything.
     if (!serializedCamera) {
@@ -254,15 +279,34 @@ export class RayTracingLayer extends CanvasRenderLayer {
       return [];
     }
 
-    // 3. Task Creation: Divide the viewport into a grid of tiles.
-    const tasks: { x: number; y: number }[] = [];
-    for (let y = 0; y < viewport[3]; y += this.tileSize) {
-      for (let x = 0; x < viewport[2]; x += this.tileSize) {
-        tasks.push({ x, y });
-      }
+    const grid = this.getSpatialGridComponent().grid;
+
+    // 3. Task Creation: Divide the viewport into spatial grid cells instead of fixed-size tiles.
+    const tasks: {
+      cellKey: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      entityIds: string[];
+    }[] = [];
+    for (const [cellKey, cell] of grid.entries()) {
+      // Get cell bounds
+      const bounds = this.getSpatialGridComponent().getCellBounds(cellKey);
+      // Get all entity IDs in this cell (using 'collision' type for generality)
+      const entityIds = this.getSpatialGridComponent().getEntitiesInCell(cellKey, 'collision');
+      if (entityIds.length === 0) continue; // Skip empty cells
+      tasks.push({
+        cellKey,
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        entityIds,
+      });
     }
 
-    // 4. Task Distribution: Assign tiles to each worker with progressive sampling data.
+    // 4. Task Distribution: Assign grid cells to each worker with progressive sampling data.
     const workerCount = this.workerPoolManager.getWorkerCount();
     const tasksPerWorker = Math.ceil(tasks.length / workerCount);
     const activePromises: Promise<ProgressiveTileResult[]>[] = [];
@@ -271,22 +315,32 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const start = i * tasksPerWorker;
       const end = start + tasksPerWorker;
       const assignedTasks = tasks.slice(start, end);
-
       if (assignedTasks.length === 0) continue;
+
+      // Collect all unique entity IDs for this worker's assigned cells
+      const uniqueEntityIds = Array.from(new Set(assignedTasks.flatMap((t) => t.entityIds)));
+      // Only serialize entities that are in these cells
+      const entitiesMap: Record<string, SerializedEntity> = this.serializeEntities(
+        uniqueEntityIds.map((id) => this.getWorld().getEntityById(id)).filter(Boolean) as IEntity[],
+      );
+
+      // Prepare tile definitions for the worker
+      const tiles = assignedTasks.map((task) => ({
+        x: task.x,
+        y: task.y,
+        width: task.width,
+        height: task.height,
+        cellKey: task.cellKey,
+      }));
 
       // Package all the data for the worker, including progressive sampling parameters.
       const taskData: ProgressiveRayTracingWorkerData = {
-        entities: serializedEntities,
+        entities: entitiesMap,
         lights: serializedLights,
         camera: serializedCamera,
         viewport,
         cameraOffset,
-        tiles: assignedTasks.map((task) => ({
-          x: task.x,
-          y: task.y,
-          width: this.tileSize,
-          height: this.tileSize,
-        })),
+        tiles,
         // Progressive sampling configuration
         sampling: {
           currentPass: this.progressiveState.currentPass,
@@ -344,15 +398,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
       // Wait for all workers to finish their tasks.
       const results = await Promise.all(activePromises);
 
-      // console.log('[RayTracingLayer] Worker results received:', results.length, 'results');
-      // results.forEach((result, index) => {
-      //   if (result) {
-      //     console.log(`[RayTracingLayer] Result ${index}:`, result.length, 'tiles');
-      //   } else {
-      //     console.log(`[RayTracingLayer] Result ${index}: null/empty`);
-      //   }
-      // });
-
       // Initialize the accumulation buffer if it doesn't exist or if canvas size changed.
       if (
         !this.progressiveState.accumBuffer ||
@@ -388,7 +433,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     const totalPixels = width * height;
 
     // Create display ImageData
-    this.progressiveState.accumBuffer = this.mainCtx.createImageData(width, height);
+    this.progressiveState.accumBuffer = this.offscreenCtx.createImageData(width, height);
 
     // Create floating-point accumulation buffer for RGB values (prevents overflow)
     this.progressiveState.colorAccumBuffer = new Float32Array(totalPixels * 3);
@@ -406,7 +451,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.progressiveState.accumBuffer.data[index] = 0; // R
       this.progressiveState.accumBuffer.data[index + 1] = 0; // G
       this.progressiveState.accumBuffer.data[index + 2] = 0; // B
-      this.progressiveState.accumBuffer.data[index + 3] = 255; // A (opaque)
+      this.progressiveState.accumBuffer.data[index + 3] = this.opacity; // A (opaque)
     }
 
     console.log(`Initialized accumulation buffer: ${width}x${height} (${totalPixels} pixels)`);
@@ -419,7 +464,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     const { x, y, width, height, pixels, sampledPixels } = tileResult;
     if (!this.progressiveState.colorAccumBuffer || !this.progressiveState.sampleCounts) return;
 
-    const canvasWidth = this.mainCanvas.width;
+    const canvasWidth = this.offscreenCanvas.width;
     let sourcePixelIndex = 0;
 
     for (let j = 0; j < height; j++) {
@@ -433,7 +478,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
           continue;
         }
 
-        if (canvasX < canvasWidth && canvasY < this.mainCanvas.height) {
+        if (canvasX < canvasWidth && canvasY < this.offscreenCanvas.height) {
           const pixelIndex = canvasY * canvasWidth + canvasX;
           const accumIndex = pixelIndex * 3;
 
@@ -479,10 +524,13 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     if (
       !this.imageData ||
-      this.imageData.width !== this.mainCanvas.width ||
-      this.imageData.height !== this.mainCanvas.height
+      this.imageData.width !== this.offscreenCanvas.width ||
+      this.imageData.height !== this.offscreenCanvas.height
     ) {
-      this.imageData = this.mainCtx.createImageData(this.mainCanvas.width, this.mainCanvas.height);
+      this.imageData = this.offscreenCtx.createImageData(
+        this.offscreenCanvas.width,
+        this.offscreenCanvas.height,
+      );
     }
 
     for (let i = 0; i < this.progressiveState.sampleCounts.length; i++) {
@@ -510,11 +558,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
         this.imageData.data[destIndex] = 0;
         this.imageData.data[destIndex + 1] = 0;
         this.imageData.data[destIndex + 2] = 0;
-        this.imageData.data[destIndex + 3] = 255;
+        this.imageData.data[destIndex + 3] = this.opacity;
       }
     }
 
-    this.mainCtx.putImageData(this.imageData, 0, 0);
+    this.offscreenCtx.putImageData(this.imageData, 0, 0);
   }
 
   /**
@@ -526,6 +574,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     this.progressiveState.accumBuffer = null;
     this.progressiveState.colorAccumBuffer = null;
     this.progressiveState.sampleCounts = null;
+    this.offscreenCtx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
   }
 
   /**
@@ -573,15 +622,10 @@ export class RayTracingLayer extends CanvasRenderLayer {
    * For ray tracing, we only care about entities that have a physical shape.
    */
   filterEntity(entity: IEntity): boolean {
-    const hasShape = entity.hasComponent(ShapeComponent.componentName);
-    const hasTransform = entity.hasComponent(TransformComponent.componentName);
-    console.log(`[RayTracingLayer] Entity ${entity.id} filter check:`, {
-      hasShape,
-      hasTransform,
-      type: entity.type,
-      components: Array.from(entity.components.values()).map((c) => c.name),
-    });
-    return hasShape && hasTransform;
+    return (
+      entity.hasComponent(ShapeComponent.componentName) &&
+      entity.hasComponent(TransformComponent.componentName)
+    );
   }
 
   /**
@@ -593,13 +637,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
     for (const entity of entities) {
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      // 输出详细实体参数
-      console.log('[RayTracingLayer] Entity:', entity.id, {
-        shape: shape?.descriptor,
-        position: transform?.getPosition(),
-        rotation: transform?.rotation,
-        entity,
-      });
       // We already filtered, but it's good practice to check again.
       if (shape && transform) {
         serialized[entity.id] = {
@@ -621,42 +658,25 @@ export class RayTracingLayer extends CanvasRenderLayer {
     for (const entity of entities) {
       const light = entity.getComponent<LightSourceComponent>(LightSourceComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      if (light && transform) {
-        // 输出详细光源参数
-        console.log('[RayTracingLayer] Light:', entity.id, {
-          position: transform.getPosition(),
-          height: light.height,
-          color: light.color,
-          intensity: light.intensity,
-          radius: light.radius,
-          type: light.type,
-          castShadows: light.castShadows,
-          attenuation: light.attenuation,
-          direction: light.direction,
-          spotAngle: light.spotAngle,
-          spotPenumbra: light.spotPenumbra,
-          enabled: light.enabled,
-          layer: light.layer,
-        });
-        if (!light.enabled) continue;
-        lights.push({
-          position: transform.getPosition(),
-          height: light.height,
-          color: light.color,
-          intensity: light.intensity,
-          radius: light.radius,
-          type: light.type,
-          castShadows: light.castShadows,
-          attenuation: light.attenuation,
-          direction: light.direction,
-          spotAngle: light.spotAngle,
-          spotPenumbra: light.spotPenumbra,
-          enabled: light.enabled,
-          layer: light.layer,
-        });
-      }
+      if (!light?.enabled || !transform) continue;
+
+      lights.push({
+        position: transform.getPosition(),
+        height: light.height,
+        color: light.color,
+        intensity: light.intensity,
+        radius: light.radius,
+        type: light.type,
+        castShadows: light.castShadows,
+        attenuation: light.attenuation,
+        direction: light.direction,
+        spotAngle: light.spotAngle,
+        spotPenumbra: light.spotPenumbra,
+        enabled: light.enabled,
+        layer: light.layer,
+      });
     }
-    console.log(`[RayTracingLayer] Serialized ${lights.length} enabled lights`);
+
     return lights;
   }
 
@@ -668,23 +688,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const camera = entity.getComponent<Camera3DComponent>(Camera3DComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (camera && transform && camera.isActive) {
-        // 输出详细相机参数
-        console.log('[RayTracingLayer] Camera:', entity.id, {
-          position: transform.getPosition(),
-          fov: camera.fov,
-          facing: camera.facing,
-          height: camera.height,
-          pitch: camera.pitch,
-          roll: camera.roll,
-          projectionMode: camera.projectionMode,
-          cameraMode: camera.cameraMode,
-          aspect: camera.aspect,
-          near: camera.near,
-          far: camera.far,
-          viewBounds: camera.viewBounds,
-          resolution: camera.resolution,
-          zoom: camera.zoom,
-        });
         return {
           position: transform.getPosition(),
           fov: camera.fov,
@@ -742,7 +745,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     sampledPixels: number;
     totalPixels: number;
   } {
-    const totalPixels = this.mainCanvas.width * this.mainCanvas.height;
+    const totalPixels = this.offscreenCanvas.width * this.offscreenCanvas.height;
     let sampledPixels = 0;
 
     if (this.progressiveState.sampleCounts) {
