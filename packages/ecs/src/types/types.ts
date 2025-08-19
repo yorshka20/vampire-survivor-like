@@ -23,6 +23,20 @@ export type RectArea = [number, number, number, number];
  */
 export type Vec2 = [number, number];
 
+export type Vec3 = [number, number, number];
+
+export interface Resolution {
+  width: number;
+  height: number;
+}
+
+export interface ViewBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 /**
  * Represents a color in RGBA format
  */

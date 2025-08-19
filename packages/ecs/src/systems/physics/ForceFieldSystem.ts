@@ -2,7 +2,7 @@ import { PhysicsComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { System } from '@ecs/core/ecs/System';
 import { RenderSystem } from '@ecs/systems';
-import { Point, RectArea, Vec2 } from '@ecs/utils/types';
+import { Point, RectArea, Vec2 } from '@ecs/types/types';
 
 /**
  * Describes a force field that can apply acceleration to entities.

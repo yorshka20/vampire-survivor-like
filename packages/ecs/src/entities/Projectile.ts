@@ -21,7 +21,7 @@ import {
 } from '@ecs/components/weapon/WeaponTypes';
 import { World } from '@ecs/core/ecs/World';
 import { SoundType } from '@ecs/core/resources';
-import { Point } from '@ecs/utils/types';
+import { Point } from '@ecs/types/types';
 import { RenderLayerIdentifier } from '@render/constant';
 
 type UniqueProperties<T, U> = Pick<T, Exclude<keyof T, keyof U>>;

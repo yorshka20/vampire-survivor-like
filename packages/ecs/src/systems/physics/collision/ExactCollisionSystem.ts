@@ -7,8 +7,8 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { RectArea } from '@ecs/types/types';
 import { getNumericPairKey } from '@ecs/utils/name';
-import { RectArea } from '@ecs/utils/types';
 import { RenderSystem } from '../../rendering/RenderSystem';
 
 /**

@@ -1,6 +1,6 @@
+import { RectArea } from '@brotov2/ecs/src/types/types';
 import { IEntity } from '@ecs/core/ecs/types';
 import { RenderSystem } from '@ecs/systems';
-import { RectArea } from '@ecs/utils/types';
 import { RenderLayerType } from '../canvas2d/base/RenderLayer';
 import { IRenderer } from './IRenderer';
 

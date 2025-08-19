@@ -1,7 +1,7 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { Entity } from '@ecs/core/ecs/Entity';
 import type { World } from '@ecs/core/ecs/World';
-import { Point } from '@ecs/utils/types';
+import { Point } from '@ecs/types/types';
 
 export abstract class ISpawnerEntity extends Entity {
   abstract spawn(world: World): Entity[];

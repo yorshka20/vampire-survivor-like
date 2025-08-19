@@ -1,5 +1,5 @@
 export * from './AnimationComponent';
-export * from './CameraComponent';
+export * from './Camera3DComponent';
 export * from './DamageTextComponent';
 export * from './LightSourceComponent';
 export * from './render/RenderComponent';

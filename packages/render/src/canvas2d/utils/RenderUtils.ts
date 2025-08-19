@@ -1,5 +1,5 @@
 import { RenderComponent, ShapeComponent } from '@ecs/components';
-import { Color } from '@ecs/utils/types';
+import { Color } from '@ecs/types/types';
 
 export class RenderUtils {
   static colorToString(color: Color): string {

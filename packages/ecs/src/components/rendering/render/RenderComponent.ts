@@ -1,5 +1,5 @@
 import { Component } from '@ecs/core/ecs/Component';
-import { Color, Point } from '@ecs/utils/types';
+import { Color, Point } from '@ecs/types/types';
 import { RenderLayerIdentifier } from '@render/constant';
 
 export interface RenderProperties {
