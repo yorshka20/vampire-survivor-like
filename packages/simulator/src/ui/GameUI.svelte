@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { RenderSystem } from '@ecs';
+  import { SystemPriorities } from '@ecs/constants/systemPriorities';
+  import { Canvas2dRenderer } from '@render/canvas2d/Canvas2dRenderer';
   import { onMount } from 'svelte';
   import { createSimulator } from '../createSimulator';
   import type { SpawnerEntityType } from '../entities/generator';
@@ -20,7 +23,9 @@
   let forceFieldSystem: any = null; // ForceFieldSystem实例
   let forceStrength = 200;
   let forceDirection = [0, 1];
-  
+  let skip = false
+  let size = 400;
+
   function togglePause() {
     isPaused = !isPaused;
     if (isPaused) {
@@ -30,9 +35,20 @@
     }
   }
 
+  function skipRayTracing() {
+    const world = globalGame.getWorld();
+    const renderSystem = world.getSystem<RenderSystem>('RenderSystem', SystemPriorities.RENDER);
+    const renderer = renderSystem?.getRenderer();
+    if (renderer) {
+      (renderer as Canvas2dRenderer).skipRayTracing(skip);
+      skip = !skip;
+    }
+  }
+
   async function startGame() {
     if (!isGameStarted) {
       isGameStarted = true;
+
 
       // Initialize resources first, then start the game
       const game = await createSimulator();
@@ -108,8 +124,8 @@
 
   .canvas-wrapper {
     /* Calculate square size based on the smaller dimension of the viewport */
-    width: min(100vh - 32px, 100vw - 200px); /* Account for padding */
-    height: min(100vh - 32px, 100vw - 200px);
+    width : calc( var(--size) * 1px );
+		height : calc( var(--size) * 1px );
     
     /* Center the square */
     margin: 0 auto;
@@ -282,29 +298,20 @@
     100% { transform: scale(1); }
   }
 
-  .pause-button {
-    position: fixed;
+  .pause {
     bottom: 20px;
     left: 20px;
-    color: white;
-    font-family: monospace;
-    font-size: 14px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    background: rgba(0,0,0,0.5);
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    z-index: 1000;
-    border: 1px solid rgba(255,255,255,0.3);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
   }
-  .stop-button {
-    position: fixed;
-    bottom: 100px;
+  .stop {
+    bottom: 50px;
     left: 20px;
+  }
+  .skip {
+    bottom: 80px;
+    left: 20px;
+  }
+  .util-button {
+    position: fixed;
     color: white;
     font-family: monospace;
     font-size: 14px;
@@ -397,7 +404,7 @@
   GitHub
 </a> -->
 
-<div class="ui-container" class:hidden={!isGameStarted}>
+<div class="ui-container" style='--size:{size};' class:hidden={!isGameStarted}>
   <div id="canvas-wrapper" class="canvas-wrapper" bind:this={canvasWrapper}></div>
 </div>
 
@@ -491,10 +498,12 @@
   </div>
 {/if}
 
-<button class="stop-button" on:click={stopGenerator}>Stop Generator</button>
+<button class="stop util-button" on:click={stopGenerator}>Stop Generator</button>
+
+<button class="skip util-button" on:click={skipRayTracing}>{skip ? 'Enable Ray Tracing' : 'Disable Ray Tracing'}</button>
 
 {#if showPauseButton}
-<button class="pause-button" class:hidden={!isGameStarted} on:click={togglePause}>
+<button class="pause util-button" class:hidden={!isGameStarted} on:click={togglePause}>
   <svg class="pause-icon" viewBox="0 0 24 24">
     {#if isPaused}
       <path d="M8 5v14l11-7z"/>

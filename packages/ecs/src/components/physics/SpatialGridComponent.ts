@@ -122,7 +122,7 @@ export class SpatialGridComponent extends Component {
     return `${cellX},${cellY}`;
   }
 
-  private getCellBounds(cellKey: string): { x: number; y: number; width: number; height: number } {
+  getCellBounds(cellKey: string): { x: number; y: number; width: number; height: number } {
     const [cellX, cellY] = cellKey.split(',').map(Number);
     return {
       x: cellX * this.cellSize,

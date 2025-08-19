@@ -1,12 +1,15 @@
 import {
+  BorderSystem,
   Camera3DComponent,
   createShapeDescriptor,
   ForceFieldSystem,
   LightSourceComponent,
+  ParallelCollisionSystem,
   PhysicsSystem,
   RenderSystem,
   ShapeComponent,
   SpatialGridSystem,
+  SpawnSystem,
   TransformComponent,
   TransformSystem,
   World,
@@ -71,10 +74,10 @@ export async function createSimulator(): Promise<Game> {
 
 function initializeSystems(world: World, rootElement: HTMLElement) {
   // skip systems for testing rayTracing renderer
-  // world.addSystem(new ParallelCollisionSystem());
+  world.addSystem(new ParallelCollisionSystem());
   // world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
-  // world.addSystem(new SpawnSystem());
-  // world.addSystem(new BorderSystem(0.9));
+  world.addSystem(new SpawnSystem());
+  world.addSystem(new BorderSystem(0.9));
   world.addSystem(new PhysicsSystem());
   world.addSystem(new TransformSystem());
 
@@ -84,7 +87,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
     // Gravity-like force pointing downward
     direction: [0, 1],
     // Acceleration magnitude in units/s^2 (approx. gravity); tune as needed
-    strength: 0,
+    strength: 100,
     // Affect everything within the viewport (viewport = [x, y, width, height])
     area: (position, vp) =>
       position[0] >= vp[0] &&
@@ -94,10 +97,12 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   });
   // Optional: enable to inspect acceleration application
   // forceFieldSystem.setDebug(true);
-  // world.addSystem(forceFieldSystem);
+  world.addSystem(forceFieldSystem);
+
+  const rayTracing = true;
 
   const renderSystem = new RenderSystem(rootElement);
-  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator', true);
+  const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator', rayTracing);
 
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
@@ -127,7 +132,7 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator2 = createGenerator(world, {
     position: [10, 10],
     maxEntities: 50,
-    ballSize: 15,
+    ballSize: 50,
     velocity: [2, 2],
     spawnGap: 1000,
     generatorType: 'ball',
@@ -141,20 +146,20 @@ function initializeEntities(world: World, viewport: Viewport) {
     generatorType: 'square',
   });
   // world.addEntity(generator);
-  // world.addEntity(generator2);
+  world.addEntity(generator2);
   // world.addEntity(generator3);
   const camX = viewport[2] / 2;
   const camY = viewport[3] / 2;
   const ball = createBall(world, {
     position: [camX, camY], // 将球放在屏幕中心
-    size: 200, // 减小尺寸使其更容易看到
-    velocity: [0, 0],
+    size: 100, // 减小尺寸使其更容易看到
+    velocity: [10, 10],
     color: { r: 255, g: 100, b: 100, a: 1 }, // 使用更明显的红色
   });
   world.addEntity(ball);
 
-  // createObstacleBlock(world, [200, 700], [100, 100]);
-  // createObstacleBlock(world, [400, 400], [100, 100]);
+  createObstacleBlock(world, [200, 700], [100, 100]);
+  createObstacleBlock(world, [400, 400], [100, 100]);
 
   // createObstacleCircle(world, [200, 1200], 100);
 
@@ -199,7 +204,7 @@ function initializeEntities(world: World, viewport: Viewport) {
       }),
       color: { r: 255, g: 255, b: 255, a: 1 },
     });
-    // world.addEntity(wallObstacle);
+    world.addEntity(wallObstacle);
   }
 }
 

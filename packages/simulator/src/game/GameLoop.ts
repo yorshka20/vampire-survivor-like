@@ -19,7 +19,7 @@ export class GameLoop {
    * Controls how often the game logic updates per second
    * Can be modified to change logic update frequency
    */
-  private logicFrameRate: number = 2;
+  private logicFrameRate: number = 60;
 
   /**
    * Render frame rate (frames per second)
