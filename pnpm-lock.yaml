@@ -80,6 +80,9 @@ importers:
       '@brotov2/ecs':
         specifier: workspace:*
         version: link:../ecs
+      '@brotov2/render':
+        specifier: workspace:*
+        version: link:../render
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.1.0

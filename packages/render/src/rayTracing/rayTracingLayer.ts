@@ -93,7 +93,7 @@ interface EnhancedSerializedLight extends SerializedLight {
  */
 export class RayTracingLayer extends CanvasRenderLayer {
   private workerPoolManager: WorkerPoolManager;
-  private tileSize = 10; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
+  private tileSize = 50; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
   private imageData: ImageData | null = null; // Stores the pixel data for the entire canvas.
 
   private cameraEntities: IEntity[] = [];
@@ -118,7 +118,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     protected mainCanvas: HTMLCanvasElement,
     protected mainCtx: CanvasRenderingContext2D,
   ) {
-    super(RenderLayerIdentifier.RAY_TRACING, RenderLayerPriority.BACKGROUND, mainCanvas, mainCtx);
+    super(RenderLayerIdentifier.RAY_TRACING, RenderLayerPriority.ENTITY, mainCanvas, mainCtx); // 使用更高的优先级
     this.type = RenderLayerType.CANVAS;
 
     // Get a reference to the worker pool manager singleton
@@ -138,6 +138,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
     cameraOffset: [number, number],
   ): Promise<void> {
     this.lastViewport = viewport;
+
+    // First, draw the current accumulated result (if any) to prevent flicker
+    if (this.imageData) {
+      this.mainCtx.putImageData(this.imageData, 0, 0);
+    }
 
     // Start the ray tracing process and get promises for the results from each worker.
     const activePromises = this.startRayTracing(viewport, cameraOffset);
@@ -338,6 +343,15 @@ export class RayTracingLayer extends CanvasRenderLayer {
     try {
       // Wait for all workers to finish their tasks.
       const results = await Promise.all(activePromises);
+
+      // console.log('[RayTracingLayer] Worker results received:', results.length, 'results');
+      // results.forEach((result, index) => {
+      //   if (result) {
+      //     console.log(`[RayTracingLayer] Result ${index}:`, result.length, 'tiles');
+      //   } else {
+      //     console.log(`[RayTracingLayer] Result ${index}: null/empty`);
+      //   }
+      // });
 
       // Initialize the accumulation buffer if it doesn't exist or if canvas size changed.
       if (
@@ -559,10 +573,15 @@ export class RayTracingLayer extends CanvasRenderLayer {
    * For ray tracing, we only care about entities that have a physical shape.
    */
   filterEntity(entity: IEntity): boolean {
-    return (
-      entity.hasComponent(ShapeComponent.componentName) &&
-      entity.hasComponent(TransformComponent.componentName)
-    );
+    const hasShape = entity.hasComponent(ShapeComponent.componentName);
+    const hasTransform = entity.hasComponent(TransformComponent.componentName);
+    console.log(`[RayTracingLayer] Entity ${entity.id} filter check:`, {
+      hasShape,
+      hasTransform,
+      type: entity.type,
+      components: Array.from(entity.components.values()).map((c) => c.name),
+    });
+    return hasShape && hasTransform;
   }
 
   /**
