@@ -1,17 +1,9 @@
-import { Point, RgbaColor, Vec2 } from '@ecs/utils';
+import { Point, RgbaColor, Vec2, Vec3 } from '@ecs/utils';
 import { RayTracingWorkerData, SerializedEntity } from '../types';
 
 // Enhanced types for 3D ray tracing support
-export interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
-}
 
-export interface Vector2 {
-  x: number;
-  y: number;
-}
+const opacity = 100;
 
 // Enhanced interfaces matching the main thread types
 export interface EnhancedSerializedLight {
@@ -130,7 +122,7 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
         );
         sampledPixels[currentPixelIndex] = shouldSample;
 
-        let color: RgbaColor = { r: 20, g: 20, b: 40, a: 255 }; // Dark blue background
+        let color: RgbaColor = { r: 0, g: 0, b: 0, a: opacity }; // Dark blue background
 
         if (shouldSample) {
           // Generate 3D ray based on camera configuration
@@ -187,37 +179,29 @@ function generateCameraRay(
   const worldY =
     camera.viewBounds.top + (camera.viewBounds.bottom - camera.viewBounds.top) * normalizedY;
 
-  const origin: Vector3 = {
-    x: camera.position[0],
-    y: camera.position[1],
-    z: camera.height,
-  };
+  const origin: Vec3 = [camera.position[0], camera.position[1], camera.height];
 
-  let direction: Vector3;
+  let direction: Vec3;
 
   if (camera.cameraMode === 'topdown') {
     // Top-down view: parallel rays pointing down
-    direction = { x: 0, y: 0, z: -1 };
+    direction = [0, 0, -1];
 
     // For orthographic projection in top-down, adjust the ray origin
     if (camera.projectionMode === 'orthographic') {
-      origin.x = worldX;
-      origin.y = worldY;
+      origin[0] = worldX;
+      origin[1] = worldY;
     }
   } else if (camera.cameraMode === 'sideview') {
     // Side view: rays from camera position to world points
-    direction = {
-      x: worldX - origin.x,
-      y: worldY - origin.y,
-      z: 0 - origin.z,
-    };
+    direction = [worldX - origin[0], worldY - origin[1], 0 - origin[2]];
 
     // Normalize direction
-    const length = Math.sqrt(direction.x ** 2 + direction.y ** 2 + direction.z ** 2);
+    const length = Math.sqrt(direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2);
     if (length > 0) {
-      direction.x /= length;
-      direction.y /= length;
-      direction.z /= length;
+      direction[0] /= length;
+      direction[1] /= length;
+      direction[2] /= length;
     }
   } else {
     // Custom camera mode - implement perspective calculation
@@ -228,11 +212,11 @@ function generateCameraRay(
     const screenNormalizedY = 1 - normalizedY * 2;
 
     // Create direction in camera space
-    const cameraDirection: Vector3 = {
-      x: screenNormalizedX * Math.tan(halfFov),
-      y: screenNormalizedY * Math.tan(halfFov),
-      z: -1,
-    };
+    const cameraDirection: Vec3 = [
+      screenNormalizedX * Math.tan(halfFov),
+      screenNormalizedY * Math.tan(halfFov),
+      -1,
+    ];
 
     // Apply camera rotations (facing, pitch, roll)
     direction = applyCameraRotations(cameraDirection, camera);
@@ -244,18 +228,18 @@ function generateCameraRay(
 /**
  * Apply camera rotations to transform direction from camera space to world space
  */
-function applyCameraRotations(direction: Vector3, camera: EnhancedSerializedCamera): Vector3 {
-  let result = { ...direction };
+function applyCameraRotations(direction: Vec3, camera: EnhancedSerializedCamera): Vec3 {
+  let result: Vec3 = [...direction];
 
   // Apply pitch (rotation around X-axis)
   if (camera.pitch !== 0) {
     const pitchRad = (camera.pitch * Math.PI) / 180;
     const cos = Math.cos(pitchRad);
     const sin = Math.sin(pitchRad);
-    const y = result.y * cos - result.z * sin;
-    const z = result.y * sin + result.z * cos;
-    result.y = y;
-    result.z = z;
+    const y = result[1] * cos - result[2] * sin;
+    const z = result[1] * sin + result[2] * cos;
+    result[1] = y;
+    result[2] = z;
   }
 
   // Apply facing (rotation around Z-axis, yaw)
@@ -263,10 +247,10 @@ function applyCameraRotations(direction: Vector3, camera: EnhancedSerializedCame
     const facingRad = (camera.facing * Math.PI) / 180;
     const cos = Math.cos(facingRad);
     const sin = Math.sin(facingRad);
-    const x = result.x * cos - result.y * sin;
-    const y = result.x * sin + result.y * cos;
-    result.x = x;
-    result.y = y;
+    const x = result[0] * cos - result[1] * sin;
+    const y = result[0] * sin + result[1] * cos;
+    result[0] = x;
+    result[1] = y;
   }
 
   // Apply roll (rotation around Y-axis) - rarely used
@@ -274,18 +258,18 @@ function applyCameraRotations(direction: Vector3, camera: EnhancedSerializedCame
     const rollRad = (camera.roll * Math.PI) / 180;
     const cos = Math.cos(rollRad);
     const sin = Math.sin(rollRad);
-    const x = result.x * cos + result.z * sin;
-    const z = -result.x * sin + result.z * cos;
-    result.x = x;
-    result.z = z;
+    const x = result[0] * cos + result[2] * sin;
+    const z = -result[0] * sin + result[2] * cos;
+    result[0] = x;
+    result[2] = z;
   }
 
   // Normalize the result
-  const length = Math.sqrt(result.x ** 2 + result.y ** 2 + result.z ** 2);
+  const length = Math.sqrt(result[0] ** 2 + result[1] ** 2 + result[2] ** 2);
   if (length > 0) {
-    result.x /= length;
-    result.y /= length;
-    result.z /= length;
+    result[0] /= length;
+    result[1] /= length;
+    result[2] /= length;
   }
 
   return result;
@@ -295,45 +279,41 @@ function applyCameraRotations(direction: Vector3, camera: EnhancedSerializedCame
  * Enhanced 3D ray class
  */
 class Ray3D {
-  origin: Vector3;
-  direction: Vector3;
+  origin: Vec3;
+  direction: Vec3;
 
-  constructor(origin: Vector3, direction: Vector3) {
+  constructor(origin: Vec3, direction: Vec3) {
     this.origin = origin;
     this.direction = this.normalize(direction);
   }
 
-  private normalize(direction: Vector3): Vector3 {
+  private normalize(direction: Vec3): Vec3 {
     const length = Math.sqrt(
-      direction.x * direction.x + direction.y * direction.y + direction.z * direction.z,
+      direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2],
     );
-    if (length === 0) return { x: 0, y: 0, z: 0 };
-    return {
-      x: direction.x / length,
-      y: direction.y / length,
-      z: direction.z / length,
-    };
+    if (length === 0) return [0, 0, 0];
+    return [direction[0] / length, direction[1] / length, direction[2] / length];
   }
 
-  pointAt(t: number): Vector3 {
-    return {
-      x: this.origin.x + t * this.direction.x,
-      y: this.origin.y + t * this.direction.y,
-      z: this.origin.z + t * this.direction.z,
-    };
+  pointAt(t: number): Vec3 {
+    return [
+      this.origin[0] + t * this.direction[0],
+      this.origin[1] + t * this.direction[1],
+      this.origin[2] + t * this.direction[2],
+    ];
   }
 
   // Convert to 2D ray for intersection with 2D objects (project to z=0 plane)
   to2D(): Ray2D {
     // Calculate intersection with z=0 plane
     let t = 0;
-    if (Math.abs(this.direction.z) > 1e-6) {
-      t = -this.origin.z / this.direction.z;
+    if (Math.abs(this.direction[2]) > 1e-6) {
+      t = -this.origin[2] / this.direction[2];
     }
 
     const intersection2D = this.pointAt(t);
-    const origin2D: Point = [intersection2D.x, intersection2D.y];
-    const direction2D: Vec2 = [this.direction.x, this.direction.y];
+    const origin2D: Point = [intersection2D[0], intersection2D[1]];
+    const direction2D: Vec2 = [this.direction[0], this.direction[1]];
 
     return new Ray2D(origin2D, direction2D);
   }
@@ -343,8 +323,8 @@ class Ray3D {
  * Enhanced 3D intersection interface
  */
 interface Intersection3D {
-  point: Vector3;
-  normal: Vector3;
+  point: Vec3;
+  normal: Vec3;
   distance: number;
   entity: SerializedEntity;
   point2D: Point; // 2D projection for compatibility
@@ -359,15 +339,15 @@ function findClosestIntersection3D(
   entities: SerializedEntity[],
 ): Intersection3D | null {
   // For topdown camera with vertical rays, we check point-in-shape instead of ray intersection
-  if (Math.abs(ray.direction.x) < 1e-6 && Math.abs(ray.direction.y) < 1e-6) {
+  if (Math.abs(ray.direction[0]) < 1e-6 && Math.abs(ray.direction[1]) < 1e-6) {
     // Vertical ray - calculate intersection with z=0 plane
     let t = 0;
-    if (Math.abs(ray.direction.z) > 1e-6) {
-      t = -ray.origin.z / ray.direction.z;
+    if (Math.abs(ray.direction[2]) > 1e-6) {
+      t = -ray.origin[2] / ray.direction[2];
     }
 
     const intersectionPoint = ray.pointAt(t);
-    const point2D: Point = [intersectionPoint.x, intersectionPoint.y];
+    const point2D: Point = [intersectionPoint[0], intersectionPoint[1]];
 
     // Check if point is inside any entity
     for (const entity of entities) {
@@ -382,7 +362,7 @@ function findClosestIntersection3D(
 
           return {
             point: intersectionPoint,
-            normal: { x: normal2D[0], y: normal2D[1], z: 0 },
+            normal: [normal2D[0], normal2D[1], 0],
             distance: t,
             entity,
             point2D,
@@ -403,17 +383,9 @@ function findClosestIntersection3D(
   if (!intersection2D) return null;
 
   // Convert back to 3D
-  const point3D: Vector3 = {
-    x: intersection2D.point[0],
-    y: intersection2D.point[1],
-    z: 0, // 2D entities are on z=0 plane
-  };
+  const point3D: Vec3 = [intersection2D.point[0], intersection2D.point[1], 0];
 
-  const normal3D: Vector3 = {
-    x: intersection2D.normal[0],
-    y: intersection2D.normal[1],
-    z: 0, // Normal points in 2D plane
-  };
+  const normal3D: Vec3 = [intersection2D.normal[0], intersection2D.normal[1], 0];
 
   return {
     point: point3D,
@@ -434,10 +406,10 @@ function shade3D(
   lights: EnhancedSerializedLight[],
   camera: EnhancedSerializedCamera,
 ): RgbaColor {
-  let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: 255 };
+  let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: opacity };
 
   // Base material color
-  const materialColor: RgbaColor = { r: 255, g: 100, b: 100, a: 255 };
+  const materialColor: RgbaColor = { r: 255, g: 100, b: 100, a: opacity };
 
   for (const light of lights) {
     if (!light.enabled) continue;
@@ -478,23 +450,15 @@ function calculateLightContribution(
   entities: SerializedEntity[],
   materialColor: RgbaColor,
 ): RgbaColor {
-  const lightPos3D: Vector3 = {
-    x: light.position[0],
-    y: light.position[1],
-    z: light.height,
-  };
+  const lightPos3D: Vec3 = [light.position[0], light.position[1], light.height];
 
-  let lightDirection: Vector3;
+  let lightDirection: Vec3;
   let distance: number;
 
   // Calculate light direction and distance based on light type
   switch (light.type) {
     case 'directional':
-      lightDirection = {
-        x: -light.direction[0],
-        y: -light.direction[1],
-        z: -light.direction[2],
-      };
+      lightDirection = [-light.direction[0], -light.direction[1], -light.direction[2]];
       distance = Infinity; // Directional lights have no distance falloff
       // Debug removed for performance
       break;
@@ -506,24 +470,20 @@ function calculateLightContribution(
         r: (materialColor.r * light.color.r * ambientIntensity) / 255 / 255,
         g: (materialColor.g * light.color.g * ambientIntensity) / 255 / 255,
         b: (materialColor.b * light.color.b * ambientIntensity) / 255 / 255,
-        a: 255,
+        a: opacity,
       };
 
     case 'point':
     case 'spot':
     default:
-      const dx = lightPos3D.x - intersection.point.x;
-      const dy = lightPos3D.y - intersection.point.y;
-      const dz = lightPos3D.z - intersection.point.z;
+      const dx = lightPos3D[0] - intersection.point[0];
+      const dy = lightPos3D[1] - intersection.point[1];
+      const dz = lightPos3D[2] - intersection.point[2];
       distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-      if (distance === 0) return { r: 0, g: 0, b: 0, a: 255 };
+      if (distance === 0) return { r: 0, g: 0, b: 0, a: opacity };
 
-      lightDirection = {
-        x: dx / distance,
-        y: dy / distance,
-        z: dz / distance,
-      };
+      lightDirection = [dx / distance, dy / distance, dz / distance];
       break;
   }
 
@@ -533,7 +493,7 @@ function calculateLightContribution(
   // Debug removed for performance
 
   if (intensity <= 0) {
-    return { r: 0, g: 0, b: 0, a: 255 };
+    return { r: 0, g: 0, b: 0, a: opacity };
   }
 
   // Spot light cone check
@@ -542,7 +502,7 @@ function calculateLightContribution(
     intensity *= spotFalloff;
 
     if (intensity <= 0) {
-      return { r: 0, g: 0, b: 0, a: 255 };
+      return { r: 0, g: 0, b: 0, a: opacity };
     }
   }
 
@@ -550,16 +510,16 @@ function calculateLightContribution(
   if (light.castShadows) {
     const inShadow = isInShadow3D(intersection.point, lightPos3D, entities, distance);
     if (inShadow) {
-      return { r: 0, g: 0, b: 0, a: 255 };
+      return { r: 0, g: 0, b: 0, a: opacity };
     }
   }
 
   // Calculate diffuse lighting (Lambertian)
   const dotProduct = Math.max(
     0,
-    intersection.normal.x * lightDirection.x +
-      intersection.normal.y * lightDirection.y +
-      intersection.normal.z * lightDirection.z,
+    intersection.normal[0] * lightDirection[0] +
+      intersection.normal[1] * lightDirection[1] +
+      intersection.normal[2] * lightDirection[2],
   );
 
   // Calculate final light contribution
@@ -569,7 +529,7 @@ function calculateLightContribution(
     r: Math.min(255, materialColor.r * lightContrib),
     g: Math.min(255, materialColor.g * lightContrib),
     b: Math.min(255, materialColor.b * lightContrib),
-    a: 255,
+    a: opacity,
   };
 }
 
@@ -577,7 +537,7 @@ function calculateLightContribution(
  * Calculate light intensity with distance attenuation
  */
 function calculateLightIntensity(
-  targetPos: Vector3,
+  targetPos: Vec3,
   light: EnhancedSerializedLight,
   distance: number,
 ): number {
@@ -622,34 +582,27 @@ function calculateLightIntensity(
 /**
  * Calculate spot light cone falloff
  */
-function calculateSpotLightFalloff(
-  lightDirection: Vector3,
-  light: EnhancedSerializedLight,
-): number {
-  const spotDir: Vector3 = {
-    x: light.direction[0],
-    y: light.direction[1],
-    z: light.direction[2],
-  };
+function calculateSpotLightFalloff(lightDirection: Vec3, light: EnhancedSerializedLight): number {
+  const spotDir: Vec3 = [...light.direction];
 
   // Normalize spot direction
-  const spotLength = Math.sqrt(spotDir.x ** 2 + spotDir.y ** 2 + spotDir.z ** 2);
+  const spotLength = Math.sqrt(spotDir[0] ** 2 + spotDir[1] ** 2 + spotDir[2] ** 2);
   if (spotLength === 0) return 0;
 
-  const normalizedSpotDir: Vector3 = {
-    x: spotDir.x / spotLength,
-    y: spotDir.y / spotLength,
-    z: spotDir.z / spotLength,
-  };
+  const normalizedSpotDir: Vec3 = [
+    spotDir[0] / spotLength,
+    spotDir[1] / spotLength,
+    spotDir[2] / spotLength,
+  ];
 
   // Calculate angle between light direction and spot direction
   const dotProduct = Math.max(
     -1,
     Math.min(
       1,
-      lightDirection.x * normalizedSpotDir.x +
-        lightDirection.y * normalizedSpotDir.y +
-        lightDirection.z * normalizedSpotDir.z,
+      lightDirection[0] * normalizedSpotDir[0] +
+        lightDirection[1] * normalizedSpotDir[1] +
+        lightDirection[2] * normalizedSpotDir[2],
     ),
   );
 
@@ -671,36 +624,36 @@ function calculateSpotLightFalloff(
  * Enhanced 3D shadow testing
  */
 function isInShadow3D(
-  point: Vector3,
-  lightPos: Vector3,
+  point: Vec3,
+  lightPos: Vec3,
   entities: SerializedEntity[],
   lightDistance: number,
 ): boolean {
   // Create shadow ray from surface point to light
-  const shadowDirection: Vector3 = {
-    x: lightPos.x - point.x,
-    y: lightPos.y - point.y,
-    z: lightPos.z - point.z,
-  };
+  const shadowDirection: Vec3 = [
+    lightPos[0] - point[0],
+    lightPos[1] - point[1],
+    lightPos[2] - point[2],
+  ];
 
   const distance = Math.sqrt(
-    shadowDirection.x ** 2 + shadowDirection.y ** 2 + shadowDirection.z ** 2,
+    shadowDirection[0] ** 2 + shadowDirection[1] ** 2 + shadowDirection[2] ** 2,
   );
 
   if (distance === 0) return false;
 
   // Normalize direction
-  shadowDirection.x /= distance;
-  shadowDirection.y /= distance;
-  shadowDirection.z /= distance;
+  shadowDirection[0] /= distance;
+  shadowDirection[1] /= distance;
+  shadowDirection[2] /= distance;
 
   // Offset the ray origin slightly to avoid self-intersection
   const epsilon = 1e-4;
-  const shadowOrigin: Vector3 = {
-    x: point.x + shadowDirection.x * epsilon,
-    y: point.y + shadowDirection.y * epsilon,
-    z: point.z + shadowDirection.z * epsilon,
-  };
+  const shadowOrigin: Vec3 = [
+    point[0] + shadowDirection[0] * epsilon,
+    point[1] + shadowDirection[1] * epsilon,
+    point[2] + shadowDirection[2] * epsilon,
+  ];
 
   const shadowRay = new Ray3D(shadowOrigin, shadowDirection);
   const intersection = findClosestIntersection3D(shadowRay, entities);
