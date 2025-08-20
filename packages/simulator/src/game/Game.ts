@@ -2,6 +2,7 @@ import { PerformanceSystem, ResourceManager, SoundManager, SpatialGridSystem } f
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { World } from '@ecs/core/ecs/World';
 import { GameStore } from '@ecs/core/store/GameStore';
+import { initPatternAssets } from '@render/canvas2d/resource/loader';
 import { GameLoop } from './GameLoop';
 
 /**
@@ -73,6 +74,8 @@ export class Game {
         this.world.addSystem(new PerformanceSystem());
 
         this.world.initSystems();
+
+        await initPatternAssets();
 
         this.initialized = true;
         console.log('Game initialized successfully');
