@@ -95,6 +95,9 @@ interface EnhancedSerializedLight extends SerializedLight {
  * leveraging multiple CPU cores for better performance.
  */
 export class RayTracingLayer extends CanvasRenderLayer {
+  // default invisible
+  visible = true;
+
   private workerPoolManager: WorkerPoolManager;
   private tileSize = 100; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
   private imageData: ImageData | null = null; // Stores the pixel data for the entire canvas.
@@ -124,7 +127,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
   // Enhanced scene change detection
   private lastSceneHash = '';
-  private lastViewport: RectArea | null = null;
+  private lastViewport: RectArea = [0, 0, 0, 0];
 
   constructor(
     protected mainCanvas: HTMLCanvasElement,
@@ -153,7 +156,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
       return;
     }
 
-    this.lastViewport = viewport;
+    // keep array reference
+    this.lastViewport[0] = viewport[0];
+    this.lastViewport[1] = viewport[1];
+    this.lastViewport[2] = viewport[2];
+    this.lastViewport[3] = viewport[3];
 
     // First, draw the current accumulated result (if any) to prevent flicker
     if (this.imageData) {
@@ -161,7 +168,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     }
 
     // Start the ray tracing process and get promises for the results from each worker.
-    const activePromises = this.startRayTracing(viewport, cameraOffset);
+    const activePromises = this.startRayTracing(this.lastViewport, cameraOffset);
 
     // If there are active rendering tasks, wait for them to complete and process the results.
     if (activePromises.length > 0) {
@@ -239,6 +246,10 @@ export class RayTracingLayer extends CanvasRenderLayer {
     return `${entityData}|${lightData}|${cameraData}`;
   }
 
+  private shouldResetProgressiveRender(): boolean {
+    return false;
+  }
+
   /**
    * Prepares and distributes progressive ray tracing tasks to the worker pool.
    * @returns An array of Promises, each resolving with the result from a worker.
@@ -249,7 +260,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   ): Promise<ProgressiveTileResult[]>[] {
     // 1. Scene Change Detection: Check if we need to reset progressive rendering
     // const currentSceneHash = this.getSceneHash();
-    if (this.frameCount > 120) {
+    if (this.shouldResetProgressiveRender()) {
       this.resetProgressiveRender();
       this.frameCount = 0;
       console.log('Scene changed, resetting progressive render');
@@ -263,7 +274,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
     }
 
     // 2. Scene Preparation: Gather all necessary data about the scene.
-    const entities = this.getLayerEntities(viewport);
     const serializedLights = this.serializeLights(this.getLights());
     const serializedCamera = this.serializeCamera(this.getCameras());
 
