@@ -9,16 +9,12 @@ import {
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { IEntity } from '@ecs/core/ecs/types';
-import {
-  RayTracingWorkerData,
-  SerializedCamera,
-  SerializedEntity,
-  SerializedLight,
-  WorkerPoolManager,
-} from '@ecs/core/worker';
+import { WorkerPoolManager } from '@ecs/core/worker';
 import { ProgressiveTileResult } from '@ecs/core/worker/rayTracing';
 import { CanvasRenderLayer } from '@render/canvas2d';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@render/constant';
+import { RayTracingWorkerData } from '@render/rayTracing/worker';
+import { SerializedCamera, SerializedEntity, SerializedLight } from './base/types';
 
 // Extended interface for progressive ray tracing
 interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
