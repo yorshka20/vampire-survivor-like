@@ -1,71 +1,24 @@
 import { Point, RgbaColor, Vec2, Vec3 } from '@ecs/utils';
-import { Ray2D, Ray3D, RayTracingWorkerData, SerializedEntity } from '@render/rayTracing';
-
-// Enhanced types for 3D ray tracing support
+import {
+  Intersection2D,
+  Intersection3D,
+  Ray2D,
+  Ray3D,
+  RayTracingCamera,
+  RayTracingWorkerData,
+  SamplingConfig,
+  SerializedCamera,
+  SerializedEntity,
+  SerializedLight,
+} from '@render/rayTracing';
 
 const opacity = 100;
 
-// Enhanced interfaces matching the main thread types
-export interface EnhancedSerializedLight {
-  // Basic properties
-  position: [number, number];
-  height: number;
-  color: RgbaColor;
-  intensity: number;
-  radius: number;
-
-  // Extended properties
-  type: 'point' | 'directional' | 'ambient' | 'spot';
-  castShadows: boolean;
-  attenuation: 'none' | 'linear' | 'quadratic' | 'realistic';
-  direction: [number, number, number];
-  spotAngle: number;
-  spotPenumbra: number;
-  enabled: boolean;
-  layer: number;
-}
-
-export interface EnhancedSerializedCamera {
-  // Basic properties
-  position: [number, number];
-  fov: number;
-  facing: number;
-
-  // 3D support
-  height: number;
-  pitch: number;
-  roll: number;
-
-  // Projection and view settings
-  projectionMode: 'perspective' | 'orthographic';
-  cameraMode: 'topdown' | 'sideview' | 'custom';
-  aspect: number;
-  near: number;
-  far: number;
-
-  // View bounds and resolution
-  viewBounds: {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-  };
-  resolution: {
-    width: number;
-    height: number;
-  };
-  zoom: number;
-}
-
 // Extended interface for progressive ray tracing worker data
 export interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
-  camera: EnhancedSerializedCamera;
-  lights: EnhancedSerializedLight[];
-  sampling: {
-    currentPass: number;
-    totalPasses: number;
-    pattern: 'checkerboard' | 'random';
-  };
+  camera: SerializedCamera;
+  lights: SerializedLight[];
+  sampling: SamplingConfig;
 }
 
 // Extended tile result that includes sampling information
@@ -86,20 +39,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
-  // console.log('[Worker] Ray tracing started with:', {
-  //   entitiesCount: entityList.length,
-  //   lightsCount: lights.length,
-  //   tilesCount: tiles.length,
-  //   viewport,
-  //   camera: camera.position,
-  //   sampling,
-  //   entities: entityList.map((e) => ({
-  //     id: e.id,
-  //     position: e.position,
-  //     shape: e.shape,
-  //   })),
-  // });
-
   for (const tile of tiles) {
     // Initialize pixel and sampling arrays
     const pixels = new Array(tile.width * tile.height * 4).fill(0);
@@ -113,28 +52,27 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
         const currentPixelIndex = j * tile.width + i;
 
         // Check if this pixel should be sampled in the current pass
-        const shouldSample = shouldSamplePixel(
-          x,
-          y,
-          sampling.currentPass,
-          sampling.totalPasses,
-          sampling.pattern,
-        );
+        const shouldSample = shouldSamplePixel(x, y, sampling[0], sampling[1], sampling[2]);
         sampledPixels[currentPixelIndex] = shouldSample;
 
         let color: RgbaColor = { r: 0, g: 0, b: 0, a: opacity }; // Dark blue background
 
         if (shouldSample) {
           // Generate 3D ray based on camera configuration
-          const ray = generateCameraRay(x, y, camera);
+          const ray = RayTracingCamera.generateCameraRay(x, y, camera);
           const intersection = findClosestIntersection3D(ray, entityList);
 
           if (intersection) {
+            // If entity is detected, use its actual color
             color = shade3D(intersection, entityList, lights, camera);
-            // Debug removed for performance
           } else {
             // Apply ambient lighting to background
-            color = applyAmbientLighting(color, lights);
+            // color = applyAmbientLighting(color, lights);
+
+            // or
+
+            // If no entity detected, show white to visualize sampling range
+            color = { r: 255, g: 255, b: 255, a: opacity };
           }
         }
 
@@ -159,132 +97,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   // console.log('[Worker] Ray tracing completed, returning', tileResults.length, 'tiles');
 
   return tileResults;
-}
-
-/**
- * Enhanced 3D ray generation based on camera configuration
- */
-function generateCameraRay(
-  screenX: number,
-  screenY: number,
-  camera: EnhancedSerializedCamera,
-): Ray3D {
-  // Convert screen coordinates to normalized coordinates
-  const normalizedX = screenX / camera.resolution.width;
-  const normalizedY = screenY / camera.resolution.height;
-
-  // Map to view bounds
-  const worldX =
-    camera.viewBounds.left + (camera.viewBounds.right - camera.viewBounds.left) * normalizedX;
-  const worldY =
-    camera.viewBounds.top + (camera.viewBounds.bottom - camera.viewBounds.top) * normalizedY;
-
-  const origin: Vec3 = [camera.position[0], camera.position[1], camera.height];
-
-  let direction: Vec3;
-
-  if (camera.cameraMode === 'topdown') {
-    // Top-down view: parallel rays pointing down
-    direction = [0, 0, -1];
-
-    // For orthographic projection in top-down, adjust the ray origin
-    if (camera.projectionMode === 'orthographic') {
-      origin[0] = worldX;
-      origin[1] = worldY;
-    }
-  } else if (camera.cameraMode === 'sideview') {
-    // Side view: rays from camera position to world points
-    direction = [worldX - origin[0], worldY - origin[1], 0 - origin[2]];
-
-    // Normalize direction
-    const length = Math.sqrt(direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2);
-    if (length > 0) {
-      direction[0] /= length;
-      direction[1] /= length;
-      direction[2] /= length;
-    }
-  } else {
-    // Custom camera mode - implement perspective calculation
-    const halfFov = (camera.fov / 2) * (Math.PI / 180);
-    const aspectRatio = camera.aspect;
-
-    const screenNormalizedX = (normalizedX * 2 - 1) * aspectRatio;
-    const screenNormalizedY = 1 - normalizedY * 2;
-
-    // Create direction in camera space
-    const cameraDirection: Vec3 = [
-      screenNormalizedX * Math.tan(halfFov),
-      screenNormalizedY * Math.tan(halfFov),
-      -1,
-    ];
-
-    // Apply camera rotations (facing, pitch, roll)
-    direction = applyCameraRotations(cameraDirection, camera);
-  }
-
-  return new Ray3D(origin, direction);
-}
-
-/**
- * Apply camera rotations to transform direction from camera space to world space
- */
-function applyCameraRotations(direction: Vec3, camera: EnhancedSerializedCamera): Vec3 {
-  let result: Vec3 = [...direction];
-
-  // Apply pitch (rotation around X-axis)
-  if (camera.pitch !== 0) {
-    const pitchRad = (camera.pitch * Math.PI) / 180;
-    const cos = Math.cos(pitchRad);
-    const sin = Math.sin(pitchRad);
-    const y = result[1] * cos - result[2] * sin;
-    const z = result[1] * sin + result[2] * cos;
-    result[1] = y;
-    result[2] = z;
-  }
-
-  // Apply facing (rotation around Z-axis, yaw)
-  if (camera.facing !== 0) {
-    const facingRad = (camera.facing * Math.PI) / 180;
-    const cos = Math.cos(facingRad);
-    const sin = Math.sin(facingRad);
-    const x = result[0] * cos - result[1] * sin;
-    const y = result[0] * sin + result[1] * cos;
-    result[0] = x;
-    result[1] = y;
-  }
-
-  // Apply roll (rotation around Y-axis) - rarely used
-  if (camera.roll !== 0) {
-    const rollRad = (camera.roll * Math.PI) / 180;
-    const cos = Math.cos(rollRad);
-    const sin = Math.sin(rollRad);
-    const x = result[0] * cos + result[2] * sin;
-    const z = -result[0] * sin + result[2] * cos;
-    result[0] = x;
-    result[2] = z;
-  }
-
-  // Normalize the result
-  const length = Math.sqrt(result[0] ** 2 + result[1] ** 2 + result[2] ** 2);
-  if (length > 0) {
-    result[0] /= length;
-    result[1] /= length;
-    result[2] /= length;
-  }
-
-  return result;
-}
-
-/**
- * Enhanced 3D intersection interface
- */
-interface Intersection3D {
-  point: Vec3;
-  normal: Vec3;
-  distance: number;
-  entity: SerializedEntity;
-  point2D: Point; // 2D projection for compatibility
-  normal2D: Vec2; // 2D normal for compatibility
 }
 
 /**
@@ -359,13 +171,18 @@ function findClosestIntersection3D(
 function shade3D(
   intersection: Intersection3D,
   entities: SerializedEntity[],
-  lights: EnhancedSerializedLight[],
-  camera: EnhancedSerializedCamera,
+  lights: SerializedLight[],
+  camera: SerializedCamera,
 ): RgbaColor {
   let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: opacity };
 
-  // Base material color
-  const materialColor: RgbaColor = { r: 255, g: 100, b: 100, a: opacity };
+  // Get the actual entity color from material properties, fallback to default if not available
+  const materialColor: RgbaColor = intersection.entity.material?.color || {
+    r: 128,
+    g: 128,
+    b: 128,
+    a: opacity,
+  };
 
   for (const light of lights) {
     if (!light.enabled) continue;
@@ -402,7 +219,7 @@ function shade3D(
  */
 function calculateLightContribution(
   intersection: Intersection3D,
-  light: EnhancedSerializedLight,
+  light: SerializedLight,
   entities: SerializedEntity[],
   materialColor: RgbaColor,
 ): RgbaColor {
@@ -423,9 +240,9 @@ function calculateLightContribution(
       // Ambient light contributes equally from all directions
       const ambientIntensity = light.intensity * 0.3; // Reduced ambient contribution
       return {
-        r: (materialColor.r * light.color.r * ambientIntensity) / 255 / 255,
-        g: (materialColor.g * light.color.g * ambientIntensity) / 255 / 255,
-        b: (materialColor.b * light.color.b * ambientIntensity) / 255 / 255,
+        r: (materialColor.r * light.color.r * ambientIntensity) / 255,
+        g: (materialColor.g * light.color.g * ambientIntensity) / 255,
+        b: (materialColor.b * light.color.b * ambientIntensity) / 255,
         a: opacity,
       };
 
@@ -494,7 +311,7 @@ function calculateLightContribution(
  */
 function calculateLightIntensity(
   targetPos: Vec3,
-  light: EnhancedSerializedLight,
+  light: SerializedLight,
   distance: number,
 ): number {
   if (!light.enabled) return 0;
@@ -538,7 +355,7 @@ function calculateLightIntensity(
 /**
  * Calculate spot light cone falloff
  */
-function calculateSpotLightFalloff(lightDirection: Vec3, light: EnhancedSerializedLight): number {
+function calculateSpotLightFalloff(lightDirection: Vec3, light: SerializedLight): number {
   const spotDir: Vec3 = [...light.direction];
 
   // Normalize spot direction
@@ -620,10 +437,7 @@ function isInShadow3D(
 /**
  * Apply ambient lighting to background
  */
-function applyAmbientLighting(
-  backgroundColor: RgbaColor,
-  lights: EnhancedSerializedLight[],
-): RgbaColor {
+function applyAmbientLighting(backgroundColor: RgbaColor, lights: SerializedLight[]): RgbaColor {
   let result = { ...backgroundColor };
 
   for (const light of lights) {
@@ -648,13 +462,16 @@ function shouldSamplePixel(
   y: number,
   currentPass: number,
   totalPasses: number,
-  pattern: 'checkerboard' | 'random',
+  pattern: 'checkerboard' | 'random' | 'spiral',
 ): boolean {
   switch (pattern) {
     case 'checkerboard':
       return shouldSamplePixelCheckerboard(x, y, currentPass, totalPasses);
     case 'random':
       return shouldSamplePixelRandom(x, y, currentPass, totalPasses);
+    case 'spiral':
+      // TODO: implement spiral sampling
+      return shouldSamplePixelCheckerboard(x, y, currentPass, totalPasses);
     default:
       return shouldSamplePixelCheckerboard(x, y, currentPass, totalPasses);
   }
@@ -682,13 +499,6 @@ function shouldSamplePixelRandom(
   const passStart = (currentPass % totalPasses) * passRange;
   const passEnd = passStart + passRange;
   return pseudoRandom >= passStart && pseudoRandom < passEnd;
-}
-
-interface Intersection {
-  point: Point;
-  normal: Vec2;
-  distance: number;
-  entity: SerializedEntity;
 }
 
 // Rest of the existing 2D ray tracing functions remain the same...
@@ -760,8 +570,8 @@ function rayAABBIntersect(
   return null;
 }
 
-function findClosestIntersection(ray: Ray2D, entities: SerializedEntity[]): Intersection | null {
-  let closestIntersection: Intersection | null = null;
+function findClosestIntersection(ray: Ray2D, entities: SerializedEntity[]): Intersection2D | null {
+  let closestIntersection: Intersection2D | null = null;
   let minDistance = Infinity;
 
   for (const entity of entities) {

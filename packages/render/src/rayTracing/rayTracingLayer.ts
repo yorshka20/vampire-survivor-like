@@ -2,6 +2,7 @@ import {
   Camera3DComponent,
   LightSourceComponent,
   RectArea,
+  RenderComponent,
   ShapeComponent,
   SpatialGridComponent,
   SpatialGridSystem,
@@ -18,11 +19,8 @@ import { SerializedCamera, SerializedEntity, SerializedLight } from './base/type
 
 // Extended interface for progressive ray tracing
 interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
-  sampling: {
-    currentPass: number;
-    totalPasses: number;
-    pattern: 'checkerboard' | 'random';
-  };
+  /** current pass, total passes, sampling pattern */
+  sampling: [number, number, 'checkerboard' | 'random'];
 }
 
 interface ProgressiveRenderState {
@@ -33,53 +31,6 @@ interface ProgressiveRenderState {
   colorAccumBuffer: Float32Array | null; // Stores accumulated color values as floats
   sampleCounts: Uint32Array | null; // Tracks how many samples each pixel has received
   isComplete: boolean;
-}
-
-// Enhanced type definitions for better camera and light support
-interface EnhancedSerializedCamera extends SerializedCamera {
-  // 3D positioning
-  height: number;
-  pitch: number;
-  roll: number;
-
-  // Projection and view settings
-  projectionMode: 'perspective' | 'orthographic';
-  cameraMode: 'topdown' | 'sideview' | 'custom';
-  aspect: number;
-  near: number;
-  far: number;
-
-  // View bounds and resolution
-  viewBounds: {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-  };
-  resolution: {
-    width: number;
-    height: number;
-  };
-  zoom: number;
-}
-
-interface EnhancedSerializedLight extends SerializedLight {
-  // 3D positioning
-  height: number;
-
-  // Light type and behavior
-  type: 'point' | 'directional' | 'ambient' | 'spot';
-  castShadows: boolean;
-  attenuation: 'none' | 'linear' | 'quadratic' | 'realistic';
-
-  // Direction and spot light properties
-  direction: [number, number, number];
-  spotAngle: number;
-  spotPenumbra: number;
-
-  // Control properties
-  enabled: boolean;
-  layer: number;
 }
 
 /**
@@ -99,7 +50,9 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private imageData: ImageData | null = null; // Stores the pixel data for the entire canvas.
 
   private cameraEntities: IEntity[] = [];
+  private serializedCamera: SerializedCamera | null = null;
   private lightEntities: IEntity[] = [];
+  private serializedLights: SerializedLight[] = [];
 
   private offscreenCanvas: OffscreenCanvas;
   private offscreenCtx: OffscreenCanvasRenderingContext2D;
@@ -270,8 +223,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
     }
 
     // 2. Scene Preparation: Gather all necessary data about the scene.
-    const serializedLights = this.serializeLights(this.getLights());
-    const serializedCamera = this.serializeCamera(this.getCameras());
+    const serializedLights = this.getSerializedLights();
+    const serializedCamera = this.getSerializedCamera();
 
     // If there's no active camera, we can't render anything.
     if (!serializedCamera) {
@@ -287,21 +240,24 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     const grid = this.getSpatialGridComponent().grid;
 
-    // 3. Task Creation: Divide the viewport into spatial grid cells instead of fixed-size tiles.
-    const tasks: {
+    type Task = {
       cellKey: string;
       x: number;
       y: number;
       width: number;
       height: number;
       entityIds: string[];
-    }[] = [];
-    for (const [cellKey, cell] of grid.entries()) {
+    };
+
+    // 3. Task Creation: Divide the viewport into spatial grid cells instead of fixed-size tiles.
+    const tasks: Task[] = [];
+    for (const [cellKey] of grid.entries()) {
       // Get cell bounds
       const bounds = this.getSpatialGridComponent().getCellBounds(cellKey);
       // Get all entity IDs in this cell (using 'collision' type for generality)
       const entityIds = this.getSpatialGridComponent().getEntitiesInCell(cellKey, 'collision');
       if (entityIds.length === 0) continue; // Skip empty cells
+
       tasks.push({
         cellKey,
         x: bounds.x,
@@ -343,16 +299,22 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const taskData: ProgressiveRayTracingWorkerData = {
         entities: entitiesMap,
         lights: serializedLights,
+        /**
+         * even though we have fixed camera,
+         * we still need to send the camera to the worker
+         * because camera instance(RayTracingCamera) is isolated between threads.
+         *
+         */
         camera: serializedCamera,
-        viewport,
-        cameraOffset,
+        // viewport,
+        // cameraOffset,
         tiles,
-        // Progressive sampling configuration
-        sampling: {
-          currentPass: this.progressiveState.currentPass,
-          totalPasses: this.progressiveState.totalPasses,
-          pattern: this.progressiveState.samplingPattern,
-        },
+        // Progressive sampling configuration. use array to decrease serialization cost.
+        sampling: [
+          this.progressiveState.currentPass,
+          this.progressiveState.totalPasses,
+          this.progressiveState.samplingPattern,
+        ],
       };
 
       // Submit the task to the worker pool and store the promise.
@@ -365,17 +327,13 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.progressiveState.isComplete = true;
     }
 
-    console.log(
-      `Progressive Ray Tracing - Pass ${this.progressiveState.currentPass}/${this.progressiveState.totalPasses}`,
-    );
-
     return activePromises;
   }
 
   /**
    * Validates camera configuration to ensure all required properties are present.
    */
-  private validateCameraConfiguration(camera: EnhancedSerializedCamera): boolean {
+  private validateCameraConfiguration(camera: SerializedCamera): boolean {
     if (!camera.resolution || camera.resolution.width <= 0 || camera.resolution.height <= 0) {
       console.error('Invalid camera resolution:', camera.resolution);
       return false;
@@ -643,6 +601,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
     for (const entity of entities) {
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
       // We already filtered, but it's good practice to check again.
       if (shape && transform) {
         serialized[entity.id] = {
@@ -650,17 +609,37 @@ export class RayTracingLayer extends CanvasRenderLayer {
           shape: shape.descriptor,
           position: transform.getPosition(),
           rotation: transform.rotation,
+          // Add material properties including color from RenderComponent
+          material: render
+            ? {
+                color: render.getColor(),
+                reflectivity: 0.1, // Default low reflectivity
+                roughness: 0.8, // Default high roughness
+              }
+            : undefined,
         };
       }
     }
     return serialized;
   }
 
+  private getSerializedLights(): SerializedLight[] {
+    if (this.serializedLights.length > 0) {
+      return this.serializedLights;
+    }
+    const lights = this.getLights();
+    if (lights.length === 0) {
+      throw new Error('No active lights found');
+    }
+    this.serializedLights = this.serializeLights(lights);
+    return this.serializedLights;
+  }
+
   /**
    * Enhanced light serialization with full 3D support and all light types.
    */
-  private serializeLights(entities: IEntity[]): EnhancedSerializedLight[] {
-    const lights: EnhancedSerializedLight[] = [];
+  private serializeLights(entities: IEntity[]): SerializedLight[] {
+    const lights: SerializedLight[] = [];
     for (const entity of entities) {
       const light = entity.getComponent<LightSourceComponent>(LightSourceComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
@@ -686,40 +665,51 @@ export class RayTracingLayer extends CanvasRenderLayer {
     return lights;
   }
 
+  private getSerializedCamera(): SerializedCamera {
+    if (this.serializedCamera) {
+      return this.serializedCamera;
+    }
+    const cameras = this.getCameras();
+    if (cameras.length === 0) {
+      throw new Error('No active camera found');
+    }
+    this.serializedCamera = this.serializeCamera(cameras);
+    return this.serializedCamera;
+  }
+
   /**
    * Enhanced camera serialization with full 3D support and multiple view modes.
    */
-  private serializeCamera(entities: IEntity[]): EnhancedSerializedCamera | null {
-    for (const entity of entities) {
-      const camera = entity.getComponent<Camera3DComponent>(Camera3DComponent.componentName);
-      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      if (camera && transform && camera.isActive) {
-        return {
-          position: transform.getPosition(),
-          fov: camera.fov,
-          facing: camera.facing,
-          height: camera.height,
-          pitch: camera.pitch,
-          roll: camera.roll,
-          projectionMode: camera.projectionMode,
-          cameraMode: camera.cameraMode,
-          aspect: camera.aspect,
-          near: camera.near,
-          far: camera.far,
-          viewBounds: camera.viewBounds,
-          resolution: camera.resolution,
-          zoom: camera.zoom,
-        };
-      }
+  private serializeCamera(cameras: IEntity[]): SerializedCamera {
+    const entity = cameras[0]!;
+    const camera = entity.getComponent<Camera3DComponent>(Camera3DComponent.componentName);
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    if (!camera || !transform || !camera.isActive) {
+      throw new Error('No active camera found');
     }
-    return null; // No active camera found
+    return {
+      position: transform.getPosition(),
+      fov: camera.fov,
+      facing: camera.facing,
+      height: camera.height,
+      pitch: camera.pitch,
+      roll: camera.roll,
+      projectionMode: camera.projectionMode,
+      cameraMode: camera.cameraMode,
+      aspect: camera.aspect,
+      near: camera.near,
+      far: camera.far,
+      viewBounds: camera.viewBounds,
+      resolution: camera.resolution,
+      zoom: camera.zoom,
+    };
   }
 
   /**
    * Public method to force a scene update and reset progressive rendering.
    * Useful for when external systems know the scene has changed.
    */
-  public forceSceneUpdate(): void {
+  forceSceneUpdate(): void {
     this.resetProgressiveRender();
     this.lastSceneHash = '';
     // Clear cached entities to force re-fetching
@@ -732,7 +722,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
    * @param totalPasses Number of passes for progressive rendering (higher = better quality, slower)
    * @param tileSize Size of rendering tiles (smaller = better load balancing, more overhead)
    */
-  public setRenderingQuality(totalPasses: number, tileSize: number): void {
+  setRenderingQuality(totalPasses: number, tileSize: number): void {
     if (totalPasses !== this.progressiveState.totalPasses || tileSize !== this.tileSize) {
       this.progressiveState.totalPasses = Math.max(1, totalPasses);
       this.tileSize = Math.max(1, tileSize);
@@ -744,7 +734,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   /**
    * Returns current progressive rendering statistics.
    */
-  public getRenderingStats(): {
+  getRenderingStats(): {
     currentPass: number;
     totalPasses: number;
     isComplete: boolean;

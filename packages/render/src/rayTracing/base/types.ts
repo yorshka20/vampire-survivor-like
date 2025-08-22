@@ -1,13 +1,35 @@
-import { Point, RgbaColor, ShapeDescriptor } from '@ecs';
-import { RenderingOptions, RenderingStats, Vector3 } from '@ecs/core/worker';
-import { MaterialProperties } from '../worker';
+import { Point, RgbaColor, ShapeDescriptor, Vec2, Vec3 } from '@ecs';
 
+// Performance monitoring
+interface RenderingStats {
+  renderTime: number;
+  raysShot: number;
+  intersectionTests: number;
+  shadowRays: number;
+  sampledPixels: number;
+  totalPixels: number;
+}
+
+// Advanced rendering options
+interface RenderingOptions {
+  maxBounces: number;
+  shadowSamples: number;
+  enableReflections: boolean;
+  enableRefraction: boolean;
+  enableGlobalIllumination: boolean;
+  qualityLevel: 'low' | 'medium' | 'high' | 'ultra';
+}
+
+/**
+ * Enhanced 3D intersection interface
+ */
 export interface Intersection3D {
-  point: Vector3;
-  normal: Vector3;
+  point: Vec3;
+  normal: Vec3;
   distance: number;
   entity: SerializedEntity;
-  material?: MaterialProperties;
+  point2D: Point; // 2D projection for compatibility
+  normal2D: Vec2; // 2D normal for compatibility
 }
 
 export interface Intersection2D {
@@ -69,15 +91,15 @@ export interface SerializedLight {
   radius: number;
 
   // Extended properties for 3D ray tracing
-  height?: number;
-  type?: 'point' | 'directional' | 'ambient' | 'spot';
-  castShadows?: boolean;
-  attenuation?: 'none' | 'linear' | 'quadratic' | 'realistic';
-  direction?: [number, number, number];
-  spotAngle?: number;
-  spotPenumbra?: number;
-  enabled?: boolean;
-  layer?: number;
+  height: number;
+  type: 'point' | 'directional' | 'ambient' | 'spot';
+  castShadows: boolean;
+  attenuation: 'none' | 'linear' | 'quadratic' | 'realistic';
+  direction: [number, number, number];
+  spotAngle: number;
+  spotPenumbra: number;
+  enabled: boolean;
+  layer: number;
 }
 
 // Enhanced camera serialization
@@ -88,25 +110,27 @@ export interface SerializedCamera {
   facing: number;
 
   // Extended properties for 3D ray tracing
-  height?: number;
-  pitch?: number;
-  roll?: number;
-  projectionMode?: 'perspective' | 'orthographic';
-  cameraMode?: 'topdown' | 'sideview' | 'custom';
-  aspect?: number;
-  near?: number;
-  far?: number;
-  viewBounds?: {
+  height: number;
+  pitch: number;
+  roll: number;
+
+  projectionMode: 'perspective' | 'orthographic';
+  cameraMode: 'topdown' | 'sideview' | 'custom';
+  aspect: number;
+  near: number;
+  far: number;
+
+  viewBounds: {
     left: number;
     right: number;
     top: number;
     bottom: number;
   };
-  resolution?: {
+  resolution: {
     width: number;
     height: number;
   };
-  zoom?: number;
+  zoom: number;
 }
 
 export interface AccumulationBuffer {
@@ -114,8 +138,5 @@ export interface AccumulationBuffer {
   sampleCount: Uint32Array;
 }
 
-export interface SamplingConfig {
-  totalPasses: number;
-  currentPass: number;
-  pattern: 'checkerboard' | 'random' | 'spiral';
-}
+/** current pass, total passes, sampling pattern */
+export type SamplingConfig = [number, number, 'checkerboard' | 'random' | 'spiral'];

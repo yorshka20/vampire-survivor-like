@@ -63,41 +63,9 @@ export interface WorkerResult {
   result: any[];
 }
 
-// 3D vector and geometry types
-export interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface Vector2 {
-  x: number;
-  y: number;
-}
-
 // Error handling
 export interface WorkerError {
   taskId: number;
   error: string;
   stack?: string;
-}
-
-// Performance monitoring
-export interface RenderingStats {
-  renderTime: number;
-  raysShot: number;
-  intersectionTests: number;
-  shadowRays: number;
-  sampledPixels: number;
-  totalPixels: number;
-}
-
-// Advanced rendering options
-export interface RenderingOptions {
-  maxBounces: number;
-  shadowSamples: number;
-  enableReflections: boolean;
-  enableRefraction: boolean;
-  enableGlobalIllumination: boolean;
-  qualityLevel: 'low' | 'medium' | 'high' | 'ultra';
 }

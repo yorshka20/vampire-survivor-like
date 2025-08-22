@@ -16,21 +16,15 @@ export interface RayTracingWorkerData extends BaseWorkerData {
   entities: Record<string, SerializedEntity>;
   lights: SerializedLight[];
   camera: SerializedCamera;
-  viewport: RectArea;
-  cameraOffset: [number, number];
+  viewport?: RectArea;
+  cameraOffset?: [number, number];
   tiles: { x: number; y: number; width: number; height: number }[];
   sampling: SamplingConfig;
   previousFrameData?: Uint8ClampedArray;
 }
 
 // Progressive ray tracing specific interfaces
-export interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
-  sampling: {
-    currentPass: number;
-    totalPasses: number;
-    pattern: 'checkerboard' | 'random';
-  };
-}
+export type ProgressiveRayTracingWorkerData = RayTracingWorkerData;
 
 export interface ProgressiveTileResult {
   x: number;
