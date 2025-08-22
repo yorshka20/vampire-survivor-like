@@ -34,11 +34,16 @@ export class RayTracingCamera {
   }
 
   static generateCameraRay(screenX: number, screenY: number, camera: SerializedCamera): Ray3D {
-    if (this.cameraRayCache[screenX]?.[screenY]) {
+    // Initialize cache arrays before checking to prevent undefined behavior
+    if (!this.cameraRayCache[screenX]) {
+      this.cameraRayCache[screenX] = [];
+    }
+
+    if (this.cameraRayCache[screenX][screenY]) {
       return this.cameraRayCache[screenX][screenY];
     }
+
     const ray = generateCameraRay(screenX, screenY, camera);
-    this.cameraRayCache[screenX] = this.cameraRayCache[screenX] || [];
     this.cameraRayCache[screenX][screenY] = ray;
     return ray;
   }
@@ -55,8 +60,14 @@ function generateCameraRay(screenX: number, screenY: number, camera: SerializedC
   // Map to view bounds
   const worldX =
     camera.viewBounds.left + (camera.viewBounds.right - camera.viewBounds.left) * normalizedX;
+  // Fix Y-axis mapping: screen Y=0 should map to top, Y=height should map to bottom
+  // Since top=1044.75 and bottom=0, we want:
+  // normalizedY=0 (screen top) -> worldY=bottom (0)
+  // normalizedY=1 (screen bottom) -> worldY=top (1044.75)
   const worldY =
-    camera.viewBounds.top + (camera.viewBounds.bottom - camera.viewBounds.top) * normalizedY;
+    camera.viewBounds.bottom + normalizedY * (camera.viewBounds.top - camera.viewBounds.bottom);
+
+  // Debug logging removed - coordinate mapping is now correct
 
   const origin: Vec3 = [camera.position[0], camera.position[1], camera.height];
 
