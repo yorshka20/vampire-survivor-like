@@ -1,6 +1,7 @@
 import {
   Camera3DComponent,
   LightSourceComponent,
+  PhysicsComponent,
   RectArea,
   RenderComponent,
   ShapeComponent,
@@ -279,12 +280,28 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const assignedTasks = tasks.slice(start, end);
       if (assignedTasks.length === 0) continue;
 
-      // Collect all unique entity IDs for this worker's assigned cells
-      const uniqueEntityIds = Array.from(new Set(assignedTasks.flatMap((t) => t.entityIds)));
-      // Only serialize entities that are in these cells
-      const entitiesMap: Record<string, SerializedEntity> = this.serializeEntities(
-        uniqueEntityIds.map((id) => this.getWorld().getEntityById(id)).filter(Boolean) as IEntity[],
-      );
+      // For ray tracing, we only want ball entities (objects with physics and circle shapes)
+      // Filter to include only ball entities that should be ray traced
+      const allRenderableEntities = this.getWorld()
+        .getEntitiesWithComponents([ShapeComponent, TransformComponent, PhysicsComponent])
+        .filter((entity) => {
+          // Only include entities that are balls (have physics component and circle shape)
+          const physicsComponent = entity.getComponent('Physics');
+          const shapeComponent = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+          const renderComponent = entity.getComponent<RenderComponent>(
+            RenderComponent.componentName,
+          );
+
+          // Must be a ball entity (has physics) with circle shape and visible
+          const isBallEntity = physicsComponent !== null;
+          const isCircleShape = shapeComponent && shapeComponent.descriptor.type === 'circle';
+          const isVisible = !renderComponent || renderComponent.isVisible();
+
+          return isBallEntity && isCircleShape && isVisible;
+        });
+
+      const entitiesMap: Record<string, SerializedEntity> =
+        this.serializeEntities(allRenderableEntities);
 
       // Prepare tile definitions for the worker
       const tiles = assignedTasks.map((task) => ({
