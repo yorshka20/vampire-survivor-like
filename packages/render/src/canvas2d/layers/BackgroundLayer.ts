@@ -206,7 +206,10 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
   }
 
   filterEntity(entity: IEntity, viewport: RectArea): boolean {
-    return super.filterEntity(entity, viewport) && entity.isType('obstacle');
+    return (
+      super.filterEntity(entity, viewport) &&
+      (entity.isType('obstacle') || entity.isType('camera') || entity.isType('light'))
+    );
   }
 
   private renderBackgroundEntity(entity: IEntity, cameraOffset: [number, number]): void {
@@ -220,7 +223,16 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
 
     this.ctx.save();
     this.ctx.translate(dx, dy);
-    RenderUtils.drawShape(this.ctx, render, shape);
+
+    if (entity.isType('camera') || entity.isType('light')) {
+      const patternImage = shape.getPatternImage();
+      if (patternImage) {
+        RenderUtils.drawPatternImage(this.ctx, patternImage, shape);
+      }
+    } else {
+      RenderUtils.drawShape(this.ctx, render, shape);
+    }
+
     this.ctx.restore();
   }
 }
