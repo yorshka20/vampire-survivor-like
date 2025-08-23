@@ -40,7 +40,7 @@ interface ProgressiveRenderState {
  */
 export class RayTracingLayer extends CanvasRenderLayer {
   // default invisible
-  visible = true;
+  visible = false;
 
   private workerPoolManager: WorkerPoolManager;
   private tileSize = 100; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
@@ -353,7 +353,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private initializeAccumBuffer(): void {
     const width = this.mainCanvas.width;
     const height = this.mainCanvas.height;
-    const totalPixels = width * height;
+    const totalPixels = Math.round(width) * Math.round(height);
 
     // Create display ImageData
     this.progressiveState.accumBuffer = this.offscreenCtx.createImageData(width, height);

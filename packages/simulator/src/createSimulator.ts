@@ -187,7 +187,7 @@ function initializeEntities(world: World, viewport: Viewport) {
       }),
       color: { r: 255, g: 255, b: 255, a: 1 },
     });
-    // world.addEntity(wallObstacle);
+    world.addEntity(wallObstacle);
   }
 }
 
