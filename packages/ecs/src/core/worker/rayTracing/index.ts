@@ -9,8 +9,6 @@ import {
 } from '@render/rayTracing';
 import { ShadingService, shouldSamplePixel } from '@render/rayTracing/shading';
 
-const opacity = 100;
-
 // Module-level cache for rays, to be reused across passes for the same camera resolution.
 // Initialized to null and re-initialized when camera resolution changes.
 let cameraRayCache: (Ray3D | null)[][] | null = null;
@@ -30,14 +28,24 @@ export interface ProgressiveTileResult {
   width: number;
   height: number;
   pixels: number[];
-  sampledPixels: boolean[]; // Track which pixels were sampled in this pass
+  sampledPixelsBuffer: SharedArrayBuffer; // Track which pixels were sampled in this pass
 }
 
 /**
  * Enhanced progressive ray tracing handler with 3D camera and lighting support
  */
 export function handleRayTracing(data: ProgressiveRayTracingWorkerData): ProgressiveTileResult[] {
-  const { entities, lights, camera, viewport, cameraOffset, tiles, sampling } = data;
+  const {
+    entities,
+    lights,
+    camera,
+    viewport,
+    cameraOffset,
+    tiles,
+    sampling,
+    sampledPixelsBuffer,
+    canvasWidth,
+  } = data;
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
@@ -64,20 +72,23 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   for (const tile of tiles) {
     // Initialize pixel and sampling arrays
     const pixels = new Array(tile.width * tile.height * 4).fill(0);
-    const sampledPixels = new Array(tile.width * tile.height).fill(false);
+    // load shared array buffer
+    const sampledPixels = new Uint8Array(sampledPixelsBuffer);
     let pixelIndex = 0;
 
     for (let j = 0; j < tile.height; j++) {
       for (let i = 0; i < tile.width; i++) {
         const x = tile.x + i;
         const y = tile.y + j;
-        const currentPixelIndex = j * tile.width + i;
+        // Use global canvas coordinates to index into the full canvas buffer
+        const globalPixelIndex = y * canvasWidth + x;
 
         // Check if this pixel should be sampled in the current pass
         const shouldSample = shouldSamplePixel(x, y, sampling[0], sampling[1], sampling[2]);
-        sampledPixels[currentPixelIndex] = shouldSample;
+        // Store sampling information using global canvas coordinates
+        Atomics.store(sampledPixels, globalPixelIndex, shouldSample ? 1 : 0);
 
-        let color: RgbaColor = { r: 0, g: 0, b: 0, a: opacity }; // Dark background
+        let color: RgbaColor = { r: 0, g: 0, b: 0, a: 100 }; // Dark background
 
         if (shouldSample) {
           // Get 3D ray from cache or generate if not present
@@ -164,7 +175,7 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
       width: tile.width,
       height: tile.height,
       pixels,
-      sampledPixels,
+      sampledPixelsBuffer,
     });
   }
 

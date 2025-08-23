@@ -20,6 +20,13 @@ export interface RayTracingWorkerData extends BaseWorkerData {
   cameraOffset?: [number, number];
   tiles: { x: number; y: number; width: number; height: number }[];
   sampling: SamplingConfig;
+
+  // use shared array buffer to track which pixels were sampled in this pass
+  sampledPixelsBuffer: SharedArrayBuffer;
+
+  // Canvas width for calculating global pixel indices
+  canvasWidth: number;
+
   previousFrameData?: Uint8ClampedArray;
 }
 
@@ -32,7 +39,7 @@ export interface ProgressiveTileResult {
   width: number;
   height: number;
   pixels: number[];
-  sampledPixels: boolean[];
+  sampledPixelsBuffer: SharedArrayBuffer;
 }
 
 // Material properties for enhanced rendering

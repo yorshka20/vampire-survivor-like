@@ -19,10 +19,7 @@ import { RayTracingWorkerData } from '@render/rayTracing/worker';
 import { SerializedCamera, SerializedEntity, SerializedLight } from './base/types';
 
 // Extended interface for progressive ray tracing
-interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
-  /** current pass, total passes, sampling pattern */
-  sampling: [number, number, 'checkerboard' | 'random'];
-}
+interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {}
 
 interface ProgressiveRenderState {
   currentPass: number;
@@ -67,8 +64,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
   // Progressive rendering state
   private progressiveState: ProgressiveRenderState = {
     currentPass: 0,
-    totalPasses: 60, // Split rendering across 4 frames
-    samplingPattern: 'random',
+    totalPasses: 60, // Keep original 60 passes for random sampling
+    samplingPattern: 'random', // Keep random sampling as requested
     accumBuffer: null,
     colorAccumBuffer: null,
     sampleCounts: null,
@@ -159,41 +156,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
     }
     this.spatialGridComponent = spatialGridSystem.getSpatialGridComponent();
     return this.spatialGridComponent;
-  }
-
-  /**
-   * Generates a hash representing the current scene state for change detection.
-   */
-  private getSceneHash(): string {
-    if (!this.lastViewport) return '';
-
-    const entityData = this.getLayerEntities(this.lastViewport)
-      .map((e) => {
-        const transform = e.getComponent<TransformComponent>('Transform');
-        const shape = e.getComponent<ShapeComponent>('Shape');
-        return `${e.id}:${JSON.stringify(transform?.position)}:${transform?.rotation}:${JSON.stringify(shape?.descriptor)}`;
-      })
-      .join('|');
-
-    const lightData = this.getLights()
-      .map((e) => {
-        const light = e.getComponent<LightSourceComponent>('LightSource');
-        const transform = e.getComponent<TransformComponent>('Transform');
-        if (!light || !transform) return '';
-        return `${e.id}:${JSON.stringify(transform.position)}:${light.height}:${light.intensity}:${light.type}:${light.enabled}`;
-      })
-      .join('|');
-
-    const cameraData = this.getCameras()
-      .map((e) => {
-        const camera = e.getComponent<Camera3DComponent>('Camera');
-        const transform = e.getComponent<TransformComponent>('Transform');
-        if (!camera || !transform) return '';
-        return `${JSON.stringify(transform.position)}:${camera.facing}:${camera.height}:${camera.pitch}:${camera.cameraMode}:${camera.zoom}`;
-      })
-      .join('|');
-
-    return `${entityData}|${lightData}|${cameraData}`;
   }
 
   private shouldResetProgressiveRender(): boolean {
@@ -332,6 +294,13 @@ export class RayTracingLayer extends CanvasRenderLayer {
           this.progressiveState.totalPasses,
           this.progressiveState.samplingPattern,
         ],
+        // Use full canvas size for sampledPixelsBuffer since it's SharedArrayBuffer
+        // This allows workers to use global canvas coordinates directly
+        sampledPixelsBuffer: new SharedArrayBuffer(
+          Math.round(this.offscreenCanvas.width) * Math.round(this.offscreenCanvas.height),
+        ),
+        // Pass canvas width so workers can calculate global pixel indices
+        canvasWidth: this.offscreenCanvas.width,
       };
 
       // Submit the task to the worker pool and store the promise.
@@ -442,9 +411,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
    * Accumulates the pixel data from a completed tile into the progressive buffer.
    */
   private accumulateTile(tileResult: ProgressiveTileResult): void {
-    const { x, y, width, height, pixels, sampledPixels } = tileResult;
+    const { x, y, width, height, pixels, sampledPixelsBuffer } = tileResult;
     if (!this.progressiveState.colorAccumBuffer || !this.progressiveState.sampleCounts) return;
 
+    // Load shared array buffer - this buffer contains data for the entire canvas
+    const sampledPixels = new Uint8Array(sampledPixelsBuffer);
     const canvasWidth = this.offscreenCanvas.width;
     let sourcePixelIndex = 0;
 
@@ -453,8 +424,16 @@ export class RayTracingLayer extends CanvasRenderLayer {
         const canvasX = x + i;
         const canvasY = y + j;
 
-        // Skip pixels that weren't sampled in this pass
-        if (!sampledPixels || !sampledPixels[j * width + i]) {
+        // Check if this pixel was sampled in this pass
+        // Use global canvas coordinates to read from the shared buffer
+        const globalPixelIndex = canvasY * canvasWidth + canvasX;
+
+        const wasSampled =
+          sampledPixels &&
+          globalPixelIndex < sampledPixels.length &&
+          Atomics.load(sampledPixels, globalPixelIndex) === 1;
+
+        if (!wasSampled) {
           sourcePixelIndex += 4;
           continue;
         }
