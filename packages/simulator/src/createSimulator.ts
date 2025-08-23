@@ -16,7 +16,7 @@ import {
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Point, Viewport } from '@ecs/types/types';
-import { RgbaColor } from '@ecs/utils/color';
+import { randomRgb, RgbaColor } from '@ecs/utils/color';
 import { createCanvas2dRenderer } from '@render/canvas2d';
 import { createBall } from './entities/ball';
 import { createGenerator } from './entities/generator';
@@ -129,37 +129,20 @@ function initializeEntities(world: World, viewport: Viewport) {
     spawnGap: 50,
     generatorType: 'ball',
   });
-  const generator2 = createGenerator(world, {
-    position: [10, 10],
-    maxEntities: 50,
-    ballSize: 50,
-    velocity: [2, 2],
-    spawnGap: 1000,
-    generatorType: 'ball',
-  });
-  const generator3 = createGenerator(world, {
-    position: [100, 140],
-    maxEntities: 20000,
-    ballSize: 20,
-    velocity: [initialV * 110, initialV],
-    spawnGap: 50,
-    generatorType: 'square',
-  });
   // world.addEntity(generator);
-  world.addEntity(generator2);
-  // world.addEntity(generator3);
+
   const camX = viewport[2] / 2;
   const camY = viewport[3] / 2;
   const ball = createBall(world, {
-    position: [camX, camY], // 将球放在屏幕中心
-    size: 100, // 减小尺寸使其更容易看到
+    position: [camX, camY], // put the ball at the center of the screen
+    size: 50, // decrease size to make it easier to see
     velocity: [10, 10],
-    color: { r: 255, g: 100, b: 100, a: 1 }, // 使用更明显的红色
+    color: randomRgb(1), // use more obvious red
   });
   world.addEntity(ball);
 
-  createObstacleBlock(world, [200, 700], [100, 100]);
-  createObstacleBlock(world, [400, 400], [100, 100]);
+  // createObstacleBlock(world, [200, 700], [100, 100]);
+  // createObstacleBlock(world, [400, 400], [100, 100]);
 
   // createObstacleCircle(world, [200, 1200], 100);
 
@@ -204,7 +187,7 @@ function initializeEntities(world: World, viewport: Viewport) {
       }),
       color: { r: 255, g: 255, b: 255, a: 1 },
     });
-    world.addEntity(wallObstacle);
+    // world.addEntity(wallObstacle);
   }
 }
 
@@ -248,7 +231,7 @@ function createObstacleCircle(world: World, position: Point, radius: number) {
 }
 
 function createRayTracingEntity(world: World, viewport: Viewport) {
-  // 以屏幕中心为相机中心
+  // use screen center as camera center
   const camX = viewport[2] / 2;
   const camY = viewport[3] / 2;
   const w = viewport[2];
@@ -257,7 +240,7 @@ function createRayTracingEntity(world: World, viewport: Viewport) {
   const topDownCameraEntity = world.createEntity('camera');
   const topDownCamera = new Camera3DComponent({
     position: [camX, camY],
-    height: 50, // 降低相机高度使其更接近z=0平面的物体
+    height: 50, // lower camera height to make it closer to the z=0 plane
     cameraMode: 'topdown',
     projectionMode: 'orthographic',
     resolution: { width: w, height: h },
@@ -277,27 +260,35 @@ function createRayTracingEntity(world: World, viewport: Viewport) {
   world.addEntity(topDownCameraEntity);
 
   // Add light sources
-  const lightEntity = world.createEntity('light');
   // const ambientLight = new LightSourceComponent();
   // ambientLight.setAsAmbientLight(0.2);
 
+  const torchEntity = world.createEntity('light');
+  const torch = new LightSourceComponent({
+    height: 100,
+    radius: 1000,
+    color: { r: 255, g: 200, b: 100, a: 1 },
+  });
+  torch.setAsPointLight(1000, 1.5);
+  torchEntity.addComponent(torch);
+  torchEntity.addComponent(
+    world.createComponent(TransformComponent, {
+      position: [400, 400],
+      // position: [camX, camY],
+    }),
+  );
+
+  world.addEntity(torchEntity);
+
+  const lightEntity = world.createEntity('light');
   const sunLight = new LightSourceComponent();
   sunLight.setAsDirectionalLight([1, -1, -1], 0.8);
-
-  // const torch = new LightSourceComponent({
-  //   position: [100, 100],
-  //   height: 0,
-  //   color: { r: 255, g: 200, b: 100, a: 1 },
-  // });
-  // torch.setAsPointLight(50, 1.5);
-
-  // lightEntity.addComponent(ambientLight);
   lightEntity.addComponent(sunLight);
   lightEntity.addComponent(
     world.createComponent(TransformComponent, {
       position: [100, 100],
     }),
   );
-  // lightEntity.addComponent(torch);
+
   world.addEntity(lightEntity);
 }
