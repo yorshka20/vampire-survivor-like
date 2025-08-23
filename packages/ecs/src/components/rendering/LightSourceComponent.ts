@@ -1,6 +1,7 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { Vec3 } from '@ecs/types/types';
 import { RgbaColor } from '@ecs/utils/color';
+import { SerializedLight } from '@render/rayTracing';
 
 export type LightType = 'point' | 'directional' | 'ambient' | 'spot';
 export type AttenuationType = 'none' | 'linear' | 'quadratic' | 'realistic';
@@ -262,5 +263,101 @@ export class LightSourceComponent extends Component {
       `Light(${this.type}): pos=[${this.position[0]},${this.position[1]},${this.height}], ` +
       `intensity=${this.intensity}, radius=${this.radius}, shadows=${this.castShadows}`
     );
+  }
+
+  /**
+   * Calculates the light intensity with distance attenuation for a given light source.
+   * @param targetPos The 3D position of the point being shaded.
+   * @param light The serialized light source data.
+   * @param distance The distance from the light source to the target position.
+   * @returns The calculated light intensity, clamped between 0 and 1.
+   */
+  static calculateLightIntensity(
+    targetPos: Vec3,
+    light: SerializedLight,
+    distance: number,
+  ): number {
+    if (!light.enabled) return 0;
+
+    // Directional lights have infinite range
+    if (light.type === 'directional') {
+      return light.intensity;
+    }
+
+    // Other light types check distance
+    if (distance > light.radius) {
+      return 0;
+    }
+
+    let intensity = light.intensity;
+
+    // Apply distance attenuation
+    switch (light.attenuation) {
+      case 'none':
+        break; // No attenuation
+
+      case 'linear':
+        intensity *= Math.max(0, 1 - distance / light.radius);
+        break;
+
+      case 'quadratic':
+        const normalizedDistance = distance / light.radius;
+        intensity *= Math.max(0, 1 - normalizedDistance * normalizedDistance);
+        break;
+
+      case 'realistic':
+        const minDistance = 1;
+        const effectiveDistance = Math.max(distance, minDistance);
+        const falloff = 1 / (effectiveDistance * effectiveDistance);
+        const radiusFalloff = 1 / (light.radius * light.radius);
+        intensity *= Math.max(0, falloff - radiusFalloff) / (1 - radiusFalloff);
+        break;
+    }
+
+    return Math.max(0, intensity);
+  }
+
+  /**
+   * Calculates the falloff factor for a spot light based on the angle between the light direction and the spot direction.
+   * @param lightDirection The direction vector from the light source to the shaded point.
+   * @param light The serialized spot light source data.
+   * @returns The spot light falloff factor, ranging from 0 (outside cone) to 1 (full intensity).
+   */
+  static calculateSpotLightFalloff(lightDirection: Vec3, light: SerializedLight): number {
+    const spotDir: Vec3 = [...light.direction];
+
+    // Normalize spot direction
+    const spotLength = Math.sqrt(spotDir[0] ** 2 + spotDir[1] ** 2 + spotDir[2] ** 2);
+    if (spotLength === 0) return 0;
+
+    const normalizedSpotDir: Vec3 = [
+      spotDir[0] / spotLength,
+      spotDir[1] / spotLength,
+      spotDir[2] / spotLength,
+    ];
+
+    // Calculate angle between light direction and spot direction
+    const dotProduct = Math.max(
+      -1,
+      Math.min(
+        1,
+        lightDirection[0] * normalizedSpotDir[0] +
+          lightDirection[1] * normalizedSpotDir[1] +
+          lightDirection[2] * normalizedSpotDir[2],
+      ),
+    );
+
+    const angle = (Math.acos(Math.abs(dotProduct)) * 180) / Math.PI;
+    const halfAngle = light.spotAngle / 2;
+    const penumbraStart = halfAngle - light.spotPenumbra;
+
+    if (angle > halfAngle) {
+      return 0; // Outside cone
+    } else if (angle < penumbraStart) {
+      return 1; // Full intensity
+    } else {
+      // In penumbra region
+      return 1 - (angle - penumbraStart) / light.spotPenumbra;
+    }
   }
 }

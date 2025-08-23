@@ -1,5 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { Resolution, Vec2, Vec3, ViewBounds } from '@ecs/types/types';
+import { SerializedCamera, SerializedRay } from '@render/rayTracing/base/types';
 
 export type ProjectionMode = 'perspective' | 'orthographic';
 export type CameraMode = 'topdown' | 'sideview' | 'custom';
@@ -112,30 +113,127 @@ export class Camera3DComponent extends Component {
     return [worldX, worldY];
   }
 
-  // 生成光线（用于光线追踪）
-  generateRay(screenX: number, screenY: number): { origin: Vec3; direction: Vec3 } {
-    const worldPoint = this.screenToWorld(screenX, screenY);
-    const origin = this.position3D;
+  /**
+   * Generates a 3D ray from the camera's perspective for a given screen coordinate.
+   * This function handles different camera modes (top-down, side-view, custom) and projection modes (orthographic, perspective).
+   * @param screenX The X-coordinate on the screen (pixel).
+   * @param screenY The Y-coordinate on the screen (pixel).
+   * @param camera The serialized camera data containing its properties and settings.
+   * @returns An object containing the ray's origin and direction in 3D world space.
+   */
+  static generateCameraRay(
+    screenX: number,
+    screenY: number,
+    camera: SerializedCamera,
+  ): SerializedRay {
+    // Convert screen coordinates to normalized coordinates
+    const normalizedX = screenX / camera.resolution.width;
+    const normalizedY = screenY / camera.resolution.height;
+
+    // Map to view bounds
+    const worldX =
+      camera.viewBounds.left + (camera.viewBounds.right - camera.viewBounds.left) * normalizedX;
+    const worldY =
+      camera.viewBounds.bottom + normalizedY * (camera.viewBounds.top - camera.viewBounds.bottom);
+
+    const origin: Vec3 = [camera.position[0], camera.position[1], camera.height];
 
     let direction: Vec3;
 
-    if (this.cameraMode === 'topdown') {
-      // 俯视角：光线垂直向下
+    if (camera.cameraMode === 'topdown') {
+      // Top-down view: parallel rays pointing down
       direction = [0, 0, -1];
-    } else {
-      // 侧视角：从相机位置指向世界点
-      direction = [worldPoint[0] - origin[0], worldPoint[1] - origin[1], 0 - origin[2]];
 
-      // 归一化方向向量
+      // For orthographic projection in top-down, adjust the ray origin
+      if (camera.projectionMode === 'orthographic') {
+        origin[0] = worldX;
+        origin[1] = worldY;
+      }
+    } else if (camera.cameraMode === 'sideview') {
+      // Side view: rays from camera position to world points
+      direction = [worldX - origin[0], worldY - origin[1], 0 - origin[2]];
+
+      // Normalize direction
       const length = Math.sqrt(direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2);
       if (length > 0) {
         direction[0] /= length;
         direction[1] /= length;
         direction[2] /= length;
       }
+    } else {
+      // Custom camera mode - implement perspective calculation
+      const halfFov = (camera.fov / 2) * (Math.PI / 180);
+      const aspectRatio = camera.aspect;
+
+      const screenNormalizedX = (normalizedX * 2 - 1) * aspectRatio;
+      const screenNormalizedY = 1 - normalizedY * 2;
+
+      // Create direction in camera space
+      const cameraDirection: Vec3 = [
+        screenNormalizedX * Math.tan(halfFov),
+        screenNormalizedY * Math.tan(halfFov),
+        -1,
+      ];
+
+      // Apply camera rotations (facing, pitch, roll)
+      direction = Camera3DComponent.applyCameraRotations(cameraDirection, camera);
     }
 
     return { origin, direction };
+  }
+
+  /**
+   * Applies camera rotations (pitch, facing, roll) to a given 3D direction vector.
+   * This transforms a direction from camera space to world space.
+   * @param direction The 3D direction vector in camera space.
+   * @param camera The serialized camera data containing its rotation properties.
+   * @returns The rotated 3D direction vector in world space.
+   */
+  static applyCameraRotations(direction: Vec3, camera: SerializedCamera): Vec3 {
+    let result: Vec3 = [...direction];
+
+    // Apply pitch (rotation around X-axis)
+    if (camera.pitch !== 0) {
+      const pitchRad = (camera.pitch * Math.PI) / 180;
+      const cos = Math.cos(pitchRad);
+      const sin = Math.sin(pitchRad);
+      const y = result[1] * cos - result[2] * sin;
+      const z = result[1] * sin + result[2] * cos;
+      result[1] = y;
+      result[2] = z;
+    }
+
+    // Apply facing (rotation around Z-axis, yaw)
+    if (camera.facing !== 0) {
+      const facingRad = (camera.facing * Math.PI) / 180;
+      const cos = Math.cos(facingRad);
+      const sin = Math.sin(facingRad);
+      const x = result[0] * cos - result[1] * sin;
+      const y = result[0] * sin + result[1] * cos;
+      result[0] = x;
+      result[1] = y;
+    }
+
+    // Apply roll (rotation around Y-axis) - rarely used
+    if (camera.roll !== 0) {
+      const rollRad = (camera.roll * Math.PI) / 180;
+      const cos = Math.cos(rollRad);
+      const sin = Math.sin(rollRad);
+      const x = result[0] * cos + result[2] * sin;
+      const z = -result[0] * sin + result[2] * cos;
+      result[0] = x;
+      result[2] = z;
+    }
+
+    // Normalize the result
+    const length = Math.sqrt(result[0] ** 2 + result[1] ** 2 + result[2] ** 2);
+    if (length > 0) {
+      result[0] /= length;
+      result[1] /= length;
+      result[2] /= length;
+    }
+
+    return result;
   }
 
   // 更新视野范围（基于相机位置和缩放）

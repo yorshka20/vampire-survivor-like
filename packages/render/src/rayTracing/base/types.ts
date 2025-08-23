@@ -133,6 +133,11 @@ export interface SerializedCamera {
   zoom: number;
 }
 
+export interface SerializedRay {
+  origin: Vec3;
+  direction: Vec3;
+}
+
 export interface AccumulationBuffer {
   colorSum: Float32Array;
   sampleCount: Uint32Array;
