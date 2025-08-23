@@ -24,8 +24,7 @@
   let forceStrength = 200;
   let forceDirection = [0, 1];
   let skip = false
-  let size = 400;
-
+ 
   function togglePause() {
     isPaused = !isPaused;
     if (isPaused) {
@@ -124,8 +123,8 @@
 
   .canvas-wrapper {
     /* Calculate square size based on the smaller dimension of the viewport */
-    width : calc( var(--size) * 1px );
-		height : calc( var(--size) * 1px );
+    width: min(100vh - 32px, 100vw - 200px); /* Account for padding */
+    height: min(100vh - 32px, 100vw - 200px);
     
     /* Center the square */
     margin: 0 auto;
@@ -404,7 +403,7 @@
   GitHub
 </a> -->
 
-<div class="ui-container" style='--size:{size};' class:hidden={!isGameStarted}>
+<div class="ui-container"   class:hidden={!isGameStarted}>
   <div id="canvas-wrapper" class="canvas-wrapper" bind:this={canvasWrapper}></div>
 </div>
 

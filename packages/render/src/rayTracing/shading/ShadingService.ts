@@ -110,11 +110,11 @@ export class ShadingService {
           ? `(Shadowed: ${Ray3D.isInShadow3D(intersection.point, lightPos3D, entities, distance, intersection.entity)})`
           : '';
 
-        console.log(
-          `[Worker] Shading Debug at [${intersection.point[0].toFixed(1)}, ${intersection.point[1].toFixed(1)}, ${intersection.point[2].toFixed(1)}] for Light ${light.type}:
-           Normal=[${intersection.normal[0].toFixed(2)}, ${intersection.normal[1].toFixed(2)}, ${intersection.normal[2].toFixed(2)}], LightDir=[${lightDirection[0].toFixed(2)}, ${lightDirection[1].toFixed(2)}, ${lightDirection[2].toFixed(2)}],
-           DotProduct=${dotProd.toFixed(2)}, InitialIntensity=${light.intensity.toFixed(2)}, FinalContribution=${(lightContribution.r / materialColor.r).toFixed(2)} ${shadowStatus}`,
-        );
+        // console.log(
+        //   `[Worker] Shading Debug at [${intersection.point[0].toFixed(1)}, ${intersection.point[1].toFixed(1)}, ${intersection.point[2].toFixed(1)}] for Light ${light.type}:
+        //    Normal=[${intersection.normal[0].toFixed(2)}, ${intersection.normal[1].toFixed(2)}, ${intersection.normal[2].toFixed(2)}], LightDir=[${lightDirection[0].toFixed(2)}, ${lightDirection[1].toFixed(2)}, ${lightDirection[2].toFixed(2)}],
+        //    DotProduct=${dotProd.toFixed(2)}, InitialIntensity=${light.intensity.toFixed(2)}, FinalContribution=${(lightContribution.r / materialColor.r).toFixed(2)} ${shadowStatus}`,
+        // );
       }
 
       // Add light contribution

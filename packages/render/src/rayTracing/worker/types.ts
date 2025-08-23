@@ -24,6 +24,10 @@ export interface RayTracingWorkerData extends BaseWorkerData {
   // use shared array buffer to track which pixels were sampled in this pass
   sampledPixelsBuffer: SharedArrayBuffer;
 
+  // Shared array buffers for pixel accumulation
+  colorAccumBuffer?: SharedArrayBuffer; // Stores accumulated color values as integers (fixed-point arithmetic)
+  sampleCountsBuffer?: SharedArrayBuffer; // Tracks how many samples each pixel has received
+
   // Canvas width for calculating global pixel indices
   canvasWidth: number;
 
@@ -33,13 +37,14 @@ export interface RayTracingWorkerData extends BaseWorkerData {
 // Progressive ray tracing specific interfaces
 export type ProgressiveRayTracingWorkerData = RayTracingWorkerData;
 
+// Extended tile result that includes sampling information
 export interface ProgressiveTileResult {
   x: number;
   y: number;
   width: number;
   height: number;
-  pixels: number[];
-  sampledPixelsBuffer: SharedArrayBuffer;
+  sampledPixelsBuffer: SharedArrayBuffer; // Track which pixels were sampled in this pass
+  // Note: pixels are now written directly to SharedArrayBuffer by workers
 }
 
 // Material properties for enhanced rendering

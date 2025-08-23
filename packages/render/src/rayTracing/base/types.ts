@@ -143,5 +143,7 @@ export interface AccumulationBuffer {
   sampleCount: Uint32Array;
 }
 
+export type SamplingPattern = 'checkerboard' | 'random' | 'spiral' | 'sparse_immediate';
+
 /** current pass, total passes, sampling pattern */
-export type SamplingConfig = [number, number, 'checkerboard' | 'random' | 'spiral'];
+export type SamplingConfig = [number, number, SamplingPattern];
