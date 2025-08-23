@@ -13,7 +13,15 @@
   "vim.useSystemClipboard": true,
   "vim.hlsearch": true,
   "vim.leader": "<space>",
-  "cSpell.words": ["cooldown", "Poolable", "Powerup", "powerups", "pullable", "renderable"],
+  "cSpell.words": [
+    "Accum",
+    "cooldown",
+    "Poolable",
+    "Powerup",
+    "powerups",
+    "pullable",
+    "renderable"
+  ],
   "terminal.integrated.defaultProfile.windows": "Git Bash",
   "terminal.integrated.profiles.windows": {
     "Git Bash": {
