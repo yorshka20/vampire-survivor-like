@@ -1,5 +1,5 @@
 import { PhysicsComponent, RenderComponent, ShapeComponent, TransformComponent, World } from '@ecs';
-import { Color, Point } from '@ecs/utils/types';
+import { Color, Point } from '@ecs/utils';
 import { RenderLayerIdentifier } from '@render/constant';
 
 type ObstacleProps = {

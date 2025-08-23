@@ -17,7 +17,7 @@ import {
   TransformSystem,
   WeaponSystem,
 } from '@ecs';
-import { Viewport } from '@ecs/utils/types';
+import { Viewport } from '@ecs/utils';
 import { createCanvas2dRenderer } from '@render/canvas2d/create';
 import {
   BackgroundRenderLayer,

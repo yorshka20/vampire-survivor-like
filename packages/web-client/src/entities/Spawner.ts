@@ -4,8 +4,8 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import type { World } from '@ecs/core/ecs/World';
 import { GameStore } from '@ecs/core/store/GameStore';
 import { createEliteEnemyEntity, createEnemyEntity } from '@ecs/entities/Enemy';
+import { Point } from '@ecs/utils';
 import { generateEntityId } from '@ecs/utils/name';
-import type { Point } from '@ecs/utils/types';
 
 interface SpawnerProps {
   position: Point;

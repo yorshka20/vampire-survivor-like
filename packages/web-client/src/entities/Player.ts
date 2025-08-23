@@ -17,7 +17,7 @@ import {
 import { WeaponMap } from '@ecs/constants/resources/weapon/weaponList';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { World } from '@ecs/core/ecs/World';
-import { Point } from '@ecs/utils/types';
+import { Point } from '@ecs/utils';
 import { RenderLayerIdentifier } from '@render/constant';
 
 interface PlayerProps {
