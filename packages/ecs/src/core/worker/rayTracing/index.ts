@@ -26,26 +26,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
-  // Debug: Log entity information to verify correct entities are being processed
-  // console.log(`[Worker] Processing ${entityList.length} entities:`);
-  // entityList.forEach((entity, i) => {
-  //   console.log(
-  //     `  Entity ${i}: ${entity.shape.type} at [${entity.position[0].toFixed(1)}, ${entity.position[1].toFixed(1)}] radius=${entity.shape.radius} rotation=${entity.rotation ? entity.rotation.toFixed(2) : 'N/A'}`,
-  //   );
-  // });
-
-  // Debug: Log light information
-  // console.log(`[Worker] Processing ${lights.length} lights:`);
-  // lights.forEach((light, i) => {
-  //   const lightDirectionLog =
-  //     light.type === 'directional' || light.type === 'spot'
-  //       ? `, Direction=[${light.direction[0].toFixed(2)}, ${light.direction[1].toFixed(2)}, ${light.direction[2].toFixed(2)}]`
-  //       : '';
-  //   console.log(
-  //     `  Light ${i}: Type=${light.type}, Position=[${light.position[0].toFixed(1)}, ${light.position[1].toFixed(1)}, ${light.height.toFixed(1)}], Intensity=${light.intensity.toFixed(2)}, Radius=${light.radius.toFixed(2)}, CastShadows=${light.castShadows}, Enabled=${light.enabled}${lightDirectionLog}`,
-  //   );
-  // });
-
   // Initialize shared buffer views if available
   const colorAccumView = colorAccumBuffer ? new Uint32Array(colorAccumBuffer) : null;
   const sampleCountsView = sampleCountsBuffer ? new Uint32Array(sampleCountsBuffer) : null;
@@ -61,9 +41,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
 
         // Bounds check to prevent RangeError
         if (globalPixelIndex < 0 || globalPixelIndex >= sampledPixelsView.length) {
-          console.warn(
-            `[Worker] Pixel index out of bounds: ${globalPixelIndex}, buffer length: ${sampledPixelsView.length}, coords: (${x}, ${y}), canvas: ${canvasWidth}`,
-          );
           continue; // Skip this pixel
         }
 
@@ -108,30 +85,12 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
             cameraRayCache[x][y] = ray;
           }
 
-          // Sparse Debug: Log ray origin and direction for sampled pixels at intervals
-          // if (x % 50 === 0 && y % 50 === 0) {
-          //   console.log(
-          //     `[Worker] Sampled Pixel (${x}, ${y}): Ray Origin [${ray.origin[0].toFixed(2)}, ${ray.origin[1].toFixed(2)}, ${ray.origin[2].toFixed(2)}], Direction [${ray.direction[0].toFixed(2)}, ${ray.direction[1].toFixed(2)}, ${ray.direction[2].toFixed(2)}]`,
-          //   );
-          // }
-
           const intersection = Ray3D.findClosestIntersection3D(ray, entityList);
 
           // Debug: Log intersection result, especially for misses or sparse hits
           if (intersection) {
-            // if (x % 50 === 0 && y % 50 === 0) {
-            //   console.log(
-            //     `[Worker] Hit (${x}, ${y}): Entity type ${intersection.entity.shape.type} at distance ${intersection.distance.toFixed(2)}`,
-            //   );
-            // }
-            // If entity is detected, use its actual color
             color = ShadingService.shade3D(intersection, entityList, lights, camera);
           } else {
-            // Log when a sampled ray misses, to identify problematic areas
-            // console.log(
-            //   `[Worker] Miss (${x}, ${y}): Ray Origin [${ray.origin[0].toFixed(2)}, ${ray.origin[1].toFixed(2)}, ${ray.origin[2].toFixed(2)}], Direction [${ray.direction[0].toFixed(2)}, ${ray.direction[1].toFixed(2)}, ${ray.direction[2].toFixed(2)}]`,
-            // );
-
             // Apply ambient lighting to background
             color = ShadingService.applyAmbientLighting(color, lights);
 
@@ -183,7 +142,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
       y: tile.y,
       width: tile.width,
       height: tile.height,
-      sampledPixelsBuffer,
     });
   }
 

@@ -31,7 +31,13 @@ interface GridCell {
  * - pickup: only collect entities that are pickable
  * - obstacle: only collect entities that are obstacles
  */
-export type SpatialQueryType = 'collision' | 'damage' | 'collision-distant' | 'pickup' | 'obstacle';
+export type SpatialQueryType =
+  | 'collision'
+  | 'damage'
+  | 'collision-distant'
+  | 'pickup'
+  | 'obstacle'
+  | 'object';
 
 interface CacheEntry {
   entities: string[]; // Changed from Set<string> to string[] for better performance
@@ -107,6 +113,13 @@ export class SpatialGridComponent extends Component {
       ttl: 50, // 50ms TTL, same as collision cache for real-time accuracy
       radiusMultiplier: 1.0, // Normal radius
       updateFrequency: 1, // Update every frame for obstacle queries
+    });
+
+    this.caches.set('object', new Map());
+    this.cacheConfigs.set('object', {
+      ttl: 50, // 50ms TTL
+      radiusMultiplier: 1.0, // Normal radius
+      updateFrequency: 1, // Update every frame
     });
   }
 
@@ -419,6 +432,8 @@ export class SpatialGridComponent extends Component {
         return [...cell.pickups];
       case 'obstacle':
         return [...cell.obstacles];
+      case 'object':
+        return [...cell.objects];
       default:
         return [];
     }

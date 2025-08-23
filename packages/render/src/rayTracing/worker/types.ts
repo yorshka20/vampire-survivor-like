@@ -43,8 +43,6 @@ export interface ProgressiveTileResult {
   y: number;
   width: number;
   height: number;
-  sampledPixelsBuffer: SharedArrayBuffer; // Track which pixels were sampled in this pass
-  // Note: pixels are now written directly to SharedArrayBuffer by workers
 }
 
 // Material properties for enhanced rendering
