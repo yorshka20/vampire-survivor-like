@@ -49,7 +49,7 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
   // Initialize shared buffer views if available
   const colorAccumView = colorAccumBuffer ? new Uint32Array(colorAccumBuffer) : null;
   const sampleCountsView = sampleCountsBuffer ? new Uint32Array(sampleCountsBuffer) : null;
-  const sampledPixels = new Uint8Array(sampledPixelsBuffer);
+  const sampledPixelsView = new Uint8Array(sampledPixelsBuffer);
 
   for (const tile of tiles) {
     for (let j = 0; j < tile.height; j++) {
@@ -60,9 +60,9 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
         const globalPixelIndex = y * canvasWidth + x;
 
         // Bounds check to prevent RangeError
-        if (globalPixelIndex < 0 || globalPixelIndex >= sampledPixels.length) {
+        if (globalPixelIndex < 0 || globalPixelIndex >= sampledPixelsView.length) {
           console.warn(
-            `[Worker] Pixel index out of bounds: ${globalPixelIndex}, buffer length: ${sampledPixels.length}, coords: (${x}, ${y}), canvas: ${canvasWidth}`,
+            `[Worker] Pixel index out of bounds: ${globalPixelIndex}, buffer length: ${sampledPixelsView.length}, coords: (${x}, ${y}), canvas: ${canvasWidth}`,
           );
           continue; // Skip this pixel
         }
@@ -70,7 +70,7 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
         // Check if this pixel should be sampled in the current pass
         const shouldSample = shouldSamplePixel(x, y, sampling[0], sampling[1], sampling[2]);
         // Store sampling information using global canvas coordinates
-        Atomics.store(sampledPixels, globalPixelIndex, shouldSample ? 1 : 0);
+        Atomics.store(sampledPixelsView, globalPixelIndex, shouldSample ? 1 : 0);
 
         let color: RgbaColor = { r: 0, g: 0, b: 0, a: 100 }; // Dark background
 
