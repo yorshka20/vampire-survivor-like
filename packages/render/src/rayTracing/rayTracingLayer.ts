@@ -12,22 +12,22 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { IEntity } from '@ecs/core/ecs/types';
 import { WorkerPoolManager } from '@ecs/core/worker';
-import { ProgressiveTileResult } from '@ecs/core/worker/rayTracing';
 import { CanvasRenderLayer } from '@render/canvas2d';
 import { RenderLayerIdentifier, RenderLayerPriority } from '@render/constant';
-import { RayTracingWorkerData } from '@render/rayTracing/worker';
-import { SerializedCamera, SerializedEntity, SerializedLight } from './base/types';
-
-// Extended interface for progressive ray tracing
-interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {}
+import { ProgressiveRayTracingWorkerData, ProgressiveTileResult } from '@render/rayTracing/worker';
+import { SamplingPattern, SerializedCamera, SerializedEntity, SerializedLight } from './base/types';
 
 interface ProgressiveRenderState {
   currentPass: number;
   totalPasses: number;
-  samplingPattern: 'checkerboard' | 'random';
+  samplingPattern: SamplingPattern;
   accumBuffer: ImageData | null;
-  colorAccumBuffer: Float32Array | null; // Stores accumulated color values as floats
-  sampleCounts: Uint32Array | null; // Tracks how many samples each pixel has received
+  colorAccumBuffer: SharedArrayBuffer | null; // Stores accumulated color values as integers (SharedArrayBuffer)
+  colorAccumView: Uint32Array | null; // View for colorAccumBuffer - using integers for atomic ops
+  sampleCounts: SharedArrayBuffer | null; // Tracks how many samples each pixel has received (SharedArrayBuffer)
+  sampleCountsView: Uint32Array | null; // View for sampleCounts
+  sampledPixelsBuffer: SharedArrayBuffer | null; // Tracks which pixels were sampled in current pass
+  sampledPixelsView: Uint8Array | null; // View for sampledPixelsBuffer
   isComplete: boolean;
 }
 
@@ -64,16 +64,18 @@ export class RayTracingLayer extends CanvasRenderLayer {
   // Progressive rendering state
   private progressiveState: ProgressiveRenderState = {
     currentPass: 0,
-    totalPasses: 60, // Keep original 60 passes for random sampling
-    samplingPattern: 'random', // Keep random sampling as requested
+    totalPasses: 4, // Reduced passes for faster iteration
+    samplingPattern: 'sparse_immediate', // New sparse sampling for immediate visibility
     accumBuffer: null,
     colorAccumBuffer: null,
+    colorAccumView: null,
     sampleCounts: null,
+    sampleCountsView: null,
+    sampledPixelsBuffer: null,
+    sampledPixelsView: null,
     isComplete: false,
   };
 
-  // Enhanced scene change detection
-  private lastSceneHash = '';
   private lastViewport: RectArea = [0, 0, 0, 0];
 
   constructor(
@@ -109,6 +111,9 @@ export class RayTracingLayer extends CanvasRenderLayer {
     this.lastViewport[2] = viewport[2];
     this.lastViewport[3] = viewport[3];
 
+    // update display immediately
+    this.updateDisplayFromAccumBuffer();
+
     // First, draw the current accumulated result (if any) to prevent flicker
     if (this.imageData) {
       this.mainCtx.drawImage(this.offscreenCanvas, 0, 0);
@@ -119,7 +124,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     // If there are active rendering tasks, wait for them to complete and process the results.
     if (activePromises.length > 0) {
-      this.handleWorkerResults(activePromises);
+      // this.handleWorkerResults(activePromises);
     }
 
     this.frameCount++;
@@ -183,6 +188,20 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.progressiveState.currentPass = 0;
       this.progressiveState.isComplete = false;
       // Note: Don't call resetProgressiveRender() here to maintain accumulated results
+    }
+
+    // Initialize buffers if needed BEFORE creating worker tasks
+    if (
+      !this.progressiveState.accumBuffer ||
+      this.progressiveState.accumBuffer.width !== this.mainCanvas.width ||
+      this.progressiveState.accumBuffer.height !== this.mainCanvas.height
+    ) {
+      this.initializeAccumBuffer();
+    }
+
+    // Clear sampled pixels buffer for the current pass
+    if (this.progressiveState.sampledPixelsView) {
+      this.progressiveState.sampledPixelsView.fill(0);
     }
 
     // 2. Scene Preparation: Gather all necessary data about the scene.
@@ -274,6 +293,15 @@ export class RayTracingLayer extends CanvasRenderLayer {
         cellKey: task.cellKey,
       }));
 
+      // Validate that all required buffers are properly initialized
+      if (
+        !this.progressiveState.sampledPixelsBuffer ||
+        this.progressiveState.sampledPixelsBuffer.byteLength === 0
+      ) {
+        console.error('sampledPixelsBuffer is not initialized or empty!');
+        return []; // Skip this pass
+      }
+
       // Package all the data for the worker, including progressive sampling parameters.
       const taskData: ProgressiveRayTracingWorkerData = {
         entities: entitiesMap,
@@ -282,7 +310,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
          * even though we have fixed camera,
          * we still need to send the camera to the worker
          * because camera instance(RayTracingCamera) is isolated between threads.
-         *
          */
         camera: serializedCamera,
         // viewport,
@@ -294,11 +321,12 @@ export class RayTracingLayer extends CanvasRenderLayer {
           this.progressiveState.totalPasses,
           this.progressiveState.samplingPattern,
         ],
-        // Use full canvas size for sampledPixelsBuffer since it's SharedArrayBuffer
-        // This allows workers to use global canvas coordinates directly
-        sampledPixelsBuffer: new SharedArrayBuffer(
-          Math.round(this.offscreenCanvas.width) * Math.round(this.offscreenCanvas.height),
-        ),
+        // Use persistent SharedArrayBuffer for sampled pixels tracking
+        // This preserves sampling information across passes
+        sampledPixelsBuffer: this.progressiveState.sampledPixelsBuffer!,
+        // Pass shared accumulation buffers to workers
+        colorAccumBuffer: this.progressiveState.colorAccumBuffer || undefined,
+        sampleCountsBuffer: this.progressiveState.sampleCounts || undefined,
         // Pass canvas width so workers can calculate global pixel indices
         canvasWidth: this.offscreenCanvas.width,
       };
@@ -346,26 +374,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
   ): Promise<void> {
     try {
       // Wait for all workers to finish their tasks.
-      const results = await Promise.all(activePromises);
-
-      // Initialize the accumulation buffer if it doesn't exist or if canvas size changed.
-      if (
-        !this.progressiveState.accumBuffer ||
-        this.progressiveState.accumBuffer.width !== this.mainCanvas.width ||
-        this.progressiveState.accumBuffer.height !== this.mainCanvas.height
-      ) {
-        this.initializeAccumBuffer();
-      }
-
-      // Process the results from each worker and accumulate samples.
-      for (const result of results) {
-        if (result) {
-          // Each worker can return multiple tile results.
-          for (const tileResult of result) {
-            this.accumulateTile(tileResult);
-          }
-        }
-      }
+      await Promise.all(activePromises);
 
       // Update the display with current accumulated results.
       this.updateDisplayFromAccumBuffer();
@@ -385,15 +394,25 @@ export class RayTracingLayer extends CanvasRenderLayer {
     // Create display ImageData
     this.progressiveState.accumBuffer = this.offscreenCtx.createImageData(width, height);
 
-    // Create floating-point accumulation buffer for RGB values (prevents overflow)
-    this.progressiveState.colorAccumBuffer = new Float32Array(totalPixels * 3);
+    // Create SharedArrayBuffer for integer accumulation buffer for RGB values (atomic operations compatible)
+    // Use fixed-point arithmetic: multiply by 256 for sub-pixel precision
+    this.progressiveState.colorAccumBuffer = new SharedArrayBuffer(totalPixels * 3 * 4); // 4 bytes per uint32
+    this.progressiveState.colorAccumView = new Uint32Array(this.progressiveState.colorAccumBuffer);
 
-    // Create sample count tracking
-    this.progressiveState.sampleCounts = new Uint32Array(totalPixels);
+    // Create SharedArrayBuffer for sample count tracking
+    this.progressiveState.sampleCounts = new SharedArrayBuffer(totalPixels * 4); // 4 bytes per uint32
+    this.progressiveState.sampleCountsView = new Uint32Array(this.progressiveState.sampleCounts);
+
+    // Create SharedArrayBuffer for sampled pixels tracking
+    this.progressiveState.sampledPixelsBuffer = new SharedArrayBuffer(totalPixels); // 1 byte per pixel
+    this.progressiveState.sampledPixelsView = new Uint8Array(
+      this.progressiveState.sampledPixelsBuffer,
+    );
 
     // Initialize buffers
-    this.progressiveState.colorAccumBuffer.fill(0);
-    this.progressiveState.sampleCounts.fill(0);
+    this.progressiveState.colorAccumView.fill(0);
+    this.progressiveState.sampleCountsView.fill(0);
+    this.progressiveState.sampledPixelsView.fill(0);
 
     // Initialize ImageData to opaque black
     for (let i = 0; i < totalPixels; i++) {
@@ -404,71 +423,9 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.progressiveState.accumBuffer.data[index + 3] = this.opacity; // A (opaque)
     }
 
-    console.log(`Initialized accumulation buffer: ${width}x${height} (${totalPixels} pixels)`);
-  }
-
-  /**
-   * Accumulates the pixel data from a completed tile into the progressive buffer.
-   */
-  private accumulateTile(tileResult: ProgressiveTileResult): void {
-    const { x, y, width, height, pixels, sampledPixelsBuffer } = tileResult;
-    if (!this.progressiveState.colorAccumBuffer || !this.progressiveState.sampleCounts) return;
-
-    // Load shared array buffer - this buffer contains data for the entire canvas
-    const sampledPixels = new Uint8Array(sampledPixelsBuffer);
-    const canvasWidth = this.offscreenCanvas.width;
-    let sourcePixelIndex = 0;
-
-    for (let j = 0; j < height; j++) {
-      for (let i = 0; i < width; i++) {
-        const canvasX = x + i;
-        const canvasY = y + j;
-
-        // Check if this pixel was sampled in this pass
-        // Use global canvas coordinates to read from the shared buffer
-        const globalPixelIndex = canvasY * canvasWidth + canvasX;
-
-        const wasSampled =
-          sampledPixels &&
-          globalPixelIndex < sampledPixels.length &&
-          Atomics.load(sampledPixels, globalPixelIndex) === 1;
-
-        if (!wasSampled) {
-          sourcePixelIndex += 4;
-          continue;
-        }
-
-        if (canvasX < canvasWidth && canvasY < this.offscreenCanvas.height) {
-          const pixelIndex = canvasY * canvasWidth + canvasX;
-          const accumIndex = pixelIndex * 3;
-
-          const currentSampleCount = this.progressiveState.sampleCounts[pixelIndex];
-
-          if (currentSampleCount === 0) {
-            // First sample, directly assign values
-            this.progressiveState.colorAccumBuffer[accumIndex] = pixels[sourcePixelIndex];
-            this.progressiveState.colorAccumBuffer[accumIndex + 1] = pixels[sourcePixelIndex + 1];
-            this.progressiveState.colorAccumBuffer[accumIndex + 2] = pixels[sourcePixelIndex + 2];
-          } else {
-            // Use moving average to prevent overflow
-            const weight = 1.0 / (currentSampleCount + 1);
-            this.progressiveState.colorAccumBuffer[accumIndex] =
-              this.progressiveState.colorAccumBuffer[accumIndex] * (1 - weight) +
-              pixels[sourcePixelIndex] * weight;
-            this.progressiveState.colorAccumBuffer[accumIndex + 1] =
-              this.progressiveState.colorAccumBuffer[accumIndex + 1] * (1 - weight) +
-              pixels[sourcePixelIndex + 1] * weight;
-            this.progressiveState.colorAccumBuffer[accumIndex + 2] =
-              this.progressiveState.colorAccumBuffer[accumIndex + 2] * (1 - weight) +
-              pixels[sourcePixelIndex + 2] * weight;
-          }
-
-          this.progressiveState.sampleCounts[pixelIndex]++;
-        }
-
-        sourcePixelIndex += 4;
-      }
-    }
+    console.log(
+      `Initialized shared accumulation buffers: ${width}x${height} (${totalPixels} pixels)`,
+    );
   }
 
   /**
@@ -477,8 +434,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private updateDisplayFromAccumBuffer(): void {
     if (
       !this.progressiveState.accumBuffer ||
-      !this.progressiveState.colorAccumBuffer ||
-      !this.progressiveState.sampleCounts
+      !this.progressiveState.colorAccumView ||
+      !this.progressiveState.sampleCountsView
     )
       return;
 
@@ -493,24 +450,29 @@ export class RayTracingLayer extends CanvasRenderLayer {
       );
     }
 
-    for (let i = 0; i < this.progressiveState.sampleCounts.length; i++) {
-      const sampleCount = this.progressiveState.sampleCounts[i];
+    for (let i = 0; i < this.progressiveState.sampleCountsView.length; i++) {
+      const sampleCount = Atomics.load(this.progressiveState.sampleCountsView, i);
       const destIndex = i * 4;
       const accumIndex = i * 3;
 
       if (sampleCount > 0) {
-        // Use averaged values directly, no need to divide by sampleCount again
+        // Average the accumulated values and scale back down from fixed-point
+        // Use atomic loads to safely read from shared memory
+        const accumR = Atomics.load(this.progressiveState.colorAccumView, accumIndex);
+        const accumG = Atomics.load(this.progressiveState.colorAccumView, accumIndex + 1);
+        const accumB = Atomics.load(this.progressiveState.colorAccumView, accumIndex + 2);
+
         this.imageData.data[destIndex] = Math.min(
           255,
-          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex])),
+          Math.max(0, Math.round(accumR / 256 / sampleCount)),
         );
         this.imageData.data[destIndex + 1] = Math.min(
           255,
-          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex + 1])),
+          Math.max(0, Math.round(accumG / 256 / sampleCount)),
         );
         this.imageData.data[destIndex + 2] = Math.min(
           255,
-          Math.max(0, Math.round(this.progressiveState.colorAccumBuffer[accumIndex + 2])),
+          Math.max(0, Math.round(accumB / 256 / sampleCount)),
         );
         this.imageData.data[destIndex + 3] = 255;
       } else {
@@ -533,7 +495,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
     this.progressiveState.isComplete = false;
     this.progressiveState.accumBuffer = null;
     this.progressiveState.colorAccumBuffer = null;
+    this.progressiveState.colorAccumView = null;
     this.progressiveState.sampleCounts = null;
+    this.progressiveState.sampleCountsView = null;
+    this.progressiveState.sampledPixelsBuffer = null;
+    this.progressiveState.sampledPixelsView = null;
     this.offscreenCtx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
   }
 
@@ -728,6 +694,36 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
+   * Set the sampling pattern for ray tracing.
+   * @param pattern The sampling pattern to use
+   */
+  setSamplingPattern(pattern: 'checkerboard' | 'random' | 'sparse_immediate'): void {
+    if (pattern !== this.progressiveState.samplingPattern) {
+      this.progressiveState.samplingPattern = pattern;
+      this.resetProgressiveRender();
+      console.log(`Updated sampling pattern: ${pattern}`);
+    }
+  }
+
+  /**
+   * Configure for dynamic scenes (fast response, lower quality)
+   */
+  enableDynamicSceneMode(): void {
+    this.setSamplingPattern('sparse_immediate');
+    this.setRenderingQuality(10, 50); // Fast, low quality
+    console.log('Enabled dynamic scene mode - prioritizing responsiveness');
+  }
+
+  /**
+   * Configure for static scenes (slow response, higher quality)
+   */
+  enableStaticSceneMode(): void {
+    this.setSamplingPattern('random');
+    this.setRenderingQuality(60, 100); // Slow, high quality
+    console.log('Enabled static scene mode - prioritizing quality');
+  }
+
+  /**
    * Returns current progressive rendering statistics.
    */
   getRenderingStats(): {
@@ -740,9 +736,9 @@ export class RayTracingLayer extends CanvasRenderLayer {
     const totalPixels = this.offscreenCanvas.width * this.offscreenCanvas.height;
     let sampledPixels = 0;
 
-    if (this.progressiveState.sampleCounts) {
-      for (let i = 0; i < this.progressiveState.sampleCounts.length; i++) {
-        if (this.progressiveState.sampleCounts[i] > 0) {
+    if (this.progressiveState.sampleCountsView) {
+      for (let i = 0; i < this.progressiveState.sampleCountsView.length; i++) {
+        if (Atomics.load(this.progressiveState.sampleCountsView, i) > 0) {
           sampledPixels++;
         }
       }

@@ -1,35 +1,12 @@
 import { Camera3DComponent } from '@ecs/components';
 import { RgbaColor } from '@ecs/utils';
-import {
-  Ray3D,
-  RayTracingWorkerData,
-  SamplingConfig,
-  SerializedCamera,
-  SerializedLight,
-} from '@render/rayTracing';
+import { ProgressiveRayTracingWorkerData, ProgressiveTileResult, Ray3D } from '@render/rayTracing';
 import { ShadingService, shouldSamplePixel } from '@render/rayTracing/shading';
 
 // Module-level cache for rays, to be reused across passes for the same camera resolution.
 // Initialized to null and re-initialized when camera resolution changes.
 let cameraRayCache: (Ray3D | null)[][] | null = null;
 let lastCameraResolution: { width: number; height: number } | null = null;
-
-// Extended interface for progressive ray tracing worker data
-export interface ProgressiveRayTracingWorkerData extends RayTracingWorkerData {
-  camera: SerializedCamera;
-  lights: SerializedLight[];
-  sampling: SamplingConfig;
-}
-
-// Extended tile result that includes sampling information
-export interface ProgressiveTileResult {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  pixels: number[];
-  sampledPixelsBuffer: SharedArrayBuffer; // Track which pixels were sampled in this pass
-}
 
 /**
  * Enhanced progressive ray tracing handler with 3D camera and lighting support
@@ -39,49 +16,56 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
     entities,
     lights,
     camera,
-    viewport,
-    cameraOffset,
     tiles,
     sampling,
     sampledPixelsBuffer,
+    colorAccumBuffer,
+    sampleCountsBuffer,
     canvasWidth,
   } = data;
   const entityList = Object.values(entities);
   const tileResults: ProgressiveTileResult[] = [];
 
   // Debug: Log entity information to verify correct entities are being processed
-  console.log(`[Worker] Processing ${entityList.length} entities:`);
-  entityList.forEach((entity, i) => {
-    console.log(
-      `  Entity ${i}: ${entity.shape.type} at [${entity.position[0].toFixed(1)}, ${entity.position[1].toFixed(1)}] radius=${entity.shape.radius} rotation=${entity.rotation ? entity.rotation.toFixed(2) : 'N/A'}`,
-    );
-  });
+  // console.log(`[Worker] Processing ${entityList.length} entities:`);
+  // entityList.forEach((entity, i) => {
+  //   console.log(
+  //     `  Entity ${i}: ${entity.shape.type} at [${entity.position[0].toFixed(1)}, ${entity.position[1].toFixed(1)}] radius=${entity.shape.radius} rotation=${entity.rotation ? entity.rotation.toFixed(2) : 'N/A'}`,
+  //   );
+  // });
 
   // Debug: Log light information
-  console.log(`[Worker] Processing ${lights.length} lights:`);
-  lights.forEach((light, i) => {
-    const lightDirectionLog =
-      light.type === 'directional' || light.type === 'spot'
-        ? `, Direction=[${light.direction[0].toFixed(2)}, ${light.direction[1].toFixed(2)}, ${light.direction[2].toFixed(2)}]`
-        : '';
-    console.log(
-      `  Light ${i}: Type=${light.type}, Position=[${light.position[0].toFixed(1)}, ${light.position[1].toFixed(1)}, ${light.height.toFixed(1)}], Intensity=${light.intensity.toFixed(2)}, Radius=${light.radius.toFixed(2)}, CastShadows=${light.castShadows}, Enabled=${light.enabled}${lightDirectionLog}`,
-    );
-  });
+  // console.log(`[Worker] Processing ${lights.length} lights:`);
+  // lights.forEach((light, i) => {
+  //   const lightDirectionLog =
+  //     light.type === 'directional' || light.type === 'spot'
+  //       ? `, Direction=[${light.direction[0].toFixed(2)}, ${light.direction[1].toFixed(2)}, ${light.direction[2].toFixed(2)}]`
+  //       : '';
+  //   console.log(
+  //     `  Light ${i}: Type=${light.type}, Position=[${light.position[0].toFixed(1)}, ${light.position[1].toFixed(1)}, ${light.height.toFixed(1)}], Intensity=${light.intensity.toFixed(2)}, Radius=${light.radius.toFixed(2)}, CastShadows=${light.castShadows}, Enabled=${light.enabled}${lightDirectionLog}`,
+  //   );
+  // });
+
+  // Initialize shared buffer views if available
+  const colorAccumView = colorAccumBuffer ? new Uint32Array(colorAccumBuffer) : null;
+  const sampleCountsView = sampleCountsBuffer ? new Uint32Array(sampleCountsBuffer) : null;
+  const sampledPixels = new Uint8Array(sampledPixelsBuffer);
 
   for (const tile of tiles) {
-    // Initialize pixel and sampling arrays
-    const pixels = new Array(tile.width * tile.height * 4).fill(0);
-    // load shared array buffer
-    const sampledPixels = new Uint8Array(sampledPixelsBuffer);
-    let pixelIndex = 0;
-
     for (let j = 0; j < tile.height; j++) {
       for (let i = 0; i < tile.width; i++) {
         const x = tile.x + i;
         const y = tile.y + j;
         // Use global canvas coordinates to index into the full canvas buffer
         const globalPixelIndex = y * canvasWidth + x;
+
+        // Bounds check to prevent RangeError
+        if (globalPixelIndex < 0 || globalPixelIndex >= sampledPixels.length) {
+          console.warn(
+            `[Worker] Pixel index out of bounds: ${globalPixelIndex}, buffer length: ${sampledPixels.length}, coords: (${x}, ${y}), canvas: ${canvasWidth}`,
+          );
+          continue; // Skip this pixel
+        }
 
         // Check if this pixel should be sampled in the current pass
         const shouldSample = shouldSamplePixel(x, y, sampling[0], sampling[1], sampling[2]);
@@ -101,9 +85,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
             lastCameraResolution.width !== Math.floor(camera.resolution.width) ||
             lastCameraResolution.height !== Math.floor(camera.resolution.height)
           ) {
-            console.log(
-              '[Worker] Initializing/Re-initializing ray cache due to resolution change.',
-            );
             // Pre-allocate the outer array, and then map to create inner arrays
             const roundedWidth = Math.floor(camera.resolution.width);
             const roundedHeight = Math.floor(camera.resolution.height);
@@ -128,21 +109,21 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
           }
 
           // Sparse Debug: Log ray origin and direction for sampled pixels at intervals
-          if (x % 50 === 0 && y % 50 === 0) {
-            console.log(
-              `[Worker] Sampled Pixel (${x}, ${y}): Ray Origin [${ray.origin[0].toFixed(2)}, ${ray.origin[1].toFixed(2)}, ${ray.origin[2].toFixed(2)}], Direction [${ray.direction[0].toFixed(2)}, ${ray.direction[1].toFixed(2)}, ${ray.direction[2].toFixed(2)}]`,
-            );
-          }
+          // if (x % 50 === 0 && y % 50 === 0) {
+          //   console.log(
+          //     `[Worker] Sampled Pixel (${x}, ${y}): Ray Origin [${ray.origin[0].toFixed(2)}, ${ray.origin[1].toFixed(2)}, ${ray.origin[2].toFixed(2)}], Direction [${ray.direction[0].toFixed(2)}, ${ray.direction[1].toFixed(2)}, ${ray.direction[2].toFixed(2)}]`,
+          //   );
+          // }
 
           const intersection = Ray3D.findClosestIntersection3D(ray, entityList);
 
           // Debug: Log intersection result, especially for misses or sparse hits
           if (intersection) {
-            if (x % 50 === 0 && y % 50 === 0) {
-              console.log(
-                `[Worker] Hit (${x}, ${y}): Entity type ${intersection.entity.shape.type} at distance ${intersection.distance.toFixed(2)}`,
-              );
-            }
+            // if (x % 50 === 0 && y % 50 === 0) {
+            //   console.log(
+            //     `[Worker] Hit (${x}, ${y}): Entity type ${intersection.entity.shape.type} at distance ${intersection.distance.toFixed(2)}`,
+            //   );
+            // }
             // If entity is detected, use its actual color
             color = ShadingService.shade3D(intersection, entityList, lights, camera);
           } else {
@@ -159,13 +140,41 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
             // If no entity detected, show white to visualize sampling range
             // color = { r: 255, g: 255, b: 255, a: opacity };
           }
+
+          // If SharedArrayBuffer is available, accumulate directly into shared memory
+          if (colorAccumView && sampleCountsView) {
+            const pixelIndex = globalPixelIndex;
+            const accumIndex = pixelIndex * 3;
+
+            // Bounds check for SharedArrayBuffer access
+            if (pixelIndex >= sampleCountsView.length || accumIndex + 2 >= colorAccumView.length) {
+              console.warn(
+                `[Worker] SharedArrayBuffer index out of bounds: pixelIndex=${pixelIndex}, accumIndex=${accumIndex}, sampleCountsLength=${sampleCountsView.length}, colorAccumLength=${colorAccumView.length}`,
+              );
+              // Don't continue here, just skip the SharedArrayBuffer writes
+            } else {
+              const currentSampleCount = Atomics.load(sampleCountsView, pixelIndex);
+
+              if (currentSampleCount === 0) {
+                // First sample, directly assign values (scale by 256 for fixed-point precision)
+                Atomics.store(colorAccumView, accumIndex, Math.round(color.r * 256));
+                Atomics.store(colorAccumView, accumIndex + 1, Math.round(color.g * 256));
+                Atomics.store(colorAccumView, accumIndex + 2, Math.round(color.b * 256));
+              } else {
+                // Use simple addition for accumulation (we'll divide by sample count when displaying)
+                Atomics.add(colorAccumView, accumIndex, Math.round(color.r * 256));
+                Atomics.add(colorAccumView, accumIndex + 1, Math.round(color.g * 256));
+                Atomics.add(colorAccumView, accumIndex + 2, Math.round(color.b * 256));
+              }
+
+              // Atomically increment sample count
+              Atomics.add(sampleCountsView, pixelIndex, 1);
+            }
+          }
         }
 
-        // Store the color values (will be 0 for unsampled pixels in first pass)
-        pixels[pixelIndex++] = Math.round(Math.min(255, Math.max(0, color.r)));
-        pixels[pixelIndex++] = Math.round(Math.min(255, Math.max(0, color.g)));
-        pixels[pixelIndex++] = Math.round(Math.min(255, Math.max(0, color.b)));
-        pixels[pixelIndex++] = color.a;
+        // Note: Pixel data is now written directly to SharedArrayBuffer above
+        // No need to store in local pixels array
       }
     }
 
@@ -174,7 +183,6 @@ export function handleRayTracing(data: ProgressiveRayTracingWorkerData): Progres
       y: tile.y,
       width: tile.width,
       height: tile.height,
-      pixels,
       sampledPixelsBuffer,
     });
   }

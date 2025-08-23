@@ -1,5 +1,6 @@
+import { ProgressiveRayTracingWorkerData } from '@render/rayTracing/worker';
 import { handleCollision } from './collision';
-import { handleRayTracing, ProgressiveRayTracingWorkerData } from './rayTracing';
+import { handleRayTracing } from './rayTracing';
 import { CollisionWorkerData, WorkerMessage } from './types';
 
 // Listen for messages from the main thread
