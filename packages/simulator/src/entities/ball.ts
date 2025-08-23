@@ -7,7 +7,7 @@ import {
   TransformComponent,
   World,
 } from '@ecs';
-import { Color, Point, Vec2 } from '@ecs/utils/types';
+import { Color, Point, Vec2 } from '@ecs/utils';
 import { RenderLayerIdentifier } from '@render/constant';
 
 type BallProps = {
