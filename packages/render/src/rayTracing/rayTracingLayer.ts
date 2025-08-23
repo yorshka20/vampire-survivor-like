@@ -1,7 +1,6 @@
 import {
   Camera3DComponent,
   LightSourceComponent,
-  PhysicsComponent,
   RectArea,
   RenderComponent,
   ShapeComponent,
@@ -93,10 +92,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
     this.workerPoolManager = WorkerPoolManager.getInstance();
   }
 
-  init(): void {
-    //
-  }
-
   /**
    * The main update loop for the layer. Called once per frame.
    */
@@ -111,9 +106,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
     this.lastViewport[2] = viewport[2];
     this.lastViewport[3] = viewport[3];
 
-    // update display immediately
-    this.updateDisplayFromAccumBuffer();
-
     // First, draw the current accumulated result (if any) to prevent flicker
     if (this.imageData) {
       this.mainCtx.drawImage(this.offscreenCanvas, 0, 0);
@@ -124,7 +116,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
     // If there are active rendering tasks, wait for them to complete and process the results.
     if (activePromises.length > 0) {
-      // this.handleWorkerResults(activePromises);
+      this.handleWorkerResults(activePromises);
     }
 
     this.frameCount++;
@@ -199,11 +191,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.initializeAccumBuffer();
     }
 
-    // Clear sampled pixels buffer for the current pass
-    if (this.progressiveState.sampledPixelsView) {
-      this.progressiveState.sampledPixelsView.fill(0);
-    }
-
     // 2. Scene Preparation: Gather all necessary data about the scene.
     const serializedLights = this.getSerializedLights();
     const serializedCamera = this.getSerializedCamera();
@@ -263,23 +250,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
 
       // For ray tracing, we only want ball entities (objects with physics and circle shapes)
       // Filter to include only ball entities that should be ray traced
-      const allRenderableEntities = this.getWorld()
-        .getEntitiesWithComponents([ShapeComponent, TransformComponent, PhysicsComponent])
-        .filter((entity) => {
-          // Only include entities that are balls (have physics component and circle shape)
-          const physicsComponent = entity.getComponent('Physics');
-          const shapeComponent = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
-          const renderComponent = entity.getComponent<RenderComponent>(
-            RenderComponent.componentName,
-          );
-
-          // Must be a ball entity (has physics) with circle shape and visible
-          const isBallEntity = physicsComponent !== null;
-          const isCircleShape = shapeComponent && shapeComponent.descriptor.type === 'circle';
-          const isVisible = !renderComponent || renderComponent.isVisible();
-
-          return isBallEntity && isCircleShape && isVisible;
-        });
+      const allRenderableEntities = this.getLayerEntities(viewport);
 
       const entitiesMap: Record<string, SerializedEntity> =
         this.serializeEntities(allRenderableEntities);
@@ -372,15 +343,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private async handleWorkerResults(
     activePromises: Promise<ProgressiveTileResult[]>[],
   ): Promise<void> {
-    try {
-      // Wait for all workers to finish their tasks.
-      await Promise.all(activePromises);
-
-      // Update the display with current accumulated results.
-      this.updateDisplayFromAccumBuffer();
-    } catch (error) {
-      console.error('Error handling worker results:', error);
-    }
+    // this will update the display immediately
+    this.updateDisplayFromAccumBuffer();
   }
 
   /**
@@ -504,53 +468,14 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Draws the pixel data from a single completed tile into the main ImageData object.
-   * This method is kept for backwards compatibility but is replaced by accumulateTile in progressive mode.
-   */
-  private drawTile(tileResult: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    pixels: number[];
-  }) {
-    const { x, y, width, height, pixels } = tileResult;
-    if (!this.imageData) return;
-
-    const canvasWidth = this.imageData.width;
-    let sourcePixelIndex = 0;
-
-    // Iterate over the pixels of the tile.
-    for (let j = 0; j < height; j++) {
-      for (let i = 0; i < width; i++) {
-        const canvasX = x + i;
-        const canvasY = y + j;
-
-        // Check bounds to ensure we don't write outside the canvas area.
-        if (canvasX < canvasWidth && canvasY < this.imageData.height) {
-          // Calculate the destination index in the full ImageData array.
-          const destPixelIndex = (canvasY * canvasWidth + canvasX) * 4;
-          // Copy the RGBA values from the worker's result to our main image data.
-          this.imageData.data[destPixelIndex] = pixels[sourcePixelIndex++];
-          this.imageData.data[destPixelIndex + 1] = pixels[sourcePixelIndex++];
-          this.imageData.data[destPixelIndex + 2] = pixels[sourcePixelIndex++];
-          this.imageData.data[destPixelIndex + 3] = pixels[sourcePixelIndex++];
-        } else {
-          // If out of bounds, just advance the source index.
-          sourcePixelIndex += 4;
-        }
-      }
-    }
-  }
-
-  /**
    * This filter determines which entities are relevant for this rendering layer.
    * For ray tracing, we only care about entities that have a physical shape.
    */
   filterEntity(entity: IEntity): boolean {
     return (
       entity.hasComponent(ShapeComponent.componentName) &&
-      entity.hasComponent(TransformComponent.componentName)
+      entity.hasComponent(TransformComponent.componentName) &&
+      entity.hasComponent(RenderComponent.componentName)
     );
   }
 
@@ -565,20 +490,17 @@ export class RayTracingLayer extends CanvasRenderLayer {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
       // We already filtered, but it's good practice to check again.
-      if (shape && transform) {
+      if (shape && transform && render) {
         serialized[entity.id] = {
           id: entity.id,
           shape: shape.descriptor,
           position: transform.getPosition(),
           rotation: transform.rotation,
-          // Add material properties including color from RenderComponent
-          material: render
-            ? {
-                color: render.getColor(),
-                reflectivity: 0.1, // Default low reflectivity
-                roughness: 0.8, // Default high roughness
-              }
-            : undefined,
+          material: {
+            color: render.getColor(),
+            reflectivity: 0.1,
+            roughness: 0.8,
+          },
         };
       }
     }
@@ -665,18 +587,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
       resolution: camera.resolution,
       zoom: camera.zoom,
     };
-  }
-
-  /**
-   * Public method to force a scene update and reset progressive rendering.
-   * Useful for when external systems know the scene has changed.
-   */
-  forceSceneUpdate(): void {
-    this.resetProgressiveRender();
-    this.lastSceneHash = '';
-    // Clear cached entities to force re-fetching
-    this.cameraEntities = [];
-    this.lightEntities = [];
   }
 
   /**
