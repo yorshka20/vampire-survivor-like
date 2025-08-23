@@ -62,8 +62,8 @@ export class RayTracingLayer extends CanvasRenderLayer {
   // Progressive rendering state
   private progressiveState: ProgressiveRenderState = {
     currentPass: 0,
-    totalPasses: 6, // Reduced passes for faster iteration
-    samplingPattern: 'random', // New sparse sampling for immediate visibility
+    totalPasses: 20, // Reduced passes for faster iteration
+    samplingPattern: 'checkerboard', // New sparse sampling for immediate visibility
     isComplete: false,
     accumBuffer: null,
     colorAccumBuffer: null,
