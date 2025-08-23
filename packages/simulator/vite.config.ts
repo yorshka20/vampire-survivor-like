@@ -50,6 +50,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5174,
       host: '0.0.0.0',
+      // enable shared array buffer
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
     },
     define: {
       'import.meta.env.VITE_REPO_URL': JSON.stringify(

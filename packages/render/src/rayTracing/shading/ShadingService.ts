@@ -8,14 +8,13 @@ import {
   SerializedLight,
 } from '@render/rayTracing';
 
-const opacity = 100;
-
 /**
  * A service class responsible for 3D shading and lighting calculations in the ray tracing worker.
  * This class encapsulates the core rendering logic, including color calculation, light contribution,
  * and ambient lighting application, to promote modularity and organization.
  */
 export class ShadingService {
+  static opacity = 100;
   /**
    * Calculates the final color of a pixel based on the closest intersection point, scene entities, lights, and camera.
    * This function applies material color, light contributions, and handles debugging information.
@@ -31,14 +30,14 @@ export class ShadingService {
     lights: SerializedLight[],
     camera: SerializedCamera,
   ): RgbaColor {
-    let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: opacity };
+    let finalColor: RgbaColor = { r: 0, g: 0, b: 0, a: ShadingService.opacity };
 
     // Get the actual entity color from material properties, fallback to default if not available
     const materialColor: RgbaColor = intersection.entity.material?.color || {
       r: 128,
       g: 128,
       b: 128,
-      a: opacity,
+      a: ShadingService.opacity,
     };
 
     for (const light of lights) {
@@ -184,7 +183,7 @@ export class ShadingService {
           r: (materialColor.r * light.color.r * ambientIntensity) / 255,
           g: (materialColor.g * light.color.g * ambientIntensity) / 255,
           b: (materialColor.b * light.color.b * ambientIntensity) / 255,
-          a: opacity,
+          a: ShadingService.opacity,
         };
 
       case 'point':
@@ -195,7 +194,7 @@ export class ShadingService {
         const dz = lightPos3D[2] - intersection.point[2];
         distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        if (distance === 0) return { r: 0, g: 0, b: 0, a: opacity };
+        if (distance === 0) return { r: 0, g: 0, b: 0, a: ShadingService.opacity };
 
         lightDirection = [dx / distance, dy / distance, dz / distance];
         break;
@@ -209,7 +208,7 @@ export class ShadingService {
     );
 
     if (intensity <= 0) {
-      return { r: 0, g: 0, b: 0, a: opacity };
+      return { r: 0, g: 0, b: 0, a: ShadingService.opacity };
     }
 
     // Spot light cone check
@@ -218,7 +217,7 @@ export class ShadingService {
       intensity *= spotFalloff;
 
       if (intensity <= 0) {
-        return { r: 0, g: 0, b: 0, a: opacity };
+        return { r: 0, g: 0, b: 0, a: ShadingService.opacity };
       }
     }
 
@@ -232,7 +231,7 @@ export class ShadingService {
         intersection.entity,
       );
       if (inShadow) {
-        return { r: 0, g: 0, b: 0, a: opacity };
+        return { r: 0, g: 0, b: 0, a: ShadingService.opacity };
       }
     }
 
@@ -251,7 +250,7 @@ export class ShadingService {
       r: Math.min(255, materialColor.r * lightContrib),
       g: Math.min(255, materialColor.g * lightContrib),
       b: Math.min(255, materialColor.b * lightContrib),
-      a: opacity,
+      a: ShadingService.opacity,
     };
   }
 
