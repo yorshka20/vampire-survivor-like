@@ -7,11 +7,11 @@ const packageJson = fs.readJSONSync(path.resolve(__dirname, '../../package.json'
 
 export default defineConfig(({ mode }) => {
   return {
-    base: '/simulator/',
+    base: '/',
     plugins: [svelte()],
     publicDir: 'public',
     build: {
-      outDir: path.resolve(__dirname, '../../dist/simulator'),
+      outDir: 'dist',
       emptyOutDir: false,
       assetsDir: 'assets',
       rollupOptions: {
