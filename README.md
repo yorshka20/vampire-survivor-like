@@ -6,6 +6,9 @@
 
 A modern implementation of a Vampire Survivors-like game using Entity Component System (ECS) architecture. This project demonstrates how to build a roguelike survival game with clean architecture and modern web technologies. This project is developed with the assistance of AI tools to enhance development efficiency and code quality.
 
+also see ecs-simulator test page:
+> https://ecs-simulator.vercel.app/
+
 ## Project Structure
 
 The project is organized as a monorepo using pnpm workspaces, consisting of three main packages:
