@@ -124,12 +124,12 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator = createGenerator(world, {
     position: [100, 100],
     maxEntities: 20000,
-    ballSize: 2,
+    ballSize: 10,
     velocity: [initialV * 110, initialV],
     spawnGap: 50,
     generatorType: 'ball',
   });
-  // world.addEntity(generator);
+  world.addEntity(generator);
 
   const camX = viewport[2] / 2;
   const camY = viewport[3] / 2;

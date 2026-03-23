@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:vercel": "pnpm --filter @brotov2/simulator build",
     "typecheck": "tsc --noEmit",
-    "build:post": "node ../../scripts/copy-dist.js",
     "preview": "vite preview"
   },
   "dependencies": {

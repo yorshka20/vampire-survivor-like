@@ -28,5 +28,8 @@
       "path": "C:\\Program Files\\Git\\bin\\bash.exe",
       "args": ["--login", "-i", "-c", "exec zsh"]
     }
+  },
+  "[svelte]": {
+    "editor.defaultFormatter": "svelte.svelte-vscode"
   }
 }
