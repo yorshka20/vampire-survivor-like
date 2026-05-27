@@ -192,9 +192,11 @@ function createGameStateStore() {
         return;
       }
       gameStore.start();
+      SoundManager.playBGM();
     },
     pause: () => {
       gameStore.pause();
+      SoundManager.playBGM(true);
     },
     stop: () => {
       gameStore.stop();

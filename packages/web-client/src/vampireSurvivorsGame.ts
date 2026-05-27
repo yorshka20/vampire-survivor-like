@@ -64,9 +64,10 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   canvas2dRenderer.addRenderLayer(DamageTextCanvasLayer);
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
-  // init renderSystem after adding all layers
-  renderSystem.init();
   world.addSystem(renderSystem);
+
+  // init all systems
+  world.initSystems();
 
   // Initialize game and all assets
   await game.initialize();
