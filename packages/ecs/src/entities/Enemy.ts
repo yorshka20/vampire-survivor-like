@@ -63,7 +63,8 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
     world.createComponent(ShapeComponent, {
       descriptor: createShapeDescriptor('pattern', {
         patternType: 'enemy',
-        size: enemySize,
+        width: enemySize[0],
+        height: enemySize[1],
       }),
     }),
   );

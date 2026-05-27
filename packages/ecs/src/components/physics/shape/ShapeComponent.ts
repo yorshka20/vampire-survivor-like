@@ -124,7 +124,7 @@ export class ShapeComponent extends Component {
    * For circle: [diameter, diameter]
    * For rect: [width, height]
    * For polygon: bounding box size
-   * For pattern: use descriptor.size or [0,0]
+   * For pattern: [width, height]
    * For bezier/composite: fallback to bounding box if available, else [0,0]
    */
   getSize(): [number, number] {
@@ -143,8 +143,8 @@ export class ShapeComponent extends Component {
         }
         return [0, 0];
       case 'pattern':
-        // Pattern: use descriptor.size if present
-        return desc.size ?? [0, 0];
+        // Pattern: size is [width, height]
+        return [desc.width, desc.height];
       case 'bezier':
       case 'composite':
         // Bezier/composite: use bounding box if available
@@ -162,7 +162,7 @@ export class ShapeComponent extends Component {
    * For circle: [radius, radius]
    * For rect: [width/2, height/2]
    * For polygon: bounding box half extents
-   * For pattern: half of descriptor.size or [0,0]
+   * For pattern: [width/2, height/2]
    * For bezier/composite: bounding box half extents if available
    * @returns [halfWidth, halfHeight]
    */

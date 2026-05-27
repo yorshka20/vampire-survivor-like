@@ -72,7 +72,8 @@ export function createItemEntity(world: World, props?: Partial<ItemProps>): Enti
     world.createComponent(ShapeComponent, {
       descriptor: createShapeDescriptor('pattern', {
         patternType: getItemPatternType(finalProps.type),
-        size: finalProps.size,
+        width: finalProps.size[0],
+        height: finalProps.size[1],
       }),
     }),
   );

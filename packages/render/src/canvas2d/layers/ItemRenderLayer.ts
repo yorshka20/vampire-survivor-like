@@ -45,9 +45,7 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     this.ctx.scale(scale, scale);
 
     if (patternImage && patternImage.complete) {
-      // todo: get shape size.
-      const sizeX = shape.descriptor.width;
-      const sizeY = shape.descriptor.height;
+      const [sizeX, sizeY] = shape.getSize();
       // Calculate dimensions to maintain aspect ratio
       const aspectRatio = patternImage.width / patternImage.height;
       let drawWidth = sizeX;

@@ -131,7 +131,8 @@ export function createProjectileEntity(
       world.createComponent(ShapeComponent, {
         descriptor: createShapeDescriptor('pattern', {
           patternType: 'projectile',
-          size,
+          width: size[0],
+          height: size[1],
         }),
       }),
     );

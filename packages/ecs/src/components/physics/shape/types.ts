@@ -2,7 +2,6 @@ import { Point } from '@ecs/types/types';
 
 export interface BaseShapeDescriptor {
   type: string;
-  [key: string]: any;
 }
 
 // Basic geometric shape descriptor
@@ -83,7 +82,8 @@ export interface CompositeDescriptor extends BaseShapeDescriptor {
 export interface PatternDescriptor extends BaseShapeDescriptor {
   type: 'pattern';
   patternType: RenderPatternType;
-  size?: [number, number];
+  width: number;
+  height: number;
   offset?: [number, number];
   rotation?: number;
 }

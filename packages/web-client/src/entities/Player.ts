@@ -56,7 +56,8 @@ export function createPlayerEntity(
     world.createComponent(ShapeComponent, {
       descriptor: createShapeDescriptor('pattern', {
         patternType: 'player',
-        size,
+        width: size[0],
+        height: size[1],
       }),
     }),
   );
@@ -99,12 +100,12 @@ export function createPlayerEntity(
   );
 
   const weapons = [
-    // WeaponMap.SpiralOrb,
-    // WeaponMap.Aura,
+    WeaponMap.SpiralOrb,
+    WeaponMap.Aura,
     WeaponMap.RapidFire,
-    // WeaponMap.SpiralShot,
+    WeaponMap.SpiralShot,
     WeaponMap.Bomb,
-    // WeaponMap.Laser,
+    WeaponMap.Laser,
   ];
 
   player.addComponent(

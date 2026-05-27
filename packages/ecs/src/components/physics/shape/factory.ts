@@ -6,7 +6,6 @@ import {
   ParametricDescriptor,
   SDFDescriptor,
   SDFName,
-  ShapeDescriptor,
   ShapeDescriptorByType,
   ShapeName,
 } from './types';
@@ -51,10 +50,12 @@ export function createSDFDescriptor<T extends SDFName>(
 
 export function createShapeDescriptor<T extends ShapeName>(
   type: T,
-  params: ShapeDescriptorByType<T>['descriptor'],
-): ShapeDescriptor {
+  params: Omit<ShapeDescriptorByType<T>, 'type'>,
+): ShapeDescriptorByType<T> {
+  // The cast is the single trusted spot that asserts the union is built
+  // correctly; in exchange every caller gets full field-level type checking.
   return {
     type,
     ...params,
-  };
+  } as ShapeDescriptorByType<T>;
 }

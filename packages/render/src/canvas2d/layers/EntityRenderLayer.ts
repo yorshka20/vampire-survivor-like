@@ -107,9 +107,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       Math.min(1, health.getHealthPercentage?.() ?? health.currentHealth / health.maxHealth),
     );
 
-    // because it's a rect shape.
-    const sizeX = shape.descriptor.width;
-    const sizeY = shape.descriptor.height;
+    const [sizeX, sizeY] = shape.getSize();
 
     const barWidth = sizeX;
     const barHeight = Math.max(3, Math.floor(sizeY * 0.08));
@@ -138,9 +136,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const currentFrame = animation.getCurrentFrame();
     const frameWidth = spriteSheet.frameWidth;
     const frameHeight = spriteSheet.frameHeight;
-    // todo: get shape size.
-    const sizeX = shape.descriptor.width;
-    const sizeY = shape.descriptor.height;
+    const [sizeX, sizeY] = shape.getSize();
 
     // Infer grid dimensions from image and frame size
     const totalColumns = Math.max(1, Math.floor(spriteSheet.image.width / frameWidth));
@@ -181,9 +177,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const frameWidth = spriteSheet.frameWidth;
     const frameHeight = spriteSheet.frameHeight;
 
-    // todo: get shape size.
-    const sizeX = shape.descriptor.width;
-    const sizeY = shape.descriptor.height;
+    const [sizeX, sizeY] = shape.getSize();
 
     // Handle hurt/idle animations for player and enemy entities
     if (state.getIsHit() && spriteSheet.animations.has('hurt')) {

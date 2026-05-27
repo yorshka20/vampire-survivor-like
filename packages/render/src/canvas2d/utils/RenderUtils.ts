@@ -13,15 +13,18 @@ export class RenderUtils {
   ): void {
     const color = render.getColor();
     const shapeType = shape.getType();
+    // getSize() narrows the descriptor internally and returns [width, height]
+    // (for circles it returns [diameter, diameter], so radius = width / 2).
+    const [width, height] = shape.getSize();
 
     ctx.fillStyle = this.colorToString(color);
     switch (shapeType) {
       case 'line':
-        this.drawLineProjectile(ctx, shape.descriptor.width, shape.descriptor.height, color);
+        this.drawLineProjectile(ctx, width, height, color);
         break;
       case 'circle':
         ctx.beginPath();
-        ctx.arc(0, 0, shape.descriptor.radius, 0, Math.PI * 2);
+        ctx.arc(0, 0, width / 2, 0, Math.PI * 2);
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -29,9 +32,9 @@ export class RenderUtils {
         break;
       case 'triangle':
         ctx.beginPath();
-        ctx.moveTo(0, -shape.descriptor.height / 2);
-        ctx.lineTo(shape.descriptor.width / 2, shape.descriptor.height / 2);
-        ctx.lineTo(-shape.descriptor.width / 2, shape.descriptor.height / 2);
+        ctx.moveTo(0, -height / 2);
+        ctx.lineTo(width / 2, height / 2);
+        ctx.lineTo(-width / 2, height / 2);
         ctx.closePath();
         ctx.fill();
         break;
@@ -43,20 +46,10 @@ export class RenderUtils {
       case 'path':
       case 'text':
       default:
-        ctx.fillRect(
-          -shape.descriptor.width / 2,
-          -shape.descriptor.height / 2,
-          shape.descriptor.width,
-          shape.descriptor.height,
-        );
+        ctx.fillRect(-width / 2, -height / 2, width, height);
         ctx.strokeStyle = 'rgba(255,255,255,0.5)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(
-          -shape.descriptor.width / 2,
-          -shape.descriptor.height / 2,
-          shape.descriptor.width,
-          shape.descriptor.height,
-        );
+        ctx.strokeRect(-width / 2, -height / 2, width, height);
         break;
     }
   }
@@ -66,8 +59,7 @@ export class RenderUtils {
     patternImage: HTMLImageElement,
     shape: ShapeComponent,
   ): void {
-    const sizeX = shape.descriptor.width;
-    const sizeY = shape.descriptor.height;
+    const [sizeX, sizeY] = shape.getSize();
 
     // Calculate dimensions to maintain aspect ratio
     const aspectRatio = patternImage.width / patternImage.height;

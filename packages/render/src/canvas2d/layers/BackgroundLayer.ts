@@ -146,7 +146,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
           // Calculate position relative to the background
           const relativeX = pos[0] + cameraOffset[0];
           const relativeY = pos[1] + cameraOffset[1];
-          const size = shape.descriptor.radius;
+          const size = shape.getSize()[0] / 2;
 
           this.ctx.translate(relativeX, relativeY);
           this.ctx.fillStyle = this.colorToString(color);
