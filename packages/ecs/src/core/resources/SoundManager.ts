@@ -23,6 +23,7 @@ export class SoundManager {
   private static instance: SoundManager;
   private pools: Map<string, SoundPool> = new Map();
   private volume: number = 0.2;
+  private mute: boolean = false;
   private readonly POOL_SIZE = 5; // Number of audio instances per sound
 
   private lastPlayTimes: Map<string, number> = new Map(); // Track last play time for each sound
@@ -71,6 +72,16 @@ export class SoundManager {
         audio.volume = this.volume;
       });
     });
+  }
+
+  setMute(mute: boolean | ((v: boolean) => boolean)) {
+    this.mute = typeof mute === 'function' ? mute(this.mute) : mute;
+    this.stopAll();
+
+    // refresh bgm
+    if (!this.mute) {
+      SoundManager.playBGM();
+    }
   }
 
   getVolume(): number {
@@ -124,7 +135,7 @@ export class SoundManager {
 
     // Reset and play
     audio.currentTime = 0;
-    audio.volume = volume ?? audio.volume;
+    audio.volume = this.mute ? 0 : (volume ?? audio.volume);
     audio.play().catch((err) => console.warn(`Failed to play sound ${key}:`, err));
 
     // Update last play time
@@ -151,5 +162,6 @@ export class SoundManager {
         audio.currentTime = 0;
       });
     });
+    SoundManager.playBGM(true);
   }
 }

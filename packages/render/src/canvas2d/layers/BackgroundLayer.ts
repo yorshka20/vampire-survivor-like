@@ -42,9 +42,9 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     viewport: RectArea,
     cameraOffset: [number, number],
   ): void {
-    if (!this.bgImage || !this.bgImage.complete) return;
+    if (!this.bgImage || !this.bgImage.complete || !this.renderSystem) return;
 
-    const dpr = this.renderSystem!.getDevicePixelRatio();
+    const dpr = this.renderSystem.getDevicePixelRatio();
 
     // Calculate the visible area of the background
     const visibleX = Math.floor(viewport[0] - cameraOffset[0]);

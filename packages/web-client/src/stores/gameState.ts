@@ -210,7 +210,7 @@ function createGameStateStore() {
         const newMutedState = !state.soundMuted;
         // Update SoundManager volume based on mute state
         const soundManager = SoundManager.getInstance();
-        soundManager.setVolume(newMutedState ? 0 : 0.2);
+        soundManager.setMute((v) => !v);
         return { ...state, soundMuted: newMutedState };
       });
     },
