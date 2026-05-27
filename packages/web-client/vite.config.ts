@@ -53,6 +53,7 @@ export default defineConfig(({ mode }) => {
         '@ecs/systems': path.resolve(__dirname, '../ecs/src/systems'),
         '@ecs/entities': path.resolve(__dirname, '../ecs/src/entities'),
         '@ecs/constants': path.resolve(__dirname, '../ecs/src/constants'),
+        '@render': path.resolve(__dirname, '../render/src'),
       },
     },
     json: {
