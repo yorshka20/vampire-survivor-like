@@ -80,6 +80,7 @@ export function createPlayerEntity(
   player.addComponent(
     world.createComponent(PhysicsComponent, {
       velocity: [0, 0],
+      speed, // base speed (px/s) — getSpeed() drives input movement in TransformSystem
       maxSpeed: speed,
       friction: 0.85,
     }),

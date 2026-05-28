@@ -271,7 +271,7 @@
   <button class="stop util-button" on:click={stopGenerator}>Stop Generator</button>
 
   <button class="skip util-button" on:click={skipRayTracing}
-    >{skip ? 'Enable Ray Tracing' : 'Disable Ray Tracing'}</button
+    >{!skip ? 'Show Ray Tracing' : 'Hide Ray Tracing'}</button
   >
 
   {#if showPauseButton}

@@ -77,7 +77,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create player entity at center of screen
   const player = createPlayerEntity(world, {
     position: [viewport[2] / 2, viewport[3] / 2],
-    speed: 5,
+    speed: 250, // pixels/second (matches PhysicsSystem `velocity * deltaTime` integration)
     size: [64, 64],
   });
 

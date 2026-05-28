@@ -41,12 +41,12 @@ export class AISystem extends System {
           // Apply movement
           if (entity.hasComponent(PhysicsComponent.componentName)) {
             const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
-            // Scale down AI speed
-            const aiSpeed = ai.speed * 0.1;
+            // ai.speed is already in pixels/second; PhysicsSystem applies deltaTime
+            const aiSpeed = ai.speed;
             physics.setVelocity([dirX * aiSpeed, dirY * aiSpeed]);
           } else {
             // Direct movement for entities without velocity component
-            const aiSpeed = ai.speed * 0.1;
+            const aiSpeed = ai.speed;
             transform.move(dirX * aiSpeed * deltaTime * 60, dirY * aiSpeed * deltaTime * 60);
           }
         }

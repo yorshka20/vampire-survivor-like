@@ -10,9 +10,9 @@ export const SPAWN_CONSTANTS = {
 
   // Enemy limits
   MAX_ENEMIES: 3000,
-  MIN_ENEMY_SPEED: 0.2,
-  MAX_ENEMY_SPEED: 2,
-  ENEMY_SPEED_INCREASE: 0.01,
+  MIN_ENEMY_SPEED: 80, // pixels/second
+  MAX_ENEMY_SPEED: 150, // pixels/second
+  ENEMY_SPEED_INCREASE: 1,
 
   // Wave settings
   INITIAL_WAVE_DURATION: 5000,
