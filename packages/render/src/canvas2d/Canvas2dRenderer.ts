@@ -2,6 +2,7 @@ import { RectArea, RenderSystem } from '@ecs';
 import { RenderLayerIdentifier } from '@render/constant';
 import { IRenderLayer } from '../types/IRenderLayer';
 import { ContextConfig, IRenderer } from '../types/IRenderer';
+import { getCappedDevicePixelRatio } from '../utils/dpr';
 
 /**
  * Canvas2dRenderer implements the IRenderer interface for 2D canvas rendering.
@@ -21,7 +22,6 @@ export class Canvas2dRenderer implements IRenderer {
   protected lastInvokeTime: number;
   protected updateFrequency: number;
   protected isSkippable: boolean;
-  protected coarseMode: boolean = false;
   protected frameCounter: number;
   protected dpr: number = 1;
 
@@ -41,18 +41,11 @@ export class Canvas2dRenderer implements IRenderer {
     // Create main canvas for game rendering
     this.mainCanvas = document.createElement('canvas');
     this.mainCtx = this.mainCanvas.getContext('2d')!;
-
-    // Set canvas size based on device pixel ratio
-    const dpr = this.getDPR();
-    // set actual viewport size
-    this.viewport = [0, 0, width * dpr, height * dpr];
-    this.updateContextConfig({ width, height, dpr });
-
     this.mainCanvas.id = `${this.name}-canvas`;
-    this.mainCanvas.style.width = `${width}px`;
-    this.mainCanvas.style.height = `${height}px`;
-    this.mainCanvas.width = width * dpr;
-    this.mainCanvas.height = height * dpr;
+
+    // viewport is sized inside updateContextConfig; placeholder so the field is initialized
+    this.viewport = [0, 0, 0, 0];
+    this.updateContextConfig({ width, height, dpr: this.getDPR() });
 
     this.rootElement.appendChild(this.mainCanvas);
 
@@ -74,7 +67,7 @@ export class Canvas2dRenderer implements IRenderer {
   }
 
   private getDPR(): number {
-    return this.coarseMode ? 1 : window.devicePixelRatio || 1;
+    return getCappedDevicePixelRatio();
   }
 
   init(renderSystem: RenderSystem): void {
@@ -82,6 +75,8 @@ export class Canvas2dRenderer implements IRenderer {
       layer.setRenderSystem(renderSystem);
       layer.initialize(this);
     });
+
+    this.initialized = true;
   }
 
   addRenderLayer(ctor: new (...args: any[]) => IRenderLayer): void {
@@ -126,16 +121,18 @@ export class Canvas2dRenderer implements IRenderer {
   }
 
   updateContextConfig(config: ContextConfig): void {
-    this.mainCtx.setTransform(1, 0, 0, 1, 0, 0);
     this.dpr = config.dpr;
     const width = config.width;
     const height = config.height;
     this.viewport = [0, 0, width * this.dpr, height * this.dpr];
+    // Assigning canvas.width/height resets all canvas state including transforms,
+    // which is what the rest of the pipeline expects: positions live in physical
+    // pixel space (matching RenderSystem.viewport), so the ctx must stay at the
+    // identity transform — no ctx.scale(dpr) here.
     this.mainCanvas.width = width * this.dpr;
     this.mainCanvas.height = height * this.dpr;
     this.mainCanvas.style.width = `${width}px`;
     this.mainCanvas.style.height = `${height}px`;
-    this.mainCtx.scale(this.dpr, this.dpr);
   }
 
   onResize(): void {

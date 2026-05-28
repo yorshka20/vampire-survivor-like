@@ -4,6 +4,7 @@ import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier } from '@render/constant';
 import { IRenderer, IRenderLayer } from '@render/types';
+import { getCappedDevicePixelRatio } from '@render/utils/dpr';
 
 export class RenderSystem extends System {
   static getInstance(): RenderSystem {
@@ -22,7 +23,6 @@ export class RenderSystem extends System {
   private cameraTargetId?: string;
   private cameraFollow: boolean = false;
 
-  private dpr: number = 1;
   private coarseMode: boolean = false;
 
   private cameraOffset: [number, number] = [0, 0];
@@ -43,7 +43,7 @@ export class RenderSystem extends System {
   }
 
   private getDPR(): number {
-    return this.coarseMode ? 1 : window.devicePixelRatio || 1;
+    return this.coarseMode ? 1 : getCappedDevicePixelRatio();
   }
 
   setRenderer(renderer: IRenderer): void {
@@ -73,7 +73,7 @@ export class RenderSystem extends System {
   }
 
   getDevicePixelRatio(): number {
-    return this.dpr;
+    return this.getDPR();
   }
 
   getViewport(): RectArea {

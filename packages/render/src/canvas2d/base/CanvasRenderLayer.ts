@@ -2,6 +2,7 @@ import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/compon
 import { IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
+import { getCappedDevicePixelRatio } from '../../utils/dpr';
 import { BaseRenderLayer, RenderLayerType } from './RenderLayer';
 
 export class CanvasRenderLayer extends BaseRenderLayer {
@@ -21,7 +22,7 @@ export class CanvasRenderLayer extends BaseRenderLayer {
     super(identifier, priority);
 
     // get dpr
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getCappedDevicePixelRatio();
 
     if (rootElementOrCanvas instanceof HTMLCanvasElement) {
       this.canvas = rootElementOrCanvas;
@@ -70,7 +71,7 @@ export class CanvasRenderLayer extends BaseRenderLayer {
 
   onResize(): void {
     if (!this.isSharedCanvas) {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCappedDevicePixelRatio();
       this.canvas.width = window.innerWidth * dpr;
       this.canvas.height = window.innerHeight * dpr;
       this.canvas.style.width = `${window.innerWidth}px`;
