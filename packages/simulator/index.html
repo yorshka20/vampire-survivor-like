@@ -3,9 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- enable shared array buffer -->
-    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
-    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <!--
+      SharedArrayBuffer requires cross-origin isolation, which needs both
+      COOP and COEP. These cannot reliably be enabled via <meta http-equiv>:
+        - COOP is spec'd as HTTP-response-only; browsers ignore the meta form.
+        - COEP via <meta> works in recent Chromium but is useless without COOP.
+      They must be sent as real HTTP response headers. Locally vite.config.ts
+      sets them on the dev server; in production they're set per-host
+      (see vercel.json at the repo root).
+    -->
+    <!-- <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" /> -->
+    <!-- <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" /> -->
     <link rel="icon" href="%BASE_URL%assets/favicon.ico" />
     <title>Simulator Demo</title>
     <link rel="stylesheet" href="/src/style.css" />
