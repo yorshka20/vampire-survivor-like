@@ -9,6 +9,7 @@ import {
 import { GameStore } from '@ecs/core/store/GameStore';
 import { RenderSystem } from '@ecs/systems/rendering/RenderSystem';
 import { initPatternAssets } from '@render/canvas2d/resource/loader';
+import { setMaxDpr } from '@render/utils/dpr';
 import { GameLoop } from './GameLoop';
 
 /**
@@ -200,6 +201,19 @@ export class Game {
    */
   setSpeedMultiplier(multiplier: number): void {
     this.gameLoop.setSpeedMultiplier(multiplier);
+  }
+
+  /**
+   * Switch the renderer's DPR cap and re-apply it. Used by the in-game
+   * "DPR" toggle so the user can trade fidelity for fill-rate at runtime.
+   */
+  setMaxDpr(value: number): void {
+    setMaxDpr(value);
+    const renderSystem = this.world.getSystem<RenderSystem>(
+      'RenderSystem',
+      SystemPriorities.RENDER,
+    );
+    if (renderSystem) renderSystem.refreshDpr();
   }
 
   /**

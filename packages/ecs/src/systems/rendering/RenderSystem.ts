@@ -72,6 +72,15 @@ export class RenderSystem extends System {
     });
   }
 
+  /**
+   * Reapply the renderer's canvas config so a freshly-changed MAX_DPR (or
+   * any other DPR-related toggle) takes effect on the next frame.
+   * Equivalent to a window resize but without touching the viewport rect.
+   */
+  refreshDpr(): void {
+    this.renderer.onResize();
+  }
+
   getDevicePixelRatio(): number {
     return this.getDPR();
   }

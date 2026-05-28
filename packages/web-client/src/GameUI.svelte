@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getMaxDpr, setMaxDpr } from '@render/utils/dpr';
   import { onMount } from 'svelte';
   import { createGame } from './main';
   import { gameState } from './stores/gameState';
@@ -9,12 +10,22 @@
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
+  // Active DPR cap (read from localStorage via dpr.ts on module init).
+  let maxDpr = getMaxDpr();
 
   function toggleSpeed() {
     const currentIndex = speedOptions.indexOf(speedMultiplier);
     const nextIndex = (currentIndex + 1) % speedOptions.length;
     speedMultiplier = speedOptions[nextIndex];
     gameState.setSpeedMultiplier(speedMultiplier);
+  }
+
+  function toggleDpr() {
+    // Persist the new cap and reload — a hard reset is the simplest way to
+    // guarantee every cached canvas / layer picks up the new DPR cleanly.
+    const next = maxDpr === 2 ? 1 : 2;
+    setMaxDpr(next);
+    window.location.reload();
   }
 
   function togglePause() {
@@ -197,6 +208,26 @@
     transition: all 0.2s ease;
   }
   .speed-button:hover {
+    background: rgba(0,0,0,0.7);
+    border-color: rgba(255,255,255,0.5);
+  }
+  .dpr-button {
+    position: fixed;
+    top: 10px;
+    right: 290px;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.5);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.3);
+    transition: all 0.2s ease;
+  }
+  .dpr-button:hover {
     background: rgba(0,0,0,0.7);
     border-color: rgba(255,255,255,0.5);
   }
@@ -404,6 +435,10 @@
     </div>
   {/if}
 </div>
+
+<button class="dpr-button" class:hidden={!isGameStarted} on:click={toggleDpr}>
+  DPR: {maxDpr}x
+</button>
 
 <button class="speed-button" class:hidden={!isGameStarted} on:click={toggleSpeed}>
   {speedMultiplier}x Speed
