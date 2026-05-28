@@ -10,7 +10,8 @@
   "scripts": {
     "dev:simulator": "pnpm --filter @brotov2/simulator dev",
     "dev:game": "pnpm --filter @brotov2/web-client dev",
-    "build": "pnpm -r --filter @brotov2/web-client --filter @brotov2/simulator build",
+    "build:simulator": "pnpm -r --filter @brotov2/simulator build",
+    "build:game": "pnpm -r --filter @brotov2/web-client build",
     "preview": "pnpm dlx serve -s dist -l 4173",
     "typecheck": "pnpm --filter * typecheck",
     "test": "pnpm --filter @brotov2/ecs test",
