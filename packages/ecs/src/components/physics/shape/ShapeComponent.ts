@@ -218,6 +218,22 @@ export class ShapeComponent extends Component {
   }
 
   /**
+   * Pool-reuse path. The base implementation only `Object.assign`s the cloned props,
+   * which leaves `patternImage` at null because the constructor's `loadPatternImage`
+   * call doesn't fire. We mirror that constructor-time side effect here so pooled
+   * pickups (and any other pattern-shape entity without an AnimationComponent
+   * overlay) get their sprite back instead of falling through to the fallback shape.
+   */
+  recreate(props: ShapeProps): void {
+    super.recreate(props);
+    if (this.isPatternDescriptor(this.descriptor)) {
+      this.loadPatternImage(this.descriptor.patternType);
+    } else {
+      this.patternImage = null;
+    }
+  }
+
+  /**
    * Create a convenient method for creating basic geometric shapes
    */
   static createCircle(radius: number): ShapeComponent {
