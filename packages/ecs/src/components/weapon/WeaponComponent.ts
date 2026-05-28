@@ -102,7 +102,7 @@ export class WeaponComponent extends Component {
     const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon) return false;
 
-    return currentTime - this.lastAttackTimes[weapon.id] < this.attackCooldown;
+    return currentTime - (this.lastAttackTimes[weapon.id] ?? 0) < this.attackCooldown;
   }
 
   canAttack(currentTime: number, weaponId: string): boolean {
@@ -116,7 +116,7 @@ export class WeaponComponent extends Component {
     }
 
     const attackInterval = TimeUtil.toMilliseconds(1) / weapon.attackSpeed;
-    return currentTime - this.lastAttackTimes[weapon.id] >= attackInterval;
+    return currentTime - (this.lastAttackTimes[weapon.id] ?? 0) >= attackInterval;
   }
 
   // Helper method for backward compatibility with index-based access
@@ -164,5 +164,18 @@ export class WeaponComponent extends Component {
     this.onceWeapons.length = 0;
     this.attackCooldown = 200;
     this.lockOnTargetId = undefined;
+  }
+
+  /**
+   * Pool-reuse path. The base `Object.assign` doesn't run the constructor's
+   * lastAttackTimes seeding, so without this override a pooled WeaponComponent
+   * keeps lastAttackTimes={} and `canAttack` does `currentTime - undefined`
+   * (= NaN) which is never `>= attackInterval`. Result: pooled child-weapon
+   * projectiles silently stop firing after their first ever lifecycle.
+   */
+  recreate(props: WeaponProps): void {
+    super.recreate(props);
+    this.lastAttackTimes = {};
+    this.weapons.forEach((weapon) => (this.lastAttackTimes[weapon.id] = 0));
   }
 }
