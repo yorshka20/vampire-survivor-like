@@ -45,9 +45,9 @@ export class AISystem extends System {
             const aiSpeed = ai.speed;
             physics.setVelocity([dirX * aiSpeed, dirY * aiSpeed]);
           } else {
-            // Direct movement for entities without velocity component
+            // Direct movement for entities without a PhysicsComponent. ai.speed is in px/s.
             const aiSpeed = ai.speed;
-            transform.move(dirX * aiSpeed * deltaTime * 60, dirY * aiSpeed * deltaTime * 60);
+            transform.move(dirX * aiSpeed * deltaTime, dirY * aiSpeed * deltaTime);
           }
         }
       }

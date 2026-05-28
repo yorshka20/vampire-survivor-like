@@ -203,8 +203,7 @@ export class TransformSystem extends System {
       dy = (dy / magnitude) * speed;
     }
 
-    // Since we're using fixed time step, we don't need to multiply by deltaTime
-    // The speed is already calibrated for one logic frame
-    transform.move(dx, dy);
+    // speed is in px/s, so scale by deltaTime (seconds) to get the per-frame displacement.
+    transform.move(dx * deltaTime, dy * deltaTime);
   }
 }

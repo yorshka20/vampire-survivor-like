@@ -55,7 +55,8 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
   enemy.addComponent(
     world.createComponent(PhysicsComponent, {
       velocity: [0, 0],
-      maxSpeed: props.speed ?? 2,
+      maxSpeed: props.speed ?? 125,
+      entityType: 'ENEMY',
     }),
   );
 
@@ -91,7 +92,7 @@ export function createEnemyEntity(world: World, props: EnemyProps): Entity {
     world.createComponent(AIComponent, {
       behavior: 'chase',
       targetEntityId: props.playerId,
-      speed: props.speed ?? 2,
+      speed: props.speed ?? 125,
     }),
   );
 

@@ -38,7 +38,7 @@ export function createPlayerEntity(
   {
     id = 'player',
     position = [400, 300],
-    speed = 5,
+    speed = 250,
     color = { r: 0, g: 255, b: 0, a: 1 },
     size = [32, 32], // Updated to match sprite frame size
   }: PlayerProps,

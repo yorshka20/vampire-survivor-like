@@ -1,47 +1,41 @@
-// Speed constants based on fixed time step (1/60 second per logic update)
-// To move 1000px in 100 seconds at 60 FPS:
-// - Total frames = 100 seconds * 60 FPS = 6000 frames
-// - Distance per frame = 1000px / 6000 frames = 0.167 pixels per frame
-// - Since we use fixed time step of 1/60 second, this is also 0.167 pixels per 1/60 second
-export const BASE_SPEED = 0.167; // pixels per logic frame (at 60 FPS)
+// Speed constants in pixels/second. Player base speed is the project-wide anchor (100%).
+// PhysicsSystem integrates positions as `pos += velocity * deltaTime` with deltaTime in
+// seconds, so every speed-like number in the codebase must also be in px/s.
+export const BASE_SPEED = 250; // pixels/second — equals the in-game player baseline
 
-// Speed multipliers for different entity types
+// Multipliers relative to BASE_SPEED. Tweaking these rescales whole entity categories
+// without touching individual entity/weapon configs.
 export const SPEED_MULTIPLIERS = {
   PLAYER: {
-    BASE: 1.0, // Base player speed
-    MIN: 0.5, // Minimum player speed
-    MAX: 2.0, // Maximum player speed
+    BASE: 1.0, // 250 px/s
+    MIN: 0.5, // 125 px/s
+    MAX: 1.5, // 375 px/s (room for speed buffs)
   },
   ENEMY: {
-    BASE: 0.7, // Base enemy speed (70% of player speed)
-    MIN: 0.3, // Minimum enemy speed
-    MAX: 1.5, // Maximum enemy speed
+    BASE: 0.5, // 125 px/s (slower than player)
+    MIN: 0.2, // 50 px/s
+    MAX: 1.5, // 375 px/s (elites can outpace the player)
   },
   PROJECTILE: {
-    BASE: 2.0, // Base projectile speed (2x player speed)
-    MIN: 1.0, // Minimum projectile speed
-    MAX: 4.0, // Maximum projectile speed
+    BASE: 2.5, // 625 px/s (clearly faster than the player)
+    MIN: 0.5, // 125 px/s
+    MAX: 6.0, // 1500 px/s
   },
   ITEM: {
-    BASE: 0.8, // Base item speed
-    MIN: 0.8, // Minimum item speed
-    MAX: 1.0, // Maximum item speed
+    BASE: 0.8, // 200 px/s
+    MIN: 0.4, // 100 px/s
+    MAX: 1.0, // 250 px/s
   },
   OBSTACLE: {
-    BASE: 0.0, // Base obstacle speed
-    MIN: 0.0, // Minimum obstacle speed
-    MAX: 0.0, // Maximum obstacle speed
+    BASE: 0.0,
+    MIN: 0.0,
+    MAX: 0.0,
   },
 };
 
-// Helper function to calculate actual speed in pixels per logic frame
-// This takes into account the fixed time step
+// Returns the absolute speed in pixels/second for a given category multiplier.
+// `additionalMultiplier` lets callers stack a runtime modifier (buffs, level scaling, ...)
+// on top of the base category multiplier.
 export function calculateSpeed(baseMultiplier: number, additionalMultiplier: number = 1): number {
   return BASE_SPEED * baseMultiplier * additionalMultiplier;
-}
-
-// Helper function to calculate speed in pixels per second
-// Useful for debugging and UI display
-export function calculateSpeedPerSecond(speedPerFrame: number): number {
-  return speedPerFrame * 60; // Convert to pixels per second (assuming 60 FPS)
 }

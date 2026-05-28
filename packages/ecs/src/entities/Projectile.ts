@@ -76,13 +76,13 @@ export function createProjectileEntity(
     }),
   );
 
-  // Always add velocity component for base movement
+  // Always add velocity component for base movement. velocity is in px/s; maxSpeed
+  // defaults to SPEED_MULTIPLIERS.PROJECTILE.MAX from speed.ts.
   projectile.addComponent(
     world.createComponent(PhysicsComponent, {
-      velocity: [velocity[0] * 0.5, velocity[1] * 0.5],
+      velocity,
       speed: Math.sqrt(velocity[0] ** 2 + velocity[1] ** 2),
       friction: 1, // No friction for projectiles
-      maxSpeed: 20,
       entityType: 'PROJECTILE',
     }),
   );

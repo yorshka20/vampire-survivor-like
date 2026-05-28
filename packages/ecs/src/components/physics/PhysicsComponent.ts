@@ -1,4 +1,4 @@
-import { SPEED_MULTIPLIERS, calculateSpeed, calculateSpeedPerSecond } from '@ecs/constants/speed';
+import { SPEED_MULTIPLIERS, calculateSpeed } from '@ecs/constants/speed';
 import { Component } from '@ecs/core/ecs/Component';
 import { Vec2 } from '@ecs/types/types';
 
@@ -53,15 +53,9 @@ export class PhysicsComponent extends Component {
     this.velocity = props.velocity ?? [0, 0];
     this.friction = props.friction ?? 1;
 
-    // Initialize movement properties
-    // Convert frame-based speed constants to per-second to match system integration
-    const baseSpeedPerFrame = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
-    const maxSpeedPerFrame = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
-    const baseSpeedPerSecond = calculateSpeedPerSecond(baseSpeedPerFrame);
-    const maxSpeedPerSecond = calculateSpeedPerSecond(maxSpeedPerFrame);
-
-    this.speed = props.speed ?? baseSpeedPerSecond;
-    this.maxSpeed = props.maxSpeed ?? maxSpeedPerSecond;
+    // Initialize movement properties (all px/s)
+    this.speed = props.speed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
+    this.maxSpeed = props.maxSpeed ?? calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.acceleration = 0.5;
   }
 
@@ -136,10 +130,8 @@ export class PhysicsComponent extends Component {
 
   setSpeed(speed: number): void {
     // Clamp to [min, max] in pixels/second
-    const minSpeedPerSecond = calculateSpeedPerSecond(
-      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MIN),
-    );
-    this.speed = Math.min(Math.max(speed, minSpeedPerSecond), this.maxSpeed);
+    const minSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MIN);
+    this.speed = Math.min(Math.max(speed, minSpeed), this.maxSpeed);
   }
 
   getMaxSpeed(): number {
@@ -187,15 +179,9 @@ export class PhysicsComponent extends Component {
     this.isSleeping = false;
     this.sleepTimer = 0;
 
-    // Reset movement properties (recompute in per-second units)
-    const baseSpeedPerSecond = calculateSpeedPerSecond(
-      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE),
-    );
-    const maxSpeedPerSecond = calculateSpeedPerSecond(
-      calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX),
-    );
-    this.speed = baseSpeedPerSecond;
-    this.maxSpeed = maxSpeedPerSecond;
+    // Reset movement properties (px/s)
+    this.speed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].BASE);
+    this.maxSpeed = calculateSpeed(SPEED_MULTIPLIERS[this.entityType].MAX);
     this.acceleration = 0.5;
   }
 }
