@@ -101,10 +101,11 @@ export function createPlayerEntity(
   );
 
   const weapons = [
-    WeaponMap.SpiralOrb,
-    WeaponMap.Aura,
+    // WeaponMap.SpiralOrb,
+    // WeaponMap.Aura,
     WeaponMap.RapidFire,
-    WeaponMap.SpiralShot,
+    WeaponMap.PiercingShot,
+    // WeaponMap.SpiralShot,
     WeaponMap.Bomb,
     WeaponMap.Laser,
   ];

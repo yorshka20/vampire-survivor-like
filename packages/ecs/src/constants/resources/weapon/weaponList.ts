@@ -158,7 +158,7 @@ const Bomb: BombWeapon = {
   damage: 30,
   attackSpeed: 10,
   attackCooldown: 50,
-  projectileSpeed: 120,
+  projectileSpeed: 300,
   projectileSize: [24, 24],
   projectileColor: { r: 255, g: 0, b: 0, a: 1 },
   type: WeaponType.BOMB,

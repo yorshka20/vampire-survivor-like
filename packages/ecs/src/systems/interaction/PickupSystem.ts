@@ -90,7 +90,7 @@ export class PickupSystem extends System {
         entity.addComponent(
           this.world.createComponent(ChaseComponent, {
             targetId: player.id,
-            speed: 1,
+            speed: 100,
             decelerationDistance: 30,
             decelerationRate: 1,
           }),
@@ -210,7 +210,7 @@ export class PickupSystem extends System {
       item.addComponent(
         this.world.createComponent(ChaseComponent, {
           targetId: player.id,
-          speed: 0.8,
+          speed: 600, // px/s — fast enough to snap toward the player from across the screen
         }),
       );
     }
