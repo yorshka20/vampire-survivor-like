@@ -74,17 +74,25 @@ export class CollisionSystem extends System {
     // Performance profiling: distance calculation phase
     const distanceStart = performance.now();
 
+    // Reference point for distance tiering: combat happens around the player, so
+    // entities far from it are checked less often. Fetched once per frame.
+    const playerEntity = this.world.getEntitiesByType('player')[0];
+    const playerPos = playerEntity?.hasComponent(TransformComponent.componentName)
+      ? playerEntity
+          .getComponent<TransformComponent>(TransformComponent.componentName)
+          .getPosition()
+      : null;
+
     // handle each entity with its own collision detection
     for (const entity of entities) {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (!transform) continue;
 
-      // use CRITICAL distance as default tier (can be customized based on entity type)
-      // can be customized based on entity's "activity" or other properties
-      // here we keep the original tier logic, default to CRITICAL for all entities
-      // you can adjust the getCollisionTier parameter based on actual needs
-      const tier = this.getCollisionTier(0); // 0 distance, guaranteed to be processed every frame
-      if (this.shouldProcessTier(tier)) {
+      // Tier by distance to the player (damage dealers / player stay CRITICAL).
+      // Staggered by numericId so a tier's work spreads across frames instead of
+      // spiking on every 2nd / 4th frame.
+      const tier = this.getEntityTier(entity, transform.getPosition(), playerPos);
+      if (this.shouldProcessTier(tier, entity.numericId)) {
         this.processEntityCollisions(entity, tier);
       }
     }
@@ -111,14 +119,39 @@ export class CollisionSystem extends System {
     }
   }
 
-  private shouldProcessTier(tier: CollisionTier): boolean {
+  /**
+   * Classify an entity's collision tier.
+   *
+   * Damage dealers and the player are always CRITICAL — fast projectiles must not
+   * tunnel and player contact must never be throttled. Everything else is tiered by
+   * squared distance to the player: far entities (not yet in combat) are checked
+   * less often, and any real hit they're involved in is still caught from the
+   * CRITICAL side that initiates the pair.
+   */
+  private getEntityTier(entity: Entity, entityPos: Point, playerPos: Point | null): CollisionTier {
+    if (entity.isType('player') || entity.isType('projectile') || entity.isType('areaEffect')) {
+      return CollisionTier.CRITICAL;
+    }
+    if (!playerPos) return CollisionTier.CRITICAL; // no reference point — don't throttle
+
+    const dx = entityPos[0] - playerPos[0];
+    const dy = entityPos[1] - playerPos[1];
+    return this.getCollisionTier(dx * dx + dy * dy);
+  }
+
+  /**
+   * Whether an entity in `tier` is processed this frame. `salt` (the entity's
+   * numericId) staggers same-tier entities across frames so the work spreads out
+   * instead of all NORMAL/DISTANT entities firing on the same frame.
+   */
+  private shouldProcessTier(tier: CollisionTier, salt: number): boolean {
     switch (tier) {
       case CollisionTier.CRITICAL:
         return true; // Process every frame
       case CollisionTier.NORMAL:
-        return this.frameCount % 2 === 0; // Process every 2 frames
+        return (this.frameCount + salt) % 2 === 0; // Process every 2 frames (staggered)
       case CollisionTier.DISTANT:
-        return this.frameCount % 4 === 0; // Process every 4 frames
+        return (this.frameCount + salt) % 4 === 0; // Process every 4 frames (staggered)
       default:
         return false;
     }
