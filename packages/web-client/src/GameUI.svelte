@@ -10,8 +10,19 @@
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
-  // Active DPR cap (read from localStorage via dpr.ts on module init).
-  let maxDpr = getMaxDpr();
+  // DPR toggle: cycle through three presets, filtered so we never request a
+  // ratio higher than the device can produce (also hard-capped at 2 because
+  // beyond 2x the pixel-fill cost is rarely worth the visual gain).
+  const DPR_PRESETS = [1, 1.5, 2];
+  const deviceMaxDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const dprOptions = DPR_PRESETS.filter((v) => v <= Math.min(deviceMaxDpr, 2));
+  // Normalise the active value to one that's actually selectable on this
+  // device; if a previously-stored ratio is too high (e.g. user switched to
+  // a 1x screen) fall back to the largest usable option.
+  let maxDpr = (() => {
+    const stored = getMaxDpr();
+    return dprOptions.includes(stored) ? stored : dprOptions[dprOptions.length - 1];
+  })();
 
   function toggleSpeed() {
     const currentIndex = speedOptions.indexOf(speedMultiplier);
@@ -23,7 +34,9 @@
   function toggleDpr() {
     // Persist the new cap and reload — a hard reset is the simplest way to
     // guarantee every cached canvas / layer picks up the new DPR cleanly.
-    const next = maxDpr === 2 ? 1 : 2;
+    const idx = dprOptions.indexOf(maxDpr);
+    const next = dprOptions[(idx + 1) % dprOptions.length];
+    if (next === maxDpr) return; // single-option device (1x), button is a no-op
     setMaxDpr(next);
     window.location.reload();
   }
