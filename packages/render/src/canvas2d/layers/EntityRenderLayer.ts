@@ -14,6 +14,8 @@ import { CanvasRenderLayer } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';
 import { RenderUtils } from '../utils/RenderUtils';
 
+const ENTITY_LAYER_TYPES: EntityType[] = ['player', 'enemy', 'effect', 'object'];
+
 export class EntityRenderLayer extends CanvasRenderLayer {
   constructor(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
     super(RenderLayerIdentifier.ENTITY, RenderLayerPriority.ENTITY, canvas, context);
@@ -30,13 +32,14 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     }
   }
 
+  protected getRelevantEntityTypes(): EntityType[] {
+    return ENTITY_LAYER_TYPES;
+  }
+
   // todo: support custom filter condition by client
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    const isValidType = ['player', 'enemy', 'effect', 'object'].some((type) =>
-      entity.isType(type as EntityType),
-    );
-
-    return super.filterEntity(entity, viewport) && isValidType;
+    // Type is guaranteed by getRelevantEntityTypes(); base filter handles components + viewport.
+    return super.filterEntity(entity, viewport);
   }
 
   renderEntity(

@@ -4,7 +4,7 @@ import {
   StatsComponent,
   TransformComponent,
 } from '@ecs/components';
-import { IEntity } from '@ecs/core/ecs/types';
+import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
@@ -205,11 +205,13 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     }
   }
 
+  protected getRelevantEntityTypes(): EntityType[] {
+    return ['obstacle', 'camera', 'light'];
+  }
+
   filterEntity(entity: IEntity, viewport: RectArea): boolean {
-    return (
-      super.filterEntity(entity, viewport) &&
-      (entity.isType('obstacle') || entity.isType('camera') || entity.isType('light'))
-    );
+    // Types guaranteed by getRelevantEntityTypes(); base filter handles components + viewport.
+    return super.filterEntity(entity, viewport);
   }
 
   private renderBackgroundEntity(entity: IEntity, cameraOffset: [number, number]): void {

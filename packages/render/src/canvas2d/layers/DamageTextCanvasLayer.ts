@@ -1,5 +1,6 @@
 import { DamageTextComponent } from '@ecs/components';
 import { Entity } from '@ecs/core/ecs/Entity';
+import { EntityType } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
@@ -43,12 +44,16 @@ export class DamageTextCanvasLayer extends CanvasRenderLayer {
     }
   }
 
+  protected getRelevantEntityTypes(): EntityType[] {
+    return ['damageText'];
+  }
+
   /**
-   * Filter only damage text entities. We intentionally skip viewport checks because
-   * damage text entities manage their own positions and are short-lived.
+   * Type is guaranteed by getRelevantEntityTypes(). Skip viewport checks — damage
+   * text entities manage their own positions and are short-lived.
    */
-  filterEntity(entity: Entity, _viewport: RectArea): boolean {
-    return entity.type === 'damageText';
+  filterEntity(_entity: Entity, _viewport: RectArea): boolean {
+    return true;
   }
 
   /**

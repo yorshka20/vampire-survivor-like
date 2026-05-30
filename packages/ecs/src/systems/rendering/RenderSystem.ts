@@ -127,6 +127,17 @@ export class RenderSystem extends System {
     return this.playerPosition;
   }
 
+  /**
+   * Camera offset in world coords. An entity at world position (wx, wy) is
+   * rendered at canvas pixel (wx + cameraOffset[0], wy + cameraOffset[1]).
+   * In games with camera-follow this is (viewport_center - player_pos); in
+   * scenes without a follow target this stays at [0, 0] and world coords map
+   * 1:1 to canvas pixels.
+   */
+  getCameraOffset(): [number, number] {
+    return this.cameraOffset;
+  }
+
   private clear(): void {
     this.renderer.clear();
   }

@@ -1,5 +1,6 @@
 import { RenderComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { Entity } from '@ecs/core/ecs/Entity';
+import { EntityType } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer } from '../base';
@@ -10,6 +11,10 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
 
   constructor(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
     super(RenderLayerIdentifier.PROJECTILE, RenderLayerPriority.PROJECTILE, canvas, context);
+  }
+
+  protected getRelevantEntityTypes(): EntityType[] {
+    return ['projectile'];
   }
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
@@ -25,7 +30,8 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
   }
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
-    return super.filterEntity(entity, viewport) && entity.isType('projectile');
+    // Type is guaranteed by getRelevantEntityTypes(); base filter handles components + viewport.
+    return super.filterEntity(entity, viewport);
   }
 
   renderEntity(

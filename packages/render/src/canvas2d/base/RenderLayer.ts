@@ -1,7 +1,7 @@
 import { Color, RectArea } from '@brotov2/ecs/src/types/types';
 import { RenderSystem } from '@ecs';
-import { TransformComponent } from '@ecs/components';
-import { IEntity } from '@ecs/core/ecs/types';
+import { ShapeComponent, TransformComponent } from '@ecs/components';
+import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { IRenderer } from '../../types/IRenderer';
 import { IRenderLayer } from '../../types/IRenderLayer';
@@ -49,18 +49,32 @@ export abstract class BaseRenderLayer extends IRenderLayer {
     const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
     if (!transform) return false;
 
-    const playerPos = this.getPlayerPosition();
-    if (!playerPos) return false;
-    const entityPos = transform.getPosition();
+    const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+    if (!shape) return false;
 
-    const currentX = playerPos[0] - viewport[2] / 2;
-    const currentY = playerPos[1] - viewport[3] / 2;
+    if (!this.renderSystem) return false;
+    const cameraOffset = this.renderSystem.getCameraOffset();
 
+    const [w, h] = shape.getSize();
+    const halfW = w / 2;
+    const halfH = h / 2;
+
+    // The renderer draws world (wx, wy) at canvas pixel (wx + cameraOffset[0], ...).
+    // Visible on canvas = canvas pixel in [viewport[0], viewport[0]+viewport[2]],
+    // so the visible world AABB is [viewport[0..2]] shifted by -cameraOffset.
+    // This formulation works for both camera-follow games (cameraOffset moves
+    // with the player) and static scenes like the simulator (cameraOffset = 0).
+    const vL = viewport[0] - cameraOffset[0];
+    const vR = viewport[0] + viewport[2] - cameraOffset[0];
+    const vT = viewport[1] - cameraOffset[1];
+    const vB = viewport[1] + viewport[3] - cameraOffset[1];
+
+    const ePos = transform.getPosition();
     return (
-      entityPos[0] + viewport[2] / 2 > currentX &&
-      entityPos[0] - viewport[2] / 2 < currentX + viewport[2] &&
-      entityPos[1] + viewport[3] / 2 > currentY &&
-      entityPos[1] - viewport[3] / 2 < currentY + viewport[3]
+      ePos[0] + halfW > vL &&
+      ePos[0] - halfW < vR &&
+      ePos[1] + halfH > vT &&
+      ePos[1] - halfH < vB
     );
   }
 
@@ -85,7 +99,28 @@ export abstract class BaseRenderLayer extends IRenderLayer {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
   }
 
+  /**
+   * Override in subclasses to declare which entity types this layer cares about.
+   * When non-null, `getLayerEntities` iterates only those type buckets instead of
+   * the full entity set — avoiding an O(N_total) walk just to find a handful of
+   * pickups / projectiles / etc. Return `null` to keep the all-entities scan.
+   */
+  protected getRelevantEntityTypes(): EntityType[] | null {
+    return null;
+  }
+
   protected getLayerEntities(viewport: RectArea): IEntity[] {
+    const types = this.getRelevantEntityTypes();
+    if (types) {
+      const out: IEntity[] = [];
+      for (const t of types) {
+        const bucket = this.getWorld().getEntitiesByType(t);
+        for (const entity of bucket) {
+          if (this.filterEntity(entity, viewport)) out.push(entity);
+        }
+      }
+      return out;
+    }
     return this.getWorld().getEntitiesByCondition((entity) => this.filterEntity(entity, viewport));
   }
 
