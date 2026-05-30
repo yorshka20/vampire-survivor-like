@@ -37,7 +37,6 @@ export class CollisionSystem extends System {
   private readonly tempCollisionArea1: RectArea = [0, 0, 0, 0];
   private readonly tempCollisionArea2: RectArea = [0, 0, 0, 0];
   private readonly tempPairKey: Uint32Array = new Uint32Array(2);
-  private tempNearbyEntities: string[] = [];
 
   // Distance thresholds for different collision tiers (squared values for performance)
   private readonly TIER_DISTANCES_SQUARED = {
@@ -147,9 +146,12 @@ export class CollisionSystem extends System {
     // Performance profiling: spatial query phase
     const spatialStart = performance.now();
 
-    // Get nearby entities using spatial grid with tier-specific cache
-    this.tempNearbyEntities.length = 0;
-    this.tempNearbyEntities = this.gridComponent.getNearbyEntities(
+    // Get nearby entities using spatial grid with tier-specific cache.
+    // NOTE: getNearbyEntities returns the cache's internal array by reference — it
+    // must be treated as read-only. Never mutate it (e.g. .length = 0), or the
+    // cached entry for this cell gets corrupted and later queries return stale or
+    // empty results.
+    const nearbyEntities = this.gridComponent.getNearbyEntities(
       position,
       searchRadius,
       this.getCacheTypeForTier(tier),
@@ -161,7 +163,7 @@ export class CollisionSystem extends System {
     // Performance profiling: collision detection phase
     const collisionStart = performance.now();
 
-    for (const nearbyId of this.tempNearbyEntities) {
+    for (const nearbyId of nearbyEntities) {
       const nearbyEntity = this.world.getEntityById(nearbyId);
       if (!nearbyEntity) continue;
 
