@@ -10,6 +10,10 @@ export const SPAWN_CONSTANTS = {
 
   // Enemy limits
   MAX_ENEMIES: 3000,
+  // Max enemies actually instantiated per frame. A wave's batch is queued and
+  // drained at this rate so a big wave is spread across several frames instead of
+  // building every entity in one synchronous spike.
+  MAX_SPAWN_PER_FRAME: 15,
   MIN_ENEMY_SPEED: 80, // pixels/second
   MAX_ENEMY_SPEED: 150, // pixels/second
   ENEMY_SPEED_INCREASE: 1,

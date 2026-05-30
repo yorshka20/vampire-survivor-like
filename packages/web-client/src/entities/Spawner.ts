@@ -23,6 +23,9 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   private lastWaveTime: number = 0;
   private enemiesSpawnedThisWave: number = 0;
   private waveInProgress: boolean = false;
+  // Enemies queued by a wave but not yet instantiated. Drained a few per frame in
+  // spawn() so a wave's batch never builds in a single synchronous spike.
+  private pendingSpawnCount: number = 0;
 
   private playerId: string;
 
@@ -90,13 +93,24 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
     // Limit max enemies
     if (this.enemyCount >= this.maxEnemies) return [];
-    if (currentTime - this.lastSpawnTime < this.spawnInterval) return [];
 
-    // Check if current wave should end based on time
+    // On each spawn interval, queue this wave's batch instead of building it now.
+    if (currentTime - this.lastSpawnTime >= this.spawnInterval) {
+      this.refillSpawnQueue(world, currentTime);
+      this.lastSpawnTime = currentTime;
+    }
+
+    // Drain the queue a few per frame so a large wave is spread across frames.
+    return this.drainSpawnQueue(world);
+  }
+
+  /**
+   * Advance the wave and add this interval's enemies to the pending queue.
+   * No entities are instantiated here — only the count is accumulated.
+   */
+  private refillSpawnQueue(world: World, currentTime: number): void {
     this.updateWaveInfo(currentTime);
 
-    // Calculate how many enemies to spawn this wave
-    // Spawn enemies for current wave
     const remainingEnemies = this.enemiesPerWave - this.enemiesSpawnedThisWave;
     const enemiesToSpawn = Math.min(
       Math.floor(this.waveNumber * 10 * SPAWN_CONSTANTS.WAVE_ENEMY_MULTIPLIER),
@@ -105,9 +119,30 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
     this.eliteEnemyCheck(world, this.playerId);
 
-    const spawnedEntities: Entity[] = [];
+    if (enemiesToSpawn > 0) {
+      // Cap the backlog at maxEnemies so it can never grow without bound.
+      this.pendingSpawnCount = Math.min(
+        this.pendingSpawnCount + enemiesToSpawn,
+        this.maxEnemies,
+      );
+    }
+  }
 
-    for (let i = 0; i < enemiesToSpawn; i++) {
+  /**
+   * Instantiate at most MAX_SPAWN_PER_FRAME queued enemies this frame.
+   */
+  private drainSpawnQueue(world: World): Entity[] {
+    if (this.pendingSpawnCount <= 0) return [];
+
+    const budget = Math.min(
+      this.pendingSpawnCount,
+      SPAWN_CONSTANTS.MAX_SPAWN_PER_FRAME,
+      this.maxEnemies - this.enemyCount,
+    );
+    if (budget <= 0) return [];
+
+    const spawnedEntities: Entity[] = [];
+    for (let i = 0; i < budget; i++) {
       // Generate random spawn position around player
       const angle = Math.random() * Math.PI * 2;
       const distance =
@@ -117,9 +152,8 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
       spawnedEntities.push(this.spawnEnemy(world, [spawnX, spawnY], this.playerId));
       this.enemiesSpawnedThisWave++;
+      this.pendingSpawnCount--;
     }
-
-    this.lastSpawnTime = currentTime;
 
     return spawnedEntities;
   }
