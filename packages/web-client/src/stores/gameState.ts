@@ -61,7 +61,7 @@ function createGameStateStore() {
     enemies: 0,
     nextWave: 0,
     gameTime: 0,
-    speedMultiplier: 4,
+    speedMultiplier: 1,
     isInitialized: false,
     soundMuted: false,
     performance: {

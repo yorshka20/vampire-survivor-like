@@ -12,10 +12,12 @@ export class GameLoop {
   private lastTime: number = 0;
   private rafId: number = 0;
   private logicTimerId: NodeJS.Timeout | null = null;
-  private speedMultiplier: number = 4; // Add speed multiplier. 1x, 2x, 4x
+  // Game speed multiplier (1x / 2x / 4x). Applied by running more logic sub-steps
+  // per real second — the step size stays fixed, only how many we run scales.
+  private speedMultiplier: number = 1;
 
-  // Fixed time step for logic updates (now managed by PerformanceSystem)
-  private fixedTimeStep: number = 1 / (15 * this.speedMultiplier); // 60 updates per second
+  // Fallback fixed time step, only used if PerformanceSystem is unavailable.
+  private fixedTimeStep: number = 1 / 60;
   private accumulator: number = 0;
   private readonly maxAccumulator: number = 0.2; // Cap accumulator to prevent spiral of death
 
@@ -61,14 +63,10 @@ export class GameLoop {
   }
 
   setSpeedMultiplier(multiplier: number): void {
-    this.speedMultiplier = multiplier;
-    this.fixedTimeStep = 1 / (15 * this.speedMultiplier);
-    // Update logic timer interval based on new speed multiplier
-    if (this.logicTimerId) {
-      const newInterval = Math.max(1, Math.floor(this.currentTimeStep * 1000));
-      clearInterval(this.logicTimerId);
-      this.logicTimerId = setInterval(() => this.updateLogic(), newInterval);
-    }
+    // The multiplier is consumed in tick()/updateLogic() by scaling how much
+    // simulation time accumulates and how many sub-steps we may run per call. The
+    // logic timer interval and step size are unchanged.
+    this.speedMultiplier = Math.max(1, multiplier);
   }
 
   private startLogicLoop(): void {
@@ -83,8 +81,12 @@ export class GameLoop {
     const frameStartTime = performance.now();
     let framesProcessed = 0;
 
+    // At Nx speed we run up to N times as many sub-steps per call so the scaled
+    // accumulator (see tick()) can actually be drained instead of clamped.
+    const maxFrames = this.maxFramesToSkip * this.speedMultiplier;
+
     // Process accumulated time
-    while (this.accumulator >= this.currentTimeStep && framesProcessed < this.maxFramesToSkip) {
+    while (this.accumulator >= this.currentTimeStep && framesProcessed < maxFrames) {
       // Update logic with current time step
       this.world.updateLogic(this.currentTimeStep);
 
@@ -114,10 +116,12 @@ export class GameLoop {
     const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
     this.lastTime = currentTime;
 
-    // Accumulate time for logic updates
-    this.accumulator += deltaTime;
+    // Accumulate simulation time scaled by game speed: at Nx, N seconds of sim time
+    // accrue per real second, so updateLogic() runs ~N times as many fixed sub-steps.
+    this.accumulator += deltaTime * this.speedMultiplier;
 
-    // Render update (variable time step)
+    // Render update uses real (unscaled) deltaTime — rendering always runs at
+    // real-time; only the simulation rate is sped up.
     this.world.updateRender(deltaTime);
 
     // Schedule next frame
