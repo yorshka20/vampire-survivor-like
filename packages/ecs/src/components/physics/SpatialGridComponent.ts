@@ -3,15 +3,15 @@ import { EntityType } from '@ecs/core/ecs/types';
 import { Point } from '@ecs/types/types';
 
 /**
- * Grid cell with pre-classified entity storage for better performance
- * Each entity type is stored separately to avoid runtime filtering
+ * Grid cell with pre-classified entity storage for better performance.
+ * Each entity type is stored in its own Set so queries never filter at runtime.
+ *
+ * There is intentionally no "all entities" Set: every spatial query type maps to
+ * one or more of the classified sets, so a combined set would only ever add a
+ * third write per insert with no reader. `count` tracks how many ids live across
+ * all classified sets, which is all we need to know when a cell becomes empty.
  */
 interface GridCell {
-  // Legacy storage for backward compatibility
-  entities: Set<string>;
-  entityTypes: Map<string, EntityType>;
-
-  // Pre-classified storage for better performance
   enemies: Set<string>;
   projectiles: Set<string>;
   pickups: Set<string>;
@@ -19,6 +19,9 @@ interface GridCell {
   areaEffects: Set<string>;
   objects: Set<string>;
   obstacles: Set<string>;
+  // Number of ids stored across all classified sets above. Used to detect when a
+  // cell is empty so it can be released back to the pool.
+  count: number;
 }
 
 /**
@@ -59,7 +62,6 @@ export class SpatialGridComponent extends Component {
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
   private readonly cacheConfigs: Map<SpatialQueryType, CacheConfig> = new Map();
-  private lastCacheUpdate: number = 0;
   private frameCount: number = 0;
   private lastCacheCleanupFrame: number = 0;
   private static readonly CACHE_CLEANUP_INTERVAL = 60;
@@ -145,8 +147,6 @@ export class SpatialGridComponent extends Component {
    */
   private createGridCell(): GridCell {
     return {
-      entities: new Set(),
-      entityTypes: new Map(),
       enemies: new Set(),
       projectiles: new Set(),
       pickups: new Set(),
@@ -154,13 +154,29 @@ export class SpatialGridComponent extends Component {
       areaEffects: new Set(),
       objects: new Set(),
       obstacles: new Set(),
+      count: 0,
     };
   }
 
   /**
-   * Get the appropriate entity set based on entity type
+   * Whether an entity type is indexed by the spatial grid.
+   *
+   * Only types that some query type can return are stored. Types like 'spawner'
+   * or 'other' are never looked up by position, so indexing them would just cost
+   * inserts/removes for ids no query ever reads.
    */
-  private getEntitySetByType(cell: GridCell, entityType: EntityType): Set<string> {
+  isIndexedType(entityType: EntityType): boolean {
+    return this.getEntitySetByType(this.probeCell, entityType) !== null;
+  }
+
+  // Shared throwaway cell used only by isIndexedType() to reuse the switch below
+  // without allocating. Its sets are never mutated.
+  private readonly probeCell: GridCell = this.createGridCell();
+
+  /**
+   * Get the appropriate entity set for a type, or null if the type is not indexed.
+   */
+  private getEntitySetByType(cell: GridCell, entityType: EntityType): Set<string> | null {
     switch (entityType) {
       case 'enemy':
         return cell.enemies;
@@ -177,8 +193,31 @@ export class SpatialGridComponent extends Component {
       case 'obstacle':
         return cell.obstacles;
       default:
-        return cell.entities; // Fallback to legacy storage
+        return null; // non-spatial types (spawner/other) are not indexed
     }
+  }
+
+  // --- Cell pooling -------------------------------------------------------
+  // A full rebuild clears the whole grid every frame. Recreating a GridCell
+  // (8 Sets) per occupied cell each frame produced large GC churn, so cells are
+  // recycled through this pool instead of being allocated and thrown away.
+  private readonly cellPool: GridCell[] = [];
+
+  private acquireCell(): GridCell {
+    const cell = this.cellPool.pop();
+    return cell ?? this.createGridCell();
+  }
+
+  private releaseCell(cell: GridCell): void {
+    cell.enemies.clear();
+    cell.projectiles.clear();
+    cell.pickups.clear();
+    cell.players.clear();
+    cell.areaEffects.clear();
+    cell.objects.clear();
+    cell.obstacles.clear();
+    cell.count = 0;
+    this.cellPool.push(cell);
   }
 
   /**
@@ -226,56 +265,67 @@ export class SpatialGridComponent extends Component {
   }
 
   /**
-   * Insert entity into grid with pre-classified storage
-   * Registers to all cells covered by its AABB if size is provided
+   * Insert entity into grid with pre-classified storage.
+   * Registers to all cells covered by its AABB if size is provided.
+   *
+   * @param invalidate When true (incremental updates), the affected cells' cache
+   *   entries are dropped. During a full rebuild the caller has already cleared
+   *   every cache via clear(), so per-cell invalidation would be ~54 wasted
+   *   Map.delete calls per entity — pass false to skip it.
    */
-  insert(entityId: string, position: Point, entityType: EntityType, size?: [number, number]): void {
+  insert(
+    entityId: string,
+    position: Point,
+    entityType: EntityType,
+    size?: [number, number],
+    invalidate: boolean = true,
+  ): void {
+    // Skip types no query ever reads (spawner/other) — they cost writes for nothing.
+    if (!this.isIndexedType(entityType)) return;
+
     const cellCoords = this.getCoveredCellCoords(position, size);
     for (const [cellX, cellY] of cellCoords) {
       const cellKey = `${cellX},${cellY}`;
-      if (!this.grid.has(cellKey)) {
-        this.grid.set(cellKey, this.createGridCell());
+      let cell = this.grid.get(cellKey);
+      if (!cell) {
+        cell = this.acquireCell();
+        this.grid.set(cellKey, cell);
       }
-      const cell = this.grid.get(cellKey)!;
-      // Add to legacy storage for backward compatibility
-      cell.entities.add(entityId);
-      cell.entityTypes.set(entityId, entityType);
-      // Add to pre-classified storage
-      const entitySet = this.getEntitySetByType(cell, entityType);
-      entitySet.add(entityId);
-      // Local cache invalidation
-      this.invalidateCacheForCell(cellX, cellY);
+      const entitySet = this.getEntitySetByType(cell, entityType)!;
+      if (!entitySet.has(entityId)) {
+        entitySet.add(entityId);
+        cell.count++;
+      }
+      if (invalidate) {
+        this.invalidateCacheForCell(cellX, cellY);
+      }
     }
   }
 
   /**
-   * Remove entity from grid
-   * Removes from all cells covered by its AABB if size is provided
+   * Remove entity from grid.
+   * Removes from all cells covered by its AABB if size is provided.
+   *
+   * entityType is required: it must match the type the entity was inserted with so
+   * the right classified set is targeted (an entity always lives in exactly one set
+   * per cell).
    */
-  remove(
-    entityId: string,
-    position: Point,
-    entityType?: EntityType,
-    size?: [number, number],
-  ): void {
+  remove(entityId: string, position: Point, entityType: EntityType, size?: [number, number]): void {
+    if (!this.isIndexedType(entityType)) return;
+
     const cellCoords = this.getCoveredCellCoords(position, size);
     for (const [cellX, cellY] of cellCoords) {
       const cellKey = `${cellX},${cellY}`;
       const cell = this.grid.get(cellKey);
-      if (cell) {
-        // Remove from legacy storage
-        cell.entities.delete(entityId);
-        const et = entityType || cell.entityTypes.get(entityId);
-        cell.entityTypes.delete(entityId);
-        // Remove from pre-classified storage
-        if (et) {
-          const entitySet = this.getEntitySetByType(cell, et);
-          entitySet.delete(entityId);
-        }
-        if (cell.entities.size === 0) {
+      if (!cell) continue;
+
+      const deleted = this.getEntitySetByType(cell, entityType)!.delete(entityId);
+      if (deleted) {
+        cell.count--;
+        if (cell.count === 0) {
           this.grid.delete(cellKey);
+          this.releaseCell(cell);
         }
-        // Local cache invalidation
         this.invalidateCacheForCell(cellX, cellY);
       }
     }
@@ -393,26 +443,28 @@ export class SpatialGridComponent extends Component {
   }
 
   /**
-   * Get entities by query type using pre-classified storage
-   * This replaces filterEntityByQueryType for better performance
+   * Get entities by query type using pre-classified storage.
+   *
+   * Within a single cell an id lives in exactly one classified set (an entity has
+   * one type), so concatenating the sets never produces duplicates here — no
+   * per-cell dedup is needed. Cross-cell duplicates (a large AABB spanning cells)
+   * are deduped once by the caller in calculateNearbyEntities().
    */
   private getEntitiesByQueryType(cell: GridCell, queryType: SpatialQueryType): string[] {
     switch (queryType) {
       case 'collision-distant':
       case 'collision':
         // return all collidable types
-        return Array.from(
-          new Set([
-            ...cell.enemies,
-            ...cell.players,
-            ...cell.projectiles,
-            ...cell.areaEffects,
-            ...cell.objects,
-            ...cell.obstacles,
-          ]),
-        );
+        return [
+          ...cell.enemies,
+          ...cell.players,
+          ...cell.projectiles,
+          ...cell.areaEffects,
+          ...cell.objects,
+          ...cell.obstacles,
+        ];
       case 'damage':
-        return Array.from(new Set([...cell.enemies, ...cell.projectiles, ...cell.areaEffects]));
+        return [...cell.enemies, ...cell.projectiles, ...cell.areaEffects];
       case 'pickup':
         return [...cell.pickups];
       case 'obstacle':
@@ -430,8 +482,6 @@ export class SpatialGridComponent extends Component {
   }
 
   private invalidateCaches(): void {
-    // Mark caches as needing update
-    this.lastCacheUpdate = 0;
     this.updateCaches();
   }
 
@@ -441,6 +491,11 @@ export class SpatialGridComponent extends Component {
   }
 
   clear(): void {
+    // Recycle occupied cells back into the pool instead of dropping them, so the
+    // next rebuild reuses their Sets rather than allocating fresh ones.
+    for (const cell of this.grid.values()) {
+      this.releaseCell(cell);
+    }
     this.grid.clear();
     this.invalidateCaches();
   }
@@ -448,6 +503,7 @@ export class SpatialGridComponent extends Component {
   reset(): void {
     super.reset();
     this.grid.clear();
+    this.cellPool.length = 0;
     this.cellSize = 0;
     this.invalidateCaches();
     this.frameCount = 0;
