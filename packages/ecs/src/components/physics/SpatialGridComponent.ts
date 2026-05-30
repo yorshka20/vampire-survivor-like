@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point, Viewport } from '@ecs/types/types';
+import { Point } from '@ecs/types/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance
@@ -55,9 +55,6 @@ export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
   public grid: Map<string, GridCell> = new Map();
   public cellSize: number;
-
-  private maxCellY: number = 10000;
-  private maxCellX: number = 10000;
 
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
@@ -125,13 +122,11 @@ export class SpatialGridComponent extends Component {
 
   /**
    * Returns the cell key for a given x, y position.
-   * If either coordinate is negative (outside viewport), returns an empty string.
+   * Negative coordinates are valid — the grid is an unbounded spatial hash.
    */
   private getCellKey(x: number, y: number): string {
     const cellX = Math.floor(x / this.cellSize);
     const cellY = Math.floor(y / this.cellSize);
-    // Only return key if cell is inside viewport (cellX, cellY >= 0)
-    if (cellX < 0 || cellY < 0 || cellX > this.maxCellX || cellY > this.maxCellY) return '';
     return `${cellX},${cellY}`;
   }
 
@@ -203,19 +198,16 @@ export class SpatialGridComponent extends Component {
   }
 
   /**
-   * Get all cell coordinates covered by an entity at position with optional size
-   * If size is not provided, returns the single cell coordinate for the position
-   * Only returns cell coordinates with non-negative values (inside viewport)
+   * Get all cell coordinates covered by an entity at position with optional size.
+   * Returns all cells the entity's AABB intersects, with no viewport-based filtering —
+   * the grid is an unbounded spatial hash and supports negative coordinates.
    */
   private getCoveredCellCoords(position: Point, size?: [number, number]): [number, number][] {
     if (!size) {
-      // Single cell
       const cellX = Math.floor(position[0] / this.cellSize);
       const cellY = Math.floor(position[1] / this.cellSize);
-      if (cellX < 0 || cellY < 0 || cellX > this.maxCellX || cellY > this.maxCellY) return [];
       return [[cellX, cellY]];
     }
-    // Multi-cell: compute AABB
     const minX = position[0] - size[0] / 2;
     const maxX = position[0] + size[0] / 2;
     const minY = position[1] - size[1] / 2;
@@ -227,17 +219,10 @@ export class SpatialGridComponent extends Component {
     const coords: [number, number][] = [];
     for (let x = cellMinX; x <= cellMaxX; x++) {
       for (let y = cellMinY; y <= cellMaxY; y++) {
-        if (x >= 0 && y >= 0 && x <= this.maxCellX && y <= this.maxCellY) {
-          coords.push([x, y]);
-        }
+        coords.push([x, y]);
       }
     }
     return coords;
-  }
-
-  updateMaxCell(viewport: Viewport) {
-    this.maxCellY = Math.floor((viewport[3] - viewport[1]) / this.cellSize);
-    this.maxCellX = Math.floor((viewport[2] - viewport[0]) / this.cellSize);
   }
 
   /**

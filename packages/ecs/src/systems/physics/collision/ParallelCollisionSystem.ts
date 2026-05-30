@@ -8,7 +8,6 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
-import { RenderSystem } from '@ecs/systems';
 import { getNumericPairKey } from '@ecs/utils/name';
 import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from './collisionUtils';
 
@@ -44,10 +43,6 @@ export class ParallelCollisionSystem extends System {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
-  }
-
-  private getRenderSystem(): RenderSystem {
-    return RenderSystem.getInstance();
   }
 
   // Main update loop
@@ -467,33 +462,5 @@ export class ParallelCollisionSystem extends System {
       physicsB.setVelocity([velB[0] + impulseX, velB[1] + impulseY]);
     }
 
-    // Clamp positions to viewport
-    this.clampToViewport(entityA);
-    this.clampToViewport(entityB);
-  }
-
-  // Clamps an entity's position to stay within the viewport boundaries
-  private clampToViewport(entity: Entity) {
-    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-    const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
-    if (!transform || !shape) return;
-
-    const viewport = this.getRenderSystem().getViewport();
-    const size = shape.getSize();
-    let [x, y] = transform.getPosition();
-
-    if (x - size[0] / 2 < viewport[0]) {
-      x = viewport[0] + size[0] / 2;
-    }
-    if (x + size[0] / 2 > viewport[0] + viewport[2]) {
-      x = viewport[0] + viewport[2] - size[0] / 2;
-    }
-    if (y - size[1] / 2 < viewport[1]) {
-      y = viewport[1] + size[1] / 2;
-    }
-    if (y + size[1] / 2 > viewport[1] + viewport[3]) {
-      y = viewport[1] + viewport[3] - size[1] / 2;
-    }
-    transform.setPosition([x, y]);
   }
 }

@@ -9,7 +9,6 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { RectArea } from '@ecs/types/types';
 import { getNumericPairKey } from '@ecs/utils/name';
-import { RenderSystem } from '../../rendering/RenderSystem';
 
 /**
  * Collision result for two entities
@@ -33,10 +32,6 @@ export class ExactCollisionSystem extends System {
 
   constructor(private positionalCorrectTimes: number = 10) {
     super('ExactCollisionSystem', SystemPriorities.COLLISION, 'logic');
-  }
-
-  private getRenderSystem(): RenderSystem {
-    return RenderSystem.getInstance();
   }
 
   /**
@@ -331,44 +326,5 @@ export class ExactCollisionSystem extends System {
         physicsB.setVelocity([velB[0] + impulseX, velB[1] + impulseY]);
       }
     }
-
-    // Clamp both positions to be fully inside the viewport after resolution
-    // This is the last step to ensure objects don't go out of bounds after resolving overlaps
-    const viewport = this.getRenderSystem().getViewport();
-    const shapeA = entityA.getComponent<ShapeComponent>(ShapeComponent.componentName);
-    const shapeB = entityB.getComponent<ShapeComponent>(ShapeComponent.componentName);
-    const sizeA = shapeA.getSize();
-    const sizeB = shapeB.getSize();
-
-    let [ax, ay] = transformA.getPosition();
-    if (ax - sizeA[0] / 2 < viewport[0]) {
-      ax = viewport[0] + sizeA[0] / 2;
-    }
-    if (ax + sizeA[0] / 2 > viewport[0] + viewport[2]) {
-      ax = viewport[0] + viewport[2] - sizeA[0] / 2;
-    }
-    if (ay - sizeA[1] / 2 < viewport[1]) {
-      ay = viewport[1] + sizeA[1] / 2;
-    }
-    if (ay + sizeA[1] / 2 > viewport[1] + viewport[3]) {
-      ay = viewport[1] + viewport[3] - sizeA[1] / 2;
-    }
-
-    let [bx, by] = transformB.getPosition();
-    if (bx - sizeB[0] / 2 < viewport[0]) {
-      bx = viewport[0] + sizeB[0] / 2;
-    }
-    if (bx + sizeB[0] / 2 > viewport[0] + viewport[2]) {
-      bx = viewport[0] + viewport[2] - sizeB[0] / 2;
-    }
-    if (by - sizeB[1] / 2 < viewport[1]) {
-      by = viewport[1] + sizeB[1] / 2;
-    }
-    if (by + sizeB[1] / 2 > viewport[1] + viewport[3]) {
-      by = viewport[1] + viewport[3] - sizeB[1] / 2;
-    }
-
-    transformA.setPosition([ax, ay]);
-    transformB.setPosition([bx, by]);
   }
 }

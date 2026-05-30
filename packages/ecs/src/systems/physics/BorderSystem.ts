@@ -8,7 +8,6 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
-import { RenderSystem } from '@ecs/systems';
 import { Vec2 } from '@ecs/types/types';
 import { CollisionPair } from './collision/collisionUtils';
 
@@ -29,10 +28,6 @@ export class BorderSystem extends System {
     this.friction = friction;
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
-  }
-
-  private getRenderSystem(): RenderSystem {
-    return RenderSystem.getInstance();
   }
 
   /**
@@ -256,30 +251,9 @@ export class BorderSystem extends System {
           position[0] + normal[0] * penetration,
           position[1] + normal[1] * penetration,
         ]);
-        // Clamp to viewport
-        this.ensureEntityInViewport(shape, transform);
       }
     } catch (error) {
       console.error('Error in collision worker for BorderSystem:', error);
-    }
-  }
-
-  /**
-   * Ensure entity's AABB is fully inside the viewport after collision
-   * @param shape - The ShapeComponent of the entity.
-   * @param transform - The TransformComponent of the entity.
-   */
-  private ensureEntityInViewport(shape: ShapeComponent, transform: TransformComponent): void {
-    const viewport = this.getRenderSystem().getViewport();
-    const [w, h] = shape.getSize();
-    let [nx, ny] = transform.getPosition();
-    // Clamp so that the entire AABB stays within the viewport
-    if (nx - w / 2 < viewport[0]) nx = viewport[0] + w / 2;
-    if (nx + w / 2 > viewport[0] + viewport[2]) nx = viewport[0] + viewport[2] - w / 2;
-    if (ny - h / 2 < viewport[1]) ny = viewport[1] + h / 2;
-    if (ny + h / 2 > viewport[1] + viewport[3]) ny = viewport[1] + viewport[3] - h / 2;
-    if (nx !== transform.getPosition()[0] || ny !== transform.getPosition()[1]) {
-      transform.setPosition([nx, ny]);
     }
   }
 }
