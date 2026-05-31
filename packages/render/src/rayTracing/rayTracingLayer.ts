@@ -241,20 +241,29 @@ export class RayTracingLayer extends CanvasRenderLayer {
     const tasksPerWorker = Math.ceil(tasks.length / workerCount);
     const activePromises: Promise<ProgressiveTileResult[]>[] = [];
 
+    // Scene serialization is identical for every worker in this pass, so do it once
+    // here instead of once per worker. For ray tracing we only want ball entities
+    // (objects with physics + circle shapes). Camera / lights are already hoisted above.
+    const allRenderableEntities = this.getLayerEntities(viewport);
+    const entitiesMap: Record<string, SerializedEntity> =
+      this.serializeEntities(allRenderableEntities);
+
+    // Loop-invariant guard: validate the shared buffer once before dispatching.
+    if (
+      !this.progressiveState.sampledPixelsBuffer ||
+      this.progressiveState.sampledPixelsBuffer.byteLength === 0
+    ) {
+      console.error('sampledPixelsBuffer is not initialized or empty!');
+      return []; // Skip this pass
+    }
+
     for (let i = 0; i < workerCount; i++) {
       const start = i * tasksPerWorker;
       const end = start + tasksPerWorker;
       const assignedTasks = tasks.slice(start, end);
       if (assignedTasks.length === 0) continue;
 
-      // For ray tracing, we only want ball entities (objects with physics and circle shapes)
-      // Filter to include only ball entities that should be ray traced
-      const allRenderableEntities = this.getLayerEntities(viewport);
-
-      const entitiesMap: Record<string, SerializedEntity> =
-        this.serializeEntities(allRenderableEntities);
-
-      // Prepare tile definitions for the worker
+      // Prepare tile definitions for the worker (the only per-worker data).
       const tiles = assignedTasks.map((task) => ({
         x: task.x,
         y: task.y,
@@ -262,15 +271,6 @@ export class RayTracingLayer extends CanvasRenderLayer {
         height: task.height,
         cellKey: task.cellKey,
       }));
-
-      // Validate that all required buffers are properly initialized
-      if (
-        !this.progressiveState.sampledPixelsBuffer ||
-        this.progressiveState.sampledPixelsBuffer.byteLength === 0
-      ) {
-        console.error('sampledPixelsBuffer is not initialized or empty!');
-        return []; // Skip this pass
-      }
 
       // Package all the data for the worker, including progressive sampling parameters.
       const taskData: ProgressiveRayTracingWorkerData = {
