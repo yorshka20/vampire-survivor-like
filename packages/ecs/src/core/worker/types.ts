@@ -67,24 +67,34 @@ export interface CollisionSabWorkerTask {
  * memory rather than an object tree, so `postMessage` carries only buffer
  * references plus a few scalars — no `structuredClone` of N entities per frame.
  *
+ * The broad phase runs in the worker: it owns a contiguous range of cells and
+ * enumerates candidate pairs from the shared cell directory itself. The main
+ * thread never builds a pair list.
+ *
  * Layout (strides/offsets) is defined in
  * `@ecs/systems/physics/collision/collisionSabLayout`.
  */
 export interface CollisionSabWorkerData extends BaseWorkerData {
   /** Float64Array: per-entity columns [posX, posY, sizeX, sizeY, typeCode]. Shared by all workers. */
   entityBuffer: SharedArrayBuffer;
-  /** Int32Array: per-pair entity indices [indexA, indexB]. Shared by all workers. */
-  pairBuffer: SharedArrayBuffer;
+  /** Int32Array (flat): each cell's member entity indices, sliced per cell by the directory. */
+  memberBuffer: SharedArrayBuffer;
+  /** Int32Array: per-cell rows [memberStart, memberCount, fwd0..fwd3] (forward-neighbour cell indices, -1 = none). */
+  cellDirBuffer: SharedArrayBuffer;
   /** Float64Array: per-collision [indexA, indexB, normalX, normalY, penetration]. */
   resultBuffer: SharedArrayBuffer;
   /** Int32Array (length = workerCount): collisions written by each worker (Atomics handshake). */
   countBuffer: SharedArrayBuffer;
   /** This worker's slot in countBuffer. */
   workerIndex: number;
-  /** Inclusive start pair index this worker processes. Also where it writes results. */
-  startPair: number;
-  /** Exclusive end pair index this worker processes. */
-  endPair: number;
+  /** Inclusive start cell index this worker processes. */
+  startCell: number;
+  /** Exclusive end cell index this worker processes. */
+  endCell: number;
+  /** Result slot index where this worker begins writing its collisions. */
+  resultSlotStart: number;
+  /** Max collisions this worker may write (its disjoint region size). */
+  resultSlotCapacity: number;
 }
 
 /**

@@ -82,8 +82,12 @@ export async function createSimulator(): Promise<Game> {
 }
 
 function initializeSystems(world: World, rootElement: HTMLElement) {
-  // skip systems for testing rayTracing renderer
-  world.addSystem(new ParallelCollisionSystem());
+  // Collision runs single-threaded on the main thread. We tried offloading the
+  // broad + narrow phase to the worker pool (useWorkers: true), but this workload
+  // is latency-bound, not compute-bound: the per-pair narrow phase is microseconds,
+  // so the postMessage round-trip + per-frame serialization cost more than the work
+  // saved. Pass `true` below to A/B the worker path against this one.
+  world.addSystem(new ParallelCollisionSystem(6, false));
   // world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
   world.addSystem(new SpawnSystem());
   world.addSystem(new BorderSystem(1));

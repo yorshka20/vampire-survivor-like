@@ -1,29 +1,37 @@
 import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import type { GridCell } from '@ecs/components/physics/SpatialGridComponent';
-import { FORWARD_NEIGHBORS } from './broadPhase';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { WorkerPoolManager } from '@ecs/core/worker';
+import { FORWARD_NEIGHBORS } from './broadPhase';
 import {
+  CD_FWD0,
+  CD_MEMBER_COUNT,
+  CD_MEMBER_START,
+  CELL_DIR_STRIDE,
+  CELL_FWD_COUNT,
   ENTITY_STRIDE,
   E_POS_X,
   E_POS_Y,
   E_SIZE_X,
   E_SIZE_Y,
   E_TYPE,
-  PAIR_STRIDE,
-  P_INDEX_A,
-  P_INDEX_B,
   RESULT_STRIDE,
   R_INDEX_A,
   R_INDEX_B,
   R_NORMAL_X,
   R_NORMAL_Y,
   R_PENETRATION,
+  shapeCodeToType,
   shapeTypeToCode,
 } from './collisionSabLayout';
-import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from './collisionUtils';
+import {
+  CollisionPair,
+  CollisionResult,
+  getCollisionNormalAndPenetration,
+  getCollisionNormalAndPenetrationScalar,
+} from './collisionUtils';
 
 /**
  * Per-frame dispatch context returned by startCollisionDetection: the worker
@@ -33,6 +41,8 @@ interface CollisionDispatch {
   promises: Promise<unknown>[];
   /** Per worker: the pair index at which it began writing results into resultView. */
   resultStarts: number[];
+  /** Active entity count this frame — the modulus for the collision-dedup key. */
+  entityCount: number;
 }
 
 interface ClusterInfo {
@@ -71,11 +81,17 @@ export class ParallelCollisionSystem extends System {
   private entityView: Float64Array;
   private entityCapacity = 0; // in entities
 
-  private pairSab: SharedArrayBuffer;
-  private pairView: Int32Array;
+  // Cell directory: the grid description the workers enumerate from.
+  private memberSab: SharedArrayBuffer; // flat per-cell member entity indices
+  private memberView: Int32Array;
+  private memberCapacity = 0; // in member slots
+  private cellDirSab: SharedArrayBuffer; // per-cell [memberStart, memberCount, fwd0..3]
+  private cellDirView: Int32Array;
+  private cellDirCapacity = 0; // in cells
+
   private resultSab: SharedArrayBuffer;
   private resultView: Float64Array;
-  private pairCapacity = 0; // in pairs (sizes both pairSab and resultSab)
+  private resultCapacity = 0; // in result slots (one per detected collision)
 
   private countSab: SharedArrayBuffer;
   private countView: Int32Array;
@@ -84,11 +100,17 @@ export class ParallelCollisionSystem extends System {
   private idToIndex: Map<string, number> = new Map();
   private indexToEntityId: string[] = [];
   private checkedPairs: Set<number> = new Set();
-  // Reused buffers holding a cell's / neighbour's object ids resolved to dense
-  // entity indices, so the inner pair loops never re-query idToIndex or allocate.
+  // Reused per-cell-index arrays: the cell behind each dense cellIndex, and that
+  // cell's estimated candidate-pair count (used to size + balance worker ranges).
+  private cellList: GridCell[] = [];
+  private candidate: number[] = [];
+  // Reused per-cell index buffers for the single-thread broad-phase sweep.
   private scratchCellIdx: number[] = [];
   private scratchNeighborIdx: number[] = [];
-
+  // Reused adjacency list + traversal stack for connected-component clustering,
+  // so identifyClusters is O(V + E) instead of re-scanning every pair per node.
+  private clusterAdjacency: Map<string, string[]> = new Map();
+  private clusterStack: string[] = [];
 
   // The shared buffers are reused across frames, so only one collision batch may
   // touch them at a time. The game loop fires logic sub-steps without awaiting
@@ -96,7 +118,18 @@ export class ParallelCollisionSystem extends System {
   // the buffers while the previous frame's workers are still reading them.
   private collisionInFlight = false;
 
-  constructor(private positionalCorrectTimes: number = 6) {
+  /**
+   * @param positionalCorrectTimes resolution iterations per frame.
+   * @param useWorkers when true, the broad + narrow phase runs across the worker
+   *   pool; when false (default) it runs inline on the main thread. For this
+   *   workload single-thread wins: the per-pair narrow phase is microseconds, so
+   *   the postMessage round-trip + per-frame serialization dominate — offloading
+   *   it costs more than it saves. The worker path is kept for that comparison.
+   */
+  constructor(
+    private positionalCorrectTimes: number = 6,
+    private useWorkers: boolean = false,
+  ) {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
@@ -106,15 +139,19 @@ export class ParallelCollisionSystem extends System {
     this.countSab = new SharedArrayBuffer(workerCount * Int32Array.BYTES_PER_ELEMENT);
     this.countView = new Int32Array(this.countSab);
 
-    // Seed entity/pair buffers; they grow on demand in ensure*Capacity().
+    // Seed shared buffers; they grow on demand in ensure*Capacity().
     this.entitySab = new SharedArrayBuffer(0);
     this.entityView = new Float64Array(this.entitySab);
-    this.pairSab = new SharedArrayBuffer(0);
-    this.pairView = new Int32Array(this.pairSab);
+    this.memberSab = new SharedArrayBuffer(0);
+    this.memberView = new Int32Array(this.memberSab);
+    this.cellDirSab = new SharedArrayBuffer(0);
+    this.cellDirView = new Int32Array(this.cellDirSab);
     this.resultSab = new SharedArrayBuffer(0);
     this.resultView = new Float64Array(this.resultSab);
     this.ensureEntityCapacity(1024);
-    this.ensurePairCapacity(4096);
+    this.ensureMemberCapacity(1024);
+    this.ensureCellDirCapacity(512);
+    this.ensureResultCapacity(4096);
   }
 
   /** Grow the entity column buffer to hold at least `count` entities (never shrinks). */
@@ -127,15 +164,32 @@ export class ParallelCollisionSystem extends System {
     this.entityView = new Float64Array(this.entitySab);
   }
 
-  /** Grow the pair + result buffers to hold at least `count` pairs (never shrinks). */
-  private ensurePairCapacity(count: number): void {
-    if (count <= this.pairCapacity) return;
-    let cap = this.pairCapacity || 4096;
+  /** Grow the flat member buffer to hold at least `count` member slots (never shrinks). */
+  private ensureMemberCapacity(count: number): void {
+    if (count <= this.memberCapacity) return;
+    let cap = this.memberCapacity || 1024;
     while (cap < count) cap *= 2;
-    this.pairCapacity = cap;
-    this.pairSab = new SharedArrayBuffer(cap * PAIR_STRIDE * Int32Array.BYTES_PER_ELEMENT);
-    this.pairView = new Int32Array(this.pairSab);
-    // Each pair yields at most one collision, so the result buffer is sized per pair.
+    this.memberCapacity = cap;
+    this.memberSab = new SharedArrayBuffer(cap * Int32Array.BYTES_PER_ELEMENT);
+    this.memberView = new Int32Array(this.memberSab);
+  }
+
+  /** Grow the cell-directory buffer to hold at least `count` cells (never shrinks). */
+  private ensureCellDirCapacity(count: number): void {
+    if (count <= this.cellDirCapacity) return;
+    let cap = this.cellDirCapacity || 512;
+    while (cap < count) cap *= 2;
+    this.cellDirCapacity = cap;
+    this.cellDirSab = new SharedArrayBuffer(cap * CELL_DIR_STRIDE * Int32Array.BYTES_PER_ELEMENT);
+    this.cellDirView = new Int32Array(this.cellDirSab);
+  }
+
+  /** Grow the result buffer to hold at least `count` collisions (never shrinks). */
+  private ensureResultCapacity(count: number): void {
+    if (count <= this.resultCapacity) return;
+    let cap = this.resultCapacity || 4096;
+    while (cap < count) cap *= 2;
+    this.resultCapacity = cap;
     this.resultSab = new SharedArrayBuffer(cap * RESULT_STRIDE * Float64Array.BYTES_PER_ELEMENT);
     this.resultView = new Float64Array(this.resultSab);
   }
@@ -149,11 +203,16 @@ export class ParallelCollisionSystem extends System {
 
     this.updateClusters(deltaTime);
 
-    // Bail if a previous sub-step's workers are still reading the shared buffers;
-    // re-entering here would overwrite them mid-flight (see collisionInFlight).
+    if (!this.useWorkers) {
+      // Single-thread: detect + resolve inline, no postMessage round-trip.
+      this.resolveCollisions(this.detectCollisionsInline(grid));
+      return;
+    }
+
+    // Worker path. Bail if a previous sub-step's workers are still reading the
+    // shared buffers; re-entering would overwrite them mid-flight (collisionInFlight).
     if (this.collisionInFlight) return;
 
-    // Start the collision detection process for the current frame
     const dispatch = this.startCollisionDetection(grid);
     if (!dispatch) return;
 
@@ -166,115 +225,74 @@ export class ParallelCollisionSystem extends System {
   }
 
   /**
-   * Writes the current frame's entities and candidate pairs into shared memory
-   * and dispatches disjoint pair ranges to the worker pool.
-   *
-   * Returns null when there is nothing to do, otherwise the worker completion
-   * promises plus each worker's result-region start offset.
+   * Pack the frame's active object entities into the entity columns and build the
+   * id <-> dense index maps. Returns the active entity count. Shared by the
+   * single-thread and worker paths (both read the columns by index).
    */
-  private startCollisionDetection(grid: Map<string, GridCell>): CollisionDispatch | null {
-    // !NOTICE: be sure to make object entity contain all necessary components.
+  private writeEntityColumns(): number {
     const allEntities = this.world.getEntitiesByCondition(
       (entity) => entity.active && !entity.toRemove && entity.isType('object'),
     );
 
-    // 1. Write entity columns into shared memory and build id -> dense index maps.
     this.ensureEntityCapacity(allEntities.length);
     this.idToIndex.clear();
     const ev = this.entityView;
     let entityCount = 0;
+
     for (const entity of allEntities) {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
-      if (transform && physics && shape) {
-        if (physics.isAsleep()) continue; // Skip sleeping entities in broadphase
-        const position = transform.getPosition();
-        const size = shape.getSize();
-        const base = entityCount * ENTITY_STRIDE;
-        ev[base + E_POS_X] = position[0];
-        ev[base + E_POS_Y] = position[1];
-        ev[base + E_SIZE_X] = size[0];
-        ev[base + E_SIZE_Y] = size[1];
-        ev[base + E_TYPE] = shapeTypeToCode(shape.getType());
+      if (!transform || !physics || !shape) continue;
+      if (physics.isAsleep()) continue; // Skip sleeping entities in broadphase
 
-        this.idToIndex.set(entity.id, entityCount);
-        this.indexToEntityId[entityCount] = entity.id;
-        entityCount++;
-      }
+      const position = transform.getPosition();
+      const size = shape.getSize();
+      const base = entityCount * ENTITY_STRIDE;
+      ev[base + E_POS_X] = position[0];
+      ev[base + E_POS_Y] = position[1];
+      ev[base + E_SIZE_X] = size[0];
+      ev[base + E_SIZE_Y] = size[1];
+      ev[base + E_TYPE] = shapeTypeToCode(shape.getType());
+
+      this.idToIndex.set(entity.id, entityCount);
+      this.indexToEntityId[entityCount] = entity.id;
+      entityCount++;
     }
 
-    if (entityCount < 2) return null;
-
-    // 2. Generate unique object-object pairs from the grid into the pair buffer.
-    const pairCount = this.collectCandidatePairs(grid, entityCount);
-
-    if (pairCount === 0) return null;
-
-    // 3. Distribute disjoint pair ranges among workers. The entity / pair / result
-    //    buffers are shared by reference, so postMessage only carries scalars.
-    const workerCount = this.workerPoolManager.getWorkerCount();
-    const pairsPerWorker = Math.ceil(pairCount / workerCount);
-    this.countView.fill(0); // reset per-worker collision counts before dispatch
-
-    const promises: Promise<unknown>[] = [];
-    const resultStarts: number[] = [];
-
-    for (let i = 0; i < workerCount; i++) {
-      const start = i * pairsPerWorker;
-      if (start >= pairCount) break;
-      const end = Math.min(start + pairsPerWorker, pairCount);
-
-      resultStarts.push(start);
-      promises.push(
-        this.workerPoolManager.submitTask(
-          'collisionSab',
-          {
-            entityBuffer: this.entitySab,
-            pairBuffer: this.pairSab,
-            resultBuffer: this.resultSab,
-            countBuffer: this.countSab,
-            workerIndex: i,
-            startPair: start,
-            endPair: end,
-          },
-          this.priority,
-        ),
-      );
-    }
-
-    return { promises, resultStarts };
+    return entityCount;
   }
 
   /**
-   * Broad phase: enumerate unique candidate object-object pairs from the grid
-   * into the pair buffer and return the pair count.
-   *
-   * A forward-neighbour sweep visits each pair of cells once. Object ids are
-   * resolved to dense indices once per cell (into reused scratch buffers) rather
-   * than per inner-loop iteration, and no per-cell arrays/Sets are allocated.
-   * The dedup set still guards against entities whose AABB spans multiple cells
-   * (the grid inserts such entities into every covered cell).
+   * Single-thread broad + narrow phase: the same forward-neighbour cell sweep the
+   * workers run, but executed inline reading the entity columns, collecting
+   * collisions into a plain array. No SAB, no postMessage. Duplicates from
+   * multi-cell entities are collapsed by an integer key here (collisions are
+   * sparse), so the sweep itself does no dedup.
    */
-  private collectCandidatePairs(grid: Map<string, GridCell>, entityCount: number): number {
-    this.checkedPairs.clear();
+  private detectCollisionsInline(grid: Map<string, GridCell>): CollisionPair[] {
+    const entityCount = this.writeEntityColumns();
+    const collisions: CollisionPair[] = [];
+    if (entityCount < 2) return collisions;
+
+    const ev = this.entityView;
     const cellIdx = this.scratchCellIdx;
     const nbrIdx = this.scratchNeighborIdx;
     const neighbors = FORWARD_NEIGHBORS;
-    let pairCount = 0;
+    const seen = this.checkedPairs;
+    seen.clear();
 
     for (const cell of grid.values()) {
       if (cell.objects.size < 1) continue;
-
       const m = this.resolveCellObjectIndices(cell.objects, cellIdx);
       if (m === 0) continue;
 
-      // Within-cell pairs (i < j) — unique by construction, no dedup hit needed.
+      // Within-cell pairs (i < j).
       for (let i = 0; i < m; i++) {
         const indexA = cellIdx[i];
         for (let j = i + 1; j < m; j++) {
-          pairCount = this.emitPair(indexA, cellIdx[j], entityCount, pairCount);
+          this.testInlinePair(ev, indexA, cellIdx[j], entityCount, seen, collisions);
         }
       }
 
@@ -290,45 +308,247 @@ export class ParallelCollisionSystem extends System {
           for (let j = 0; j < n; j++) {
             const indexB = nbrIdx[j];
             if (indexA === indexB) continue; // same entity spanning both cells
-            pairCount = this.emitPair(indexA, indexB, entityCount, pairCount);
+            this.testInlinePair(ev, indexA, indexB, entityCount, seen, collisions);
           }
         }
       }
     }
 
-    return pairCount;
+    return collisions;
+  }
+
+  /** Narrow-phase one candidate pair, pushing a deduped collision if they overlap. */
+  private testInlinePair(
+    ev: Float64Array,
+    ia: number,
+    ib: number,
+    entityCount: number,
+    seen: Set<number>,
+    out: CollisionPair[],
+  ): void {
+    const aBase = ia * ENTITY_STRIDE;
+    const bBase = ib * ENTITY_STRIDE;
+    const collision = getCollisionNormalAndPenetrationScalar(
+      ev[aBase + E_POS_X],
+      ev[aBase + E_POS_Y],
+      ev[aBase + E_SIZE_X],
+      ev[aBase + E_SIZE_Y],
+      shapeCodeToType(ev[aBase + E_TYPE]),
+      ev[bBase + E_POS_X],
+      ev[bBase + E_POS_Y],
+      ev[bBase + E_SIZE_X],
+      ev[bBase + E_SIZE_Y],
+      shapeCodeToType(ev[bBase + E_TYPE]),
+    );
+    if (!collision) return;
+
+    const key = ia < ib ? ia * entityCount + ib : ib * entityCount + ia;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    out.push({
+      a: this.indexToEntityId[ia],
+      b: this.indexToEntityId[ib],
+      type: 'object-object',
+      normal: collision.normal,
+      penetration: collision.penetration,
+    });
   }
 
   /**
    * Resolve a cell's object ids to this frame's dense entity indices, into the
-   * reused `out` buffer. Ids not in the active set (e.g. asleep entities that
-   * were skipped while filling the entity buffer) are dropped. Returns the count.
+   * reused `out` buffer. Ids not in the active set (asleep / skipped) are dropped.
    */
   private resolveCellObjectIndices(objects: Set<string>, out: number[]): number {
     let n = 0;
     for (const id of objects) {
       const idx = this.idToIndex.get(id);
-      if (idx !== undefined) out[n++] = idx;
+      if (idx !== undefined) {
+        out[n++] = idx;
+      }
     }
     out.length = n;
     return n;
   }
 
   /**
-   * De-dup and write a candidate (indexA, indexB) pair into the pair buffer.
-   * Returns the (possibly unchanged) pair count.
+   * Writes the current frame's entities and the grid's cell directory into shared
+   * memory, then dispatches contiguous cell ranges to the worker pool — the broad
+   * phase (candidate enumeration) runs inside the workers.
+   *
+   * Returns null when there is nothing to do, otherwise the worker completion
+   * promises plus each worker's result-region start slot.
    */
-  private emitPair(indexA: number, indexB: number, entityCount: number, pairCount: number): number {
-    const pairKey =
-      indexA < indexB ? indexA * entityCount + indexB : indexB * entityCount + indexA;
-    if (this.checkedPairs.has(pairKey)) return pairCount;
-    this.checkedPairs.add(pairKey);
+  private startCollisionDetection(grid: Map<string, GridCell>): CollisionDispatch | null {
+    // 1. Write entity columns into shared memory and build id -> dense index maps.
+    const entityCount = this.writeEntityColumns();
+    if (entityCount < 2) return null;
 
-    this.ensurePairCapacity(pairCount + 1);
-    const base = pairCount * PAIR_STRIDE;
-    this.pairView[base + P_INDEX_A] = indexA;
-    this.pairView[base + P_INDEX_B] = indexB;
-    return pairCount + 1;
+    // 2. Describe the grid for the workers: a flat member buffer + a per-cell
+    //    directory (member slice + forward-neighbour cell indices). This is the
+    //    only broad-phase work the main thread does now — O(N + cells), not
+    //    O(pairs); the actual pair enumeration happens inside the workers.
+    const cellCount = this.buildCellDirectory(grid);
+    if (cellCount === 0) return null;
+
+    // 3. Estimate each cell's candidate-pair count (cheap arithmetic from member
+    //    counts). The total sizes the result buffer; the running sum both starts
+    //    each worker's disjoint result region and balances the cell ranges.
+    const totalCandidates = this.computeCandidateCounts(cellCount);
+    if (totalCandidates === 0) return null;
+    this.ensureResultCapacity(totalCandidates);
+    this.countView.fill(0); // reset per-worker collision counts before dispatch
+
+    // 4. Partition cells into contiguous ranges of ~equal candidate count, one
+    //    per worker. Worker w's result region starts at the prefix sum of
+    //    candidate counts before its first cell, so the regions never overlap.
+    const candidate = this.candidate;
+    const workerCount = this.workerPoolManager.getWorkerCount();
+    const target = totalCandidates / workerCount;
+
+    const promises: Promise<unknown>[] = [];
+    const resultStarts: number[] = [];
+    let workerIndex = 0;
+    let rangeStartCell = 0;
+    let rangeStartSlot = 0; // prefix sum of candidate counts before rangeStartCell
+    let rangeCount = 0; // candidate count accumulated in the current range
+    let cumulative = 0;
+
+    for (let c = 0; c < cellCount; c++) {
+      rangeCount += candidate[c];
+      cumulative += candidate[c];
+
+      const isLast = c === cellCount - 1;
+      const reachedTarget = cumulative >= target * (workerIndex + 1);
+      if (!isLast && !(reachedTarget && workerIndex < workerCount - 1)) {
+        continue;
+      }
+
+      const endCell = c + 1;
+      if (rangeCount > 0) {
+        resultStarts.push(rangeStartSlot);
+        promises.push(
+          this.workerPoolManager.submitTask(
+            'collisionSab',
+            {
+              entityBuffer: this.entitySab,
+              memberBuffer: this.memberSab,
+              cellDirBuffer: this.cellDirSab,
+              resultBuffer: this.resultSab,
+              countBuffer: this.countSab,
+              workerIndex,
+              startCell: rangeStartCell,
+              endCell,
+              resultSlotStart: rangeStartSlot,
+              resultSlotCapacity: rangeCount,
+            },
+            this.priority,
+          ),
+        );
+        workerIndex++;
+      }
+
+      rangeStartCell = endCell;
+      rangeStartSlot += rangeCount;
+      rangeCount = 0;
+    }
+
+    if (promises.length === 0) return null;
+    return { promises, resultStarts, entityCount };
+  }
+
+  /**
+   * Build this frame's shared cell directory:
+   *  - assign every grid cell with >= 1 active member a dense `cellIndex`,
+   *  - append its members (active entity indices) to the flat member buffer,
+   *  - record each cell's member slice and its 4 forward-neighbour cell indices.
+   *
+   * Returns the cell count. The forward-neighbour resolution is the only string
+   * work, and it is O(cells), not O(pairs).
+   */
+  private buildCellDirectory(grid: Map<string, GridCell>): number {
+    // Upper bound on member slots: every (entity, cell) membership, asleep included.
+    let memberUpper = 0;
+    for (const cell of grid.values()) {
+      memberUpper += cell.objects.size;
+    }
+    this.ensureMemberCapacity(memberUpper);
+    this.ensureCellDirCapacity(grid.size);
+
+    const mv = this.memberView;
+    const dv = this.cellDirView;
+    const idToIndex = this.idToIndex;
+    const cellList = this.cellList;
+
+    // Pass 1: assign cellIndex + append active members. Cells with no active
+    // member get cellIndex -1, so neighbour lookups in pass 2 treat them as absent.
+    let cellCount = 0;
+    let memberPos = 0;
+    for (const cell of grid.values()) {
+      const startPos = memberPos;
+      for (const id of cell.objects) {
+        const idx = idToIndex.get(id);
+        if (idx !== undefined) {
+          mv[memberPos++] = idx;
+        }
+      }
+
+      const count = memberPos - startPos;
+      if (count === 0) {
+        cell.cellIndex = -1;
+        continue;
+      }
+
+      cell.cellIndex = cellCount;
+      cellList[cellCount] = cell;
+      const dBase = cellCount * CELL_DIR_STRIDE;
+      dv[dBase + CD_MEMBER_START] = startPos;
+      dv[dBase + CD_MEMBER_COUNT] = count;
+      cellCount++;
+    }
+
+    // Pass 2: resolve each cell's forward neighbours to their cellIndex (or -1).
+    for (let c = 0; c < cellCount; c++) {
+      const cell = cellList[c];
+      const dBase = c * CELL_DIR_STRIDE;
+      for (let k = 0; k < CELL_FWD_COUNT; k++) {
+        const offset = FORWARD_NEIGHBORS[k];
+        const neighbor = grid.get(`${cell.cellX + offset[0]},${cell.cellY + offset[1]}`);
+        dv[dBase + CD_FWD0 + k] = neighbor ? neighbor.cellIndex : -1;
+      }
+    }
+
+    return cellCount;
+  }
+
+  /**
+   * Per-cell candidate-pair count estimate: within-cell C(m, 2) plus, for each
+   * forward neighbour, m x (neighbour member count). Fills `this.candidate` and
+   * returns the total — an upper bound on collisions used to size the result
+   * buffer and balance worker ranges. Pure arithmetic; no enumeration.
+   */
+  private computeCandidateCounts(cellCount: number): number {
+    const dv = this.cellDirView;
+    const candidate = this.candidate;
+    let total = 0;
+
+    for (let c = 0; c < cellCount; c++) {
+      const dBase = c * CELL_DIR_STRIDE;
+      const m = dv[dBase + CD_MEMBER_COUNT];
+      let count = (m * (m - 1)) / 2; // within-cell pairs
+
+      for (let k = 0; k < CELL_FWD_COUNT; k++) {
+        const nc = dv[dBase + CD_FWD0 + k];
+        if (nc >= 0) {
+          count += m * dv[nc * CELL_DIR_STRIDE + CD_MEMBER_COUNT];
+        }
+      }
+
+      candidate[c] = count;
+      total += count;
+    }
+
+    return total;
   }
 
   // Awaits workers, reads collisions out of shared memory, and resolves them
@@ -338,130 +558,164 @@ export class ParallelCollisionSystem extends System {
 
       // Read detected collisions back out of the shared result buffer. Each
       // worker wrote `count` entries starting at its pair-range offset.
+      //
+      // Dedup here, on the collisions (sparse), rather than on every candidate
+      // pair in the broad phase: a multi-cell entity can have the same pair
+      // emitted by more than one worker, so collapse them by an integer key.
       const rv = this.resultView;
+      const entityCount = dispatch.entityCount;
+      const seen = this.checkedPairs;
+      seen.clear();
       const allCollisions: CollisionPair[] = [];
       for (let i = 0; i < dispatch.resultStarts.length; i++) {
         const count = Atomics.load(this.countView, i);
-        let off = dispatch.resultStarts[i] * RESULT_STRIDE;
+        const start = dispatch.resultStarts[i];
         for (let k = 0; k < count; k++) {
-          const idA = this.indexToEntityId[rv[off + R_INDEX_A]];
-          const idB = this.indexToEntityId[rv[off + R_INDEX_B]];
+          const base = (start + k) * RESULT_STRIDE;
+          const ia = rv[base + R_INDEX_A];
+          const ib = rv[base + R_INDEX_B];
+          const key = ia < ib ? ia * entityCount + ib : ib * entityCount + ia;
+          if (seen.has(key)) continue;
+          seen.add(key);
           allCollisions.push({
-            a: idA,
-            b: idB,
+            a: this.indexToEntityId[ia],
+            b: this.indexToEntityId[ib],
             type: 'object-object',
-            normal: [rv[off + R_NORMAL_X], rv[off + R_NORMAL_Y]],
-            penetration: rv[off + R_PENETRATION],
+            normal: [rv[base + R_NORMAL_X], rv[base + R_NORMAL_Y]],
+            penetration: rv[base + R_PENETRATION],
           });
-          off += RESULT_STRIDE;
         }
       }
 
-      const uniqueCollisions = this.filterUniqueCollisions(allCollisions);
-      this.identifyClusters(uniqueCollisions);
-
-      if (uniqueCollisions.size > 0) {
-        // The resolution process is iterative
-        for (let i = 0; i < this.positionalCorrectTimes; i++) {
-          let hasCollisions = false;
-          for (const pair of uniqueCollisions) {
-            const [idA, idB] = [pair.a, pair.b]; // Accessing a and b from the object
-            const entityA = this.world.getEntityById(idA);
-            const entityB = this.world.getEntityById(idB);
-
-            if (
-              entityA &&
-              entityB &&
-              entityA.active &&
-              entityB.active &&
-              !entityA.toRemove &&
-              !entityB.toRemove
-            ) {
-              const physicsA = entityA.getComponent<PhysicsComponent>(
-                PhysicsComponent.componentName,
-              );
-              const physicsB = entityB.getComponent<PhysicsComponent>(
-                PhysicsComponent.componentName,
-              );
-              if (physicsA?.isAsleep() && physicsB?.isAsleep()) {
-                continue;
-              }
-              if (physicsA?.isAsleep() || physicsB?.isAsleep()) {
-                this.wakeUpClusterForEntity(physicsA.isAsleep() ? entityA.id : entityB.id);
-              }
-              let result: CollisionResult;
-              // On the first iteration, we will use the pre-calculated result from the worker
-              if (i === 0) {
-                result = { normal: pair.normal, penetration: pair.penetration };
-              } else {
-                // On subsequent iterations, recalculate collision as positions have changed
-                result = this.checkObjectObjectCollision(entityA, entityB);
-              }
-
-              if (result && result.penetration > 0) {
-                this.resolveObjectObjectCollision(entityA, entityB, result);
-                hasCollisions = true;
-              } else {
-                // If no collision is detected in this pass, remove it from the set
-                uniqueCollisions.delete(pair);
-              }
-            } else {
-              // If entities are no longer valid, remove the pair
-              uniqueCollisions.delete(pair);
-            }
-          }
-          // If no collisions were resolved in a pass, we can stop early
-          if (!hasCollisions) break;
-        }
-      }
+      this.resolveCollisions(allCollisions);
     } catch (error) {
       console.error('Error in collision worker:', error);
     }
   }
 
-  private identifyClusters(collisions: Set<CollisionPair>): void {
-    // Reset cluster mapping for this frame
-    this.entityToClusterMap.clear();
-    const visited = new Set<string>();
+  /**
+   * Cluster the colliding entities (for the sleep system) and iteratively resolve
+   * the collisions on the main thread — the single writer of physics state, which
+   * keeps replay deterministic. Shared by the single-thread and worker paths.
+   */
+  private resolveCollisions(allCollisions: CollisionPair[]): void {
+    const uniqueCollisions = this.filterUniqueCollisions(allCollisions);
+    this.identifyClusters(uniqueCollisions);
+    if (uniqueCollisions.size === 0) return;
 
-    const allCollidingEntities = new Set<string>();
-    for (const pair of collisions) {
-      allCollidingEntities.add(pair.a);
-      allCollidingEntities.add(pair.b);
-    }
+    // The resolution process is iterative.
+    for (let i = 0; i < this.positionalCorrectTimes; i++) {
+      let hasCollisions = false;
+      for (const pair of uniqueCollisions) {
+        const entityA = this.world.getEntityById(pair.a);
+        const entityB = this.world.getEntityById(pair.b);
 
-    for (const entityId of allCollidingEntities) {
-      if (!visited.has(entityId)) {
-        const newCluster: Set<string> = new Set();
-        const queue: string[] = [entityId];
-        visited.add(entityId);
-
-        while (queue.length > 0) {
-          const currentId = queue.shift()!;
-          newCluster.add(currentId);
-
-          // Find all entities colliding with the current one
-          for (const pair of collisions) {
-            let neighborId: string | null = null;
-            if (pair.a === currentId) neighborId = pair.b;
-            if (pair.b === currentId) neighborId = pair.a;
-
-            if (neighborId && !visited.has(neighborId)) {
-              visited.add(neighborId);
-              queue.push(neighborId);
-            }
-          }
+        if (
+          !entityA ||
+          !entityB ||
+          !entityA.active ||
+          !entityB.active ||
+          entityA.toRemove ||
+          entityB.toRemove
+        ) {
+          // Entities are no longer valid, drop the pair.
+          uniqueCollisions.delete(pair);
+          continue;
         }
 
-        const clusterId = `cluster_${entityId}`;
-        this.clusters.set(clusterId, {
-          bodies: newCluster,
-          totalEnergy: 0,
-          isSleeping: false,
-          sleepTimer: 0,
-        });
-        newCluster.forEach((id) => this.entityToClusterMap.set(id, clusterId));
+        const physicsA = entityA.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+        const physicsB = entityB.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+        if (physicsA?.isAsleep() && physicsB?.isAsleep()) {
+          continue;
+        }
+        if (physicsA?.isAsleep() || physicsB?.isAsleep()) {
+          this.wakeUpClusterForEntity(physicsA.isAsleep() ? entityA.id : entityB.id);
+        }
+
+        // First pass uses the pre-computed result; later passes recompute as positions move.
+        const result: CollisionResult =
+          i === 0
+            ? { normal: pair.normal, penetration: pair.penetration }
+            : this.checkObjectObjectCollision(entityA, entityB);
+
+        if (result && result.penetration > 0) {
+          this.resolveObjectObjectCollision(entityA, entityB, result);
+          hasCollisions = true;
+        } else {
+          // No collision in this pass, remove it from the set.
+          uniqueCollisions.delete(pair);
+        }
       }
+
+      // If nothing was resolved in a pass, stop early.
+      if (!hasCollisions) break;
+    }
+  }
+
+  /**
+   * Group colliding entities into connected components (clusters) for the sleep
+   * system. This is a connected-components pass: O(V + E) via an adjacency list
+   * and an explicit stack — the previous version re-scanned the entire collision
+   * set for every node (O(V·P)) and dequeued with Array.shift (O(n) each).
+   *
+   * `this.clusters` is rebuilt every frame; clearing it here also stops the old
+   * `cluster_<id>` keys from accumulating frame after frame.
+   */
+  private identifyClusters(collisions: Set<CollisionPair>): void {
+    this.entityToClusterMap.clear();
+    this.clusters.clear();
+
+    // Build the adjacency list once: O(E).
+    const adj = this.clusterAdjacency;
+    adj.clear();
+    for (const pair of collisions) {
+      const a = adj.get(pair.a);
+      if (a) {
+        a.push(pair.b);
+      } else {
+        adj.set(pair.a, [pair.b]);
+      }
+
+      const b = adj.get(pair.b);
+      if (b) {
+        b.push(pair.a);
+      } else {
+        adj.set(pair.b, [pair.a]);
+      }
+    }
+
+    const visited = this.entityToClusterMap; // reuse: presence == visited
+    const stack = this.clusterStack;
+
+    for (const seed of adj.keys()) {
+      if (visited.has(seed)) continue;
+
+      const clusterId = `cluster_${seed}`;
+      const bodies = new Set<string>();
+      stack.length = 0;
+      stack.push(seed);
+      visited.set(seed, clusterId);
+
+      while (stack.length > 0) {
+        const current = stack.pop()!; // O(1), unlike Array.shift
+        bodies.add(current);
+
+        const neighbors = adj.get(current)!;
+        for (let i = 0; i < neighbors.length; i++) {
+          const nb = neighbors[i];
+          if (!visited.has(nb)) {
+            visited.set(nb, clusterId);
+            stack.push(nb);
+          }
+        }
+      }
+
+      this.clusters.set(clusterId, {
+        bodies,
+        totalEnergy: 0,
+        isSleeping: false,
+        sleepTimer: 0,
+      });
     }
   }
 
@@ -627,6 +881,5 @@ export class ParallelCollisionSystem extends System {
       physicsA.setVelocity([velA[0] - impulseX, velA[1] - impulseY]);
       physicsB.setVelocity([velB[0] + impulseX, velB[1] + impulseY]);
     }
-
   }
 }

@@ -1,13 +1,15 @@
 import {
+  CD_FWD0,
+  CD_MEMBER_COUNT,
+  CD_MEMBER_START,
+  CELL_DIR_STRIDE,
+  CELL_FWD_COUNT,
   ENTITY_STRIDE,
   E_POS_X,
   E_POS_Y,
   E_SIZE_X,
   E_SIZE_Y,
   E_TYPE,
-  PAIR_STRIDE,
-  P_INDEX_A,
-  P_INDEX_B,
   RESULT_STRIDE,
   R_INDEX_A,
   R_INDEX_B,
@@ -99,61 +101,130 @@ export function handleCollision(data: CollisionWorkerData): CollisionPair[] {
 }
 
 /**
- * SharedArrayBuffer-based object-object broad phase.
+ * Narrow-phase test for one candidate pair, writing the result if they collide.
  *
- * Reads entity columns and the candidate pair list from shared memory, runs the
- * narrow-phase test for this worker's assigned pair range, and writes detected
- * collisions back into the shared result buffer (no postMessage payload).
+ * Returns true when a collision was written at `writeOffset`, so the caller can
+ * advance its result cursor. Kept as a free function (not a closure) so the hot
+ * enumeration loops stay monomorphic.
+ */
+function testAndWritePair(
+  entities: Float64Array,
+  results: Float64Array,
+  writeOffset: number,
+  indexA: number,
+  indexB: number,
+): boolean {
+  const aBase = indexA * ENTITY_STRIDE;
+  const bBase = indexB * ENTITY_STRIDE;
+
+  const collision = getCollisionNormalAndPenetrationScalar(
+    entities[aBase + E_POS_X],
+    entities[aBase + E_POS_Y],
+    entities[aBase + E_SIZE_X],
+    entities[aBase + E_SIZE_Y],
+    shapeCodeToType(entities[aBase + E_TYPE]),
+    entities[bBase + E_POS_X],
+    entities[bBase + E_POS_Y],
+    entities[bBase + E_SIZE_X],
+    entities[bBase + E_SIZE_Y],
+    shapeCodeToType(entities[bBase + E_TYPE]),
+  );
+
+  if (!collision) {
+    return false;
+  }
+
+  results[writeOffset + R_INDEX_A] = indexA;
+  results[writeOffset + R_INDEX_B] = indexB;
+  results[writeOffset + R_NORMAL_X] = collision.normal[0];
+  results[writeOffset + R_NORMAL_Y] = collision.normal[1];
+  results[writeOffset + R_PENETRATION] = collision.penetration;
+  return true;
+}
+
+/**
+ * SharedArrayBuffer-based object-object broad phase, run inside the worker.
  *
- * Pairs are partitioned into disjoint ranges across workers, so each worker
- * writes into its own region of `resultBuffer` (starting at `startPair`) and its
- * own `countBuffer` slot — no contention, only the count uses Atomics as the
- * cross-thread visibility/handshake signal. Pairs are already de-duplicated on
- * the main thread, so no per-worker `checkedPairs` set is needed.
+ * This worker owns the contiguous cell range [startCell, endCell). For each cell
+ * it enumerates candidate pairs straight from the shared cell directory —
+ * within-cell pairs plus cell x forward-neighbour pairs — runs the narrow phase,
+ * and writes collisions into its own disjoint result region.
+ *
+ * The forward-neighbour scheme means every pair of cells is owned by exactly one
+ * cell (hence one worker), so workers never duplicate each other's work and never
+ * write to each other's result region — only the count uses Atomics, as the
+ * cross-thread visibility/handshake signal. Duplicates from entities whose AABB
+ * spans multiple cells are collapsed by the main thread at readback.
  */
 export function handleCollisionSab(data: CollisionSabWorkerData): void {
-  const { entityBuffer, pairBuffer, resultBuffer, countBuffer, workerIndex, startPair, endPair } =
-    data;
+  const {
+    entityBuffer,
+    memberBuffer,
+    cellDirBuffer,
+    resultBuffer,
+    countBuffer,
+    workerIndex,
+    startCell,
+    endCell,
+    resultSlotStart,
+    resultSlotCapacity,
+  } = data;
 
   const entities = new Float64Array(entityBuffer);
-  const pairs = new Int32Array(pairBuffer);
+  const members = new Int32Array(memberBuffer);
+  const dir = new Int32Array(cellDirBuffer);
   const results = new Float64Array(resultBuffer);
   const counts = new Int32Array(countBuffer);
 
-  // This worker's results begin at the same offset as its first pair, so the
-  // disjoint pair ranges map to disjoint result regions automatically.
-  let writeOffset = startPair * RESULT_STRIDE;
+  let writeSlot = resultSlotStart;
+  const maxSlot = resultSlotStart + resultSlotCapacity;
   let localCount = 0;
 
-  for (let p = startPair; p < endPair; p++) {
-    const pairBase = p * PAIR_STRIDE;
-    const indexA = pairs[pairBase + P_INDEX_A];
-    const indexB = pairs[pairBase + P_INDEX_B];
+  for (let c = startCell; c < endCell; c++) {
+    const dBase = c * CELL_DIR_STRIDE;
+    const mStart = dir[dBase + CD_MEMBER_START];
+    const mCount = dir[dBase + CD_MEMBER_COUNT];
 
-    const aBase = indexA * ENTITY_STRIDE;
-    const bBase = indexB * ENTITY_STRIDE;
+    // Within-cell pairs (i < j).
+    for (let i = 0; i < mCount; i++) {
+      const indexA = members[mStart + i];
+      for (let j = i + 1; j < mCount; j++) {
+        if (writeSlot >= maxSlot) {
+          break;
+        }
+        if (testAndWritePair(entities, results, writeSlot * RESULT_STRIDE, indexA, members[mStart + j])) {
+          writeSlot++;
+          localCount++;
+        }
+      }
+    }
 
-    const collision = getCollisionNormalAndPenetrationScalar(
-      entities[aBase + E_POS_X],
-      entities[aBase + E_POS_Y],
-      entities[aBase + E_SIZE_X],
-      entities[aBase + E_SIZE_Y],
-      shapeCodeToType(entities[aBase + E_TYPE]),
-      entities[bBase + E_POS_X],
-      entities[bBase + E_POS_Y],
-      entities[bBase + E_SIZE_X],
-      entities[bBase + E_SIZE_Y],
-      shapeCodeToType(entities[bBase + E_TYPE]),
-    );
+    // Cell x forward-neighbour pairs.
+    for (let k = 0; k < CELL_FWD_COUNT; k++) {
+      const nc = dir[dBase + CD_FWD0 + k];
+      if (nc < 0) {
+        continue;
+      }
+      const nBase = nc * CELL_DIR_STRIDE;
+      const nStart = dir[nBase + CD_MEMBER_START];
+      const nCount = dir[nBase + CD_MEMBER_COUNT];
 
-    if (collision) {
-      results[writeOffset + R_INDEX_A] = indexA;
-      results[writeOffset + R_INDEX_B] = indexB;
-      results[writeOffset + R_NORMAL_X] = collision.normal[0];
-      results[writeOffset + R_NORMAL_Y] = collision.normal[1];
-      results[writeOffset + R_PENETRATION] = collision.penetration;
-      writeOffset += RESULT_STRIDE;
-      localCount++;
+      for (let i = 0; i < mCount; i++) {
+        const indexA = members[mStart + i];
+        for (let j = 0; j < nCount; j++) {
+          const indexB = members[nStart + j];
+          if (indexA === indexB) {
+            continue; // same entity spanning both cells
+          }
+          if (writeSlot >= maxSlot) {
+            break;
+          }
+          if (testAndWritePair(entities, results, writeSlot * RESULT_STRIDE, indexA, indexB)) {
+            writeSlot++;
+            localCount++;
+          }
+        }
+      }
     }
   }
 

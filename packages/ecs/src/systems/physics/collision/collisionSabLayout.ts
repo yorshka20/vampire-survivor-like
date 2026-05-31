@@ -9,10 +9,15 @@
  * path incurred (the source of the worker-side Major GC).
  *
  * Buffers (all flat, columnar / array-of-structures):
- * - entity buffer  (Float64Array, stride ENTITY_STRIDE): per active object entity
- * - pair   buffer  (Int32Array,   stride PAIR_STRIDE):   per candidate pair, entity indices
- * - result buffer  (Float64Array, stride RESULT_STRIDE): per detected collision
- * - count  buffer  (Int32Array,   length = workerCount): collisions written per worker (Atomics signal)
+ * - entity   buffer (Float64Array, stride ENTITY_STRIDE):   per active object entity
+ * - member   buffer (Int32Array,   flat):                   per cell, its members' entity indices
+ * - cell-dir buffer (Int32Array,   stride CELL_DIR_STRIDE): per cell, member slice + forward neighbours
+ * - result   buffer (Float64Array, stride RESULT_STRIDE):   per detected collision
+ * - count    buffer (Int32Array,   length = workerCount):   collisions written per worker (Atomics signal)
+ *
+ * The broad phase (candidate-pair enumeration) runs inside the workers: the main
+ * thread only describes the grid via the member + cell-dir buffers, and each
+ * worker enumerates the cells it owns. So there is no pair buffer.
  */
 
 // --- Entity columns (Float64) ---
@@ -23,10 +28,13 @@ export const E_SIZE_X = 2;
 export const E_SIZE_Y = 3;
 export const E_TYPE = 4;
 
-// --- Pair columns (Int32) ---
-export const PAIR_STRIDE = 2;
-export const P_INDEX_A = 0;
-export const P_INDEX_B = 1;
+// --- Cell directory columns (Int32) ---
+// Each occupied cell gets a dense index 0..cellCount-1 and one row here.
+export const CELL_FWD_COUNT = 4; // forward-neighbour count (the other half is covered by those cells)
+export const CELL_DIR_STRIDE = 2 + CELL_FWD_COUNT; // [memberStart, memberCount, fwd0..fwd3]
+export const CD_MEMBER_START = 0;
+export const CD_MEMBER_COUNT = 1;
+export const CD_FWD0 = 2; // forward-neighbour cell indices live at CD_FWD0 .. CD_FWD0+CELL_FWD_COUNT-1 (-1 = none)
 
 // --- Result columns (Float64) ---
 export const RESULT_STRIDE = 5;
