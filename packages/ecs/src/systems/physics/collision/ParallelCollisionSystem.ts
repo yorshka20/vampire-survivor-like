@@ -1,4 +1,6 @@
 import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
+import type { GridCell } from '@ecs/components/physics/SpatialGridComponent';
+import { FORWARD_NEIGHBORS } from './broadPhase';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
@@ -82,6 +84,11 @@ export class ParallelCollisionSystem extends System {
   private idToIndex: Map<string, number> = new Map();
   private indexToEntityId: string[] = [];
   private checkedPairs: Set<number> = new Set();
+  // Reused buffers holding a cell's / neighbour's object ids resolved to dense
+  // entity indices, so the inner pair loops never re-query idToIndex or allocate.
+  private scratchCellIdx: number[] = [];
+  private scratchNeighborIdx: number[] = [];
+
 
   // The shared buffers are reused across frames, so only one collision batch may
   // touch them at a time. The game loop fires logic sub-steps without awaiting
@@ -165,7 +172,7 @@ export class ParallelCollisionSystem extends System {
    * Returns null when there is nothing to do, otherwise the worker completion
    * promises plus each worker's result-region start offset.
    */
-  private startCollisionDetection(grid: Map<string, { objects: Set<string> }>): CollisionDispatch | null {
+  private startCollisionDetection(grid: Map<string, GridCell>): CollisionDispatch | null {
     // !NOTICE: be sure to make object entity contain all necessary components.
     const allEntities = this.world.getEntitiesByCondition(
       (entity) => entity.active && !entity.toRemove && entity.isType('object'),
@@ -200,59 +207,8 @@ export class ParallelCollisionSystem extends System {
 
     if (entityCount < 2) return null;
 
-    // 2. Generate unique object-object pairs from the grid, writing entity
-    //    indices straight into the pair buffer. De-dup uses an index-based key
-    //    (indexA * entityCount + indexB), unique within this frame.
-    this.checkedPairs.clear();
-    let pairCount = 0;
-
-    for (const cellKey of grid.keys()) {
-      const cell = grid.get(cellKey);
-      if (!cell || !cell.objects || cell.objects.size < 1) continue;
-
-      const neighborKeys: string[] = [];
-      const [cellX, cellY] = cellKey.split(',').map(Number);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          neighborKeys.push(`${cellX + dx},${cellY + dy}`);
-        }
-      }
-
-      const potentialPartners = new Set<string>(cell.objects);
-      for (const key of neighborKeys) {
-        const neighborCell = grid.get(key);
-        if (neighborCell && neighborCell.objects) {
-          for (const partnerId of neighborCell.objects) {
-            potentialPartners.add(partnerId);
-          }
-        }
-      }
-
-      const cellObjects = Array.from(cell.objects);
-      const partnerObjects = Array.from(potentialPartners);
-
-      for (let i = 0; i < cellObjects.length; i++) {
-        const indexA = this.idToIndex.get(cellObjects[i]);
-        if (indexA === undefined) continue;
-        for (let j = 0; j < partnerObjects.length; j++) {
-          const indexB = this.idToIndex.get(partnerObjects[j]);
-          if (indexB === undefined || indexA === indexB) continue;
-
-          const pairKey =
-            indexA < indexB
-              ? indexA * entityCount + indexB
-              : indexB * entityCount + indexA;
-          if (this.checkedPairs.has(pairKey)) continue;
-          this.checkedPairs.add(pairKey);
-
-          this.ensurePairCapacity(pairCount + 1);
-          const pairBase = pairCount * PAIR_STRIDE;
-          this.pairView[pairBase + P_INDEX_A] = indexA;
-          this.pairView[pairBase + P_INDEX_B] = indexB;
-          pairCount++;
-        }
-      }
-    }
+    // 2. Generate unique object-object pairs from the grid into the pair buffer.
+    const pairCount = this.collectCandidatePairs(grid, entityCount);
 
     if (pairCount === 0) return null;
 
@@ -289,6 +245,90 @@ export class ParallelCollisionSystem extends System {
     }
 
     return { promises, resultStarts };
+  }
+
+  /**
+   * Broad phase: enumerate unique candidate object-object pairs from the grid
+   * into the pair buffer and return the pair count.
+   *
+   * A forward-neighbour sweep visits each pair of cells once. Object ids are
+   * resolved to dense indices once per cell (into reused scratch buffers) rather
+   * than per inner-loop iteration, and no per-cell arrays/Sets are allocated.
+   * The dedup set still guards against entities whose AABB spans multiple cells
+   * (the grid inserts such entities into every covered cell).
+   */
+  private collectCandidatePairs(grid: Map<string, GridCell>, entityCount: number): number {
+    this.checkedPairs.clear();
+    const cellIdx = this.scratchCellIdx;
+    const nbrIdx = this.scratchNeighborIdx;
+    const neighbors = FORWARD_NEIGHBORS;
+    let pairCount = 0;
+
+    for (const cell of grid.values()) {
+      if (cell.objects.size < 1) continue;
+
+      const m = this.resolveCellObjectIndices(cell.objects, cellIdx);
+      if (m === 0) continue;
+
+      // Within-cell pairs (i < j) — unique by construction, no dedup hit needed.
+      for (let i = 0; i < m; i++) {
+        const indexA = cellIdx[i];
+        for (let j = i + 1; j < m; j++) {
+          pairCount = this.emitPair(indexA, cellIdx[j], entityCount, pairCount);
+        }
+      }
+
+      // Cell x forward-neighbour pairs.
+      for (let k = 0; k < neighbors.length; k++) {
+        const offset = neighbors[k];
+        const neighbor = grid.get(`${cell.cellX + offset[0]},${cell.cellY + offset[1]}`);
+        if (!neighbor || neighbor.objects.size < 1) continue;
+
+        const n = this.resolveCellObjectIndices(neighbor.objects, nbrIdx);
+        for (let i = 0; i < m; i++) {
+          const indexA = cellIdx[i];
+          for (let j = 0; j < n; j++) {
+            const indexB = nbrIdx[j];
+            if (indexA === indexB) continue; // same entity spanning both cells
+            pairCount = this.emitPair(indexA, indexB, entityCount, pairCount);
+          }
+        }
+      }
+    }
+
+    return pairCount;
+  }
+
+  /**
+   * Resolve a cell's object ids to this frame's dense entity indices, into the
+   * reused `out` buffer. Ids not in the active set (e.g. asleep entities that
+   * were skipped while filling the entity buffer) are dropped. Returns the count.
+   */
+  private resolveCellObjectIndices(objects: Set<string>, out: number[]): number {
+    let n = 0;
+    for (const id of objects) {
+      const idx = this.idToIndex.get(id);
+      if (idx !== undefined) out[n++] = idx;
+    }
+    out.length = n;
+    return n;
+  }
+
+  /**
+   * De-dup and write a candidate (indexA, indexB) pair into the pair buffer.
+   * Returns the (possibly unchanged) pair count.
+   */
+  private emitPair(indexA: number, indexB: number, entityCount: number, pairCount: number): number {
+    const pairKey =
+      indexA < indexB ? indexA * entityCount + indexB : indexB * entityCount + indexA;
+    if (this.checkedPairs.has(pairKey)) return pairCount;
+    this.checkedPairs.add(pairKey);
+
+    this.ensurePairCapacity(pairCount + 1);
+    const base = pairCount * PAIR_STRIDE;
+    this.pairView[base + P_INDEX_A] = indexA;
+    this.pairView[base + P_INDEX_B] = indexB;
+    return pairCount + 1;
   }
 
   // Awaits workers, reads collisions out of shared memory, and resolves them

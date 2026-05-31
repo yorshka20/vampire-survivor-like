@@ -11,7 +11,7 @@ import { Point } from '@ecs/types/types';
  * third write per insert with no reader. `count` tracks how many ids live across
  * all classified sets, which is all we need to know when a cell becomes empty.
  */
-interface GridCell {
+export interface GridCell {
   enemies: Set<string>;
   projectiles: Set<string>;
   pickups: Set<string>;
@@ -22,6 +22,10 @@ interface GridCell {
   // Number of ids stored across all classified sets above. Used to detect when a
   // cell is empty so it can be released back to the pool.
   count: number;
+  // Integer cell coordinates, set when the cell is placed in the grid. Lets
+  // consumers walk neighbours arithmetically instead of re-parsing the "x,y" key.
+  cellX: number;
+  cellY: number;
 }
 
 /**
@@ -155,6 +159,8 @@ export class SpatialGridComponent extends Component {
       objects: new Set(),
       obstacles: new Set(),
       count: 0,
+      cellX: 0,
+      cellY: 0,
     };
   }
 
@@ -289,6 +295,8 @@ export class SpatialGridComponent extends Component {
       let cell = this.grid.get(cellKey);
       if (!cell) {
         cell = this.acquireCell();
+        cell.cellX = cellX;
+        cell.cellY = cellY;
         this.grid.set(cellKey, cell);
       }
       const entitySet = this.getEntitySetByType(cell, entityType)!;
