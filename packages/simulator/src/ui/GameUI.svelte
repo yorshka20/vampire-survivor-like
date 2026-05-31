@@ -23,6 +23,7 @@
   let forceFieldSystem: any = null; // ForceFieldSystem实例
   let forceStrength = 200;
   let forceDirection = [0, 1];
+  let ballSize = 2; // size of balls the spawner emits (applies to newly spawned only)
   let skip = false;
 
   function togglePause() {
@@ -68,6 +69,25 @@
           ? [...forceFieldSystem.forceField.direction]
           : [0, 1];
       }
+
+      // Seed the ball-size control from the spawner's current value.
+      const spawners = world.getEntitiesByType('spawner');
+      if (spawners && spawners.length > 0) {
+        ballSize = (spawners[0] as SpawnerEntityType).getBallSize();
+      }
+    }
+  }
+
+  /**
+   * Update the size of balls the spawner emits. Only affects balls spawned from
+   * now on; existing balls keep their size.
+   */
+  function updateBallSize() {
+    if (!globalGame) return;
+    const world = globalGame.getWorld();
+    const spawners = world.getEntitiesByType('spawner');
+    for (const spawner of spawners) {
+      (spawner as SpawnerEntityType).setBallSize(Number(ballSize));
     }
   }
 
@@ -261,6 +281,18 @@
             on:input={updateForceField}
           />
           <span class="forcefield-value">{forceDirection[1]}</span>
+        </label>
+        <label class="forcefield-label">
+          Ball:
+          <input
+            type="range"
+            min="1"
+            max="50"
+            step="1"
+            bind:value={ballSize}
+            on:input={updateBallSize}
+          />
+          <span class="forcefield-value">{ballSize}</span>
         </label>
       </div>
     {/if}

@@ -86,6 +86,15 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   setStopped(fn: (value: boolean) => boolean): void {
     this.isStopped = fn(this.isStopped);
   }
+
+  /** Size of balls emitted from now on. Existing balls keep their size. */
+  setBallSize(size: number): void {
+    this.ballSize = size;
+  }
+
+  getBallSize(): number {
+    return this.ballSize;
+  }
 }
 
 export type SpawnerEntityType = SpawnerEntity;
