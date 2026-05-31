@@ -93,12 +93,54 @@ export class World implements IWorld {
   addEntity(entity: Entity): void {
     this.entities.add(entity);
     this.entitiesById.set(entity.id, entity);
-    this.eventEmitter.emit('entityAdded', entity);
+
+    // Snapshot the entity's construction-time components into the index, then wire
+    // the entity to this world. After this, entity.addComponent / removeComponent
+    // transparently keep the index in sync via onComponentAttached/Detached — the
+    // caller still just uses entity.addComponent, no routing through the world.
+    for (const name of entity.components.keys()) {
+      this.addToComponentIndex(name, entity);
+    }
+    entity.setWorld(this);
 
     this.entitiesByType.set(entity.type, [...(this.entitiesByType.get(entity.type) ?? []), entity]);
+
+    this.eventEmitter.emit('entityAdded', entity);
+  }
+
+  // Component index: componentName -> entities currently carrying it. Lets
+  // getEntitiesWithComponents iterate the smallest matching bucket instead of
+  // scanning every entity on every call. Kept in sync by addEntity / removeEntity
+  // (construction-time components) and the IEntityWorld callbacks below (runtime
+  // entity.addComponent / removeComponent on a registered entity).
+  private readonly componentIndex: Map<string, Set<Entity>> = new Map();
+
+  private addToComponentIndex(name: string, entity: Entity): void {
+    let set = this.componentIndex.get(name);
+    if (!set) {
+      set = new Set();
+      this.componentIndex.set(name, set);
+    }
+    set.add(entity);
+  }
+
+  // IEntityWorld — invoked by a registered entity's own addComponent/removeComponent.
+  onComponentAttached(entity: Entity, componentName: string): void {
+    this.addToComponentIndex(componentName, entity);
+  }
+
+  onComponentDetached(entity: Entity, componentName: string): void {
+    this.componentIndex.get(componentName)?.delete(entity);
   }
 
   removeEntity(entity: Entity): void {
+    // Unwire from this world first so component teardown below doesn't churn the
+    // index, then deindex while components are still attached.
+    entity.setWorld(null);
+    for (const name of entity.components.keys()) {
+      this.componentIndex.get(name)?.delete(entity);
+    }
+
     // Notify all subscribers that the entity is being removed
     entity.notifyRemoved();
 
@@ -226,11 +268,41 @@ export class World implements IWorld {
     return system as T;
   }
 
-  // todo: use lru cache
+  /**
+   * Return all entities carrying every listed component.
+   *
+   * Backed by the component index: instead of scanning every entity, it iterates
+   * the smallest matching bucket and filters by the remaining components. Returns
+   * a fresh array each call (callers may iterate or keep it freely).
+   */
   getEntitiesWithComponents(componentTypes: { componentName: string }[]): Entity[] {
-    return Array.from(this.entities).filter((entity) =>
-      componentTypes.every((ComponentType) => entity.hasComponent(ComponentType.componentName)),
-    );
+    if (componentTypes.length === 0) return Array.from(this.entities);
+
+    // Find the smallest bucket among the requested components.
+    let smallest: Set<Entity> | undefined;
+    let smallestName = '';
+    for (const componentType of componentTypes) {
+      const bucket = this.componentIndex.get(componentType.componentName);
+      if (!bucket || bucket.size === 0) return []; // nothing carries this component
+      if (!smallest || bucket.size < smallest.size) {
+        smallest = bucket;
+        smallestName = componentType.componentName;
+      }
+    }
+
+    const result: Entity[] = [];
+    for (const entity of smallest!) {
+      let matches = true;
+      for (const componentType of componentTypes) {
+        if (componentType.componentName === smallestName) continue;
+        if (!entity.hasComponent(componentType.componentName)) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) result.push(entity);
+    }
+    return result;
   }
 
   getEntitiesByType(type: EntityType): Entity[] {

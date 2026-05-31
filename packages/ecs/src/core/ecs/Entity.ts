@@ -3,6 +3,17 @@ import { IPoolableConfig } from '../pool/IPoolable';
 import { EntityType, IComponent, IEntity } from './types';
 
 /**
+ * The world an entity belongs to, from the entity's point of view: it just needs
+ * to tell its world when a component is attached/detached so the world's component
+ * index stays in sync. `entity.addComponent` stays the single, intuitive API — the
+ * world is informed transparently via this back-reference (set while registered).
+ */
+export interface IEntityWorld {
+  onComponentAttached(entity: Entity, componentName: string): void;
+  onComponentDetached(entity: Entity, componentName: string): void;
+}
+
+/**
  * Base Entity class that implements the Entity interface
  */
 export class Entity implements IEntity {
@@ -17,6 +28,15 @@ export class Entity implements IEntity {
   active: boolean = true;
   toRemove: boolean = false;
   components: Map<string, IComponent> = new Map();
+
+  // The world this entity is registered in. Set by World.addEntity, cleared on
+  // removal. While set, addComponent/removeComponent inform it so the world's
+  // component index stays in sync — the caller still just uses entity.addComponent.
+  private world: IEntityWorld | null = null;
+
+  setWorld(world: IEntityWorld | null): void {
+    this.world = world;
+  }
 
   // onRemove will be called when the entity is removed from the world
   private onRemovedCallbacks: ((id: string) => void)[] = [];
@@ -38,6 +58,7 @@ export class Entity implements IEntity {
 
     this.components.set(component.name, component);
     component.onAttach(this);
+    this.world?.onComponentAttached(this, component.name);
   }
 
   removeComponent(componentName: string): void {
@@ -45,6 +66,7 @@ export class Entity implements IEntity {
     if (component) {
       component.onDetach();
       this.components.delete(componentName);
+      this.world?.onComponentDetached(this, componentName);
     }
   }
 
@@ -109,6 +131,7 @@ export class Entity implements IEntity {
 
     this.onRemovedCallbacks.length = 0;
     this.onDestroyedCallbacks.length = 0;
+    this.world = null;
 
     // Note: id, type, and numericId are not reset here
     // They will be set in recreate() method when the entity is reused

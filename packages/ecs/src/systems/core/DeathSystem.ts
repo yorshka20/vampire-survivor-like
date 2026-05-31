@@ -1,4 +1,5 @@
 import {
+  AIComponent,
   DeathMarkComponent,
   HealthComponent,
   StateComponent,
@@ -50,7 +51,10 @@ export class DeathSystem extends System {
   }
 
   update(deltaTime: number): void {
-    const entities = this.world.getEntitiesByType('enemy');
+    // Target by capability, not type: enemies are the mortal (HealthComponent),
+    // AI-driven (AIComponent) entities. This deliberately excludes the player
+    // (no AIComponent) — player death is handled separately, not here.
+    const entities = this.world.getEntitiesWithComponents([HealthComponent, AIComponent]);
     const entitiesToRemove: Entity[] = [];
 
     for (const entity of entities) {
