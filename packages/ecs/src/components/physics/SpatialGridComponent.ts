@@ -26,6 +26,10 @@ export interface GridCell {
   // consumers walk neighbours arithmetically instead of re-parsing the "x,y" key.
   cellX: number;
   cellY: number;
+  // Transient per-frame scratch for consumers that assign cells a dense index
+  // (e.g. ParallelCollisionSystem's shared-memory cell directory). Not maintained
+  // by the grid itself; a consumer that uses it must (re)set it every frame.
+  cellIndex: number;
 }
 
 /**
@@ -161,6 +165,7 @@ export class SpatialGridComponent extends Component {
       count: 0,
       cellX: 0,
       cellY: 0,
+      cellIndex: -1,
     };
   }
 
