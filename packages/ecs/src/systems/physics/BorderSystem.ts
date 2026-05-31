@@ -8,7 +8,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
-import { Vec2 } from '@ecs/types/types';
+import { Vec2, Viewport } from '@ecs/types/types';
 import { CollisionPair } from './collision/collisionUtils';
 
 /**
@@ -23,11 +23,26 @@ import { CollisionPair } from './collision/collisionUtils';
 export class BorderSystem extends System {
   private workerPoolManager: WorkerPoolManager;
 
+  // Optional hard play-area bounds [x, y, width, height]. When set, every object
+  // is clamped back inside each frame regardless of obstacle collision. This is a
+  // guaranteed containment net: obstacle (wall) collision alone leaks — a fast
+  // object can tunnel through a wall in one step, or the spatial grid may never
+  // pair it with a wall, and once outside nothing pushes it back.
+  private bounds: Viewport | null = null;
+
   constructor(private friction: number = 1) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
     this.friction = friction;
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
+  }
+
+  /**
+   * Set the hard containment bounds (the play area). Pass null to disable
+   * clamping and rely solely on obstacle collision.
+   */
+  setBounds(bounds: Viewport | null): void {
+    this.bounds = bounds;
   }
 
   /**
@@ -39,18 +54,89 @@ export class BorderSystem extends System {
    * @param deltaTime
    */
   async update(deltaTime: number): Promise<void> {
-    // Ensure spatial grid is available
-    if (!this.gridComponent) return;
+    // Elastic bounce off obstacle (wall) entities via the spatial grid.
+    const grid = this.gridComponent?.grid;
+    if (grid && grid.size > 0) {
+      const activePromises = this.startCollisionDetection(grid);
+      if (activePromises.length > 0) {
+        await this.handleWorkerResults(activePromises);
+      }
+    }
 
-    // Get the grid map from SpatialGridComponent
-    const grid = this.gridComponent.grid;
-    if (!grid || grid.size === 0) return;
+    // Guaranteed containment: clamp any object that escaped the play area back in.
+    this.clampObjectsToBounds();
+  }
 
-    // Start the collision detection process for the current frame
-    const activePromises = this.startCollisionDetection(grid);
+  /**
+   * Push every object back inside the play-area bounds. Runs after physics has
+   * moved entities this frame (BORDER > PHYSICS/TRANSFORM in priority), so it sees
+   * final positions. Unlike obstacle collision this cannot be tunnelled through:
+   * an object past the edge is snapped to it and its outward velocity reflected.
+   */
+  private clampObjectsToBounds(): void {
+    const bounds = this.bounds;
+    if (!bounds) return;
 
-    if (activePromises.length > 0) {
-      await this.handleWorkerResults(activePromises);
+    const minX = bounds[0];
+    const minY = bounds[1];
+    const maxX = bounds[0] + bounds[2];
+    const maxY = bounds[1] + bounds[3];
+
+    const objects = this.world.getEntitiesByCondition(
+      (entity) => entity.active && !entity.toRemove && entity.isType('object'),
+    );
+
+    for (const entity of objects) {
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
+      const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      if (!transform || !physics || !shape) continue;
+
+      const pos = transform.getPosition();
+      const size = shape.getSize();
+      const rx = size[0] / 2;
+      const ry = size[1] / 2;
+
+      const vel = physics.getVelocity();
+      let x = pos[0];
+      let y = pos[1];
+      let vx = vel[0];
+      let vy = vel[1];
+      let hit = false;
+
+      if (x - rx < minX) {
+        x = minX + rx;
+        if (vx < 0) {
+          vx = -vx * this.friction;
+        }
+        hit = true;
+      } else if (x + rx > maxX) {
+        x = maxX - rx;
+        if (vx > 0) {
+          vx = -vx * this.friction;
+        }
+        hit = true;
+      }
+
+      if (y - ry < minY) {
+        y = minY + ry;
+        if (vy < 0) {
+          vy = -vy * this.friction;
+        }
+        hit = true;
+      } else if (y + ry > maxY) {
+        y = maxY - ry;
+        if (vy > 0) {
+          vy = -vy * this.friction;
+        }
+        hit = true;
+      }
+
+      if (hit) {
+        transform.setPosition([x, y]);
+        physics.setVelocity([vx, vy]);
+        physics.wakeUp();
+      }
     }
   }
 

@@ -53,6 +53,15 @@ export async function createSimulator(): Promise<Game> {
   }
   const viewport = renderSystem.getViewport();
 
+  // Hard-contain objects to the play area. The four wall obstacles give an
+  // elastic bounce, but obstacle collision alone leaks (fast balls tunnel
+  // through a wall, or never get grid-paired with one); this clamp guarantees
+  // nothing escapes and flies off-screen.
+  const borderSystem = world.getSystem<BorderSystem>('BorderSystem', SystemPriorities.BORDER);
+  if (borderSystem) {
+    borderSystem.setBounds([0, 0, viewport[2], viewport[3]]);
+  }
+
   // Initialize the entities
   initializeEntities(world, viewport);
 
@@ -77,7 +86,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(new ParallelCollisionSystem());
   // world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
   world.addSystem(new SpawnSystem());
-  world.addSystem(new BorderSystem(0.9));
+  world.addSystem(new BorderSystem(1));
   world.addSystem(new PhysicsSystem());
   world.addSystem(new TransformSystem());
 
@@ -124,9 +133,9 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator = createGenerator(world, {
     position: [100, 100],
     maxEntities: 20000,
-    ballSize: 10,
+    ballSize: 2,
     velocity: [initialV * 110, initialV],
-    spawnGap: 50,
+    spawnGap: 10,
     generatorType: 'ball',
   });
   world.addEntity(generator);
