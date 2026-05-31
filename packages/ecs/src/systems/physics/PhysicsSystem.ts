@@ -77,11 +77,11 @@ export class PhysicsSystem extends System {
 
     // Set the position directly to the spiral position
     const spiralPos = spiralMovement.getPosition();
-    transform.setPosition([spiralPos[0], spiralPos[1]]);
+    transform.setPositionXY(spiralPos[0], spiralPos[1]);
 
     // Set the velocity for collision and other systems that need it
     const spiralVelocity = spiralMovement.getVelocity();
-    velocity.setVelocity([spiralVelocity[0], spiralVelocity[1]]);
+    velocity.setVelocityXY(spiralVelocity[0], spiralVelocity[1]);
   }
 
   private updateLinearVelocity(entity: Entity, deltaTime: number): void {
@@ -99,9 +99,6 @@ export class PhysicsSystem extends System {
     // Integrate position using velocity in units/second and delta time in seconds
     const position = transform.getPosition();
     const [vx, vy] = physics.getVelocity();
-    const newX = position[0] + vx * deltaTime;
-    const newY = position[1] + vy * deltaTime;
-
-    transform.setPosition([newX, newY]);
+    transform.setPositionXY(position[0] + vx * deltaTime, position[1] + vy * deltaTime);
   }
 }

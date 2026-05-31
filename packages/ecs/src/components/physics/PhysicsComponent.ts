@@ -85,6 +85,29 @@ export class PhysicsComponent extends Component {
     }
   }
 
+  /**
+   * Scalar form of setVelocity — writes the existing velocity array in place
+   * instead of adopting a freshly allocated [x, y] from the caller. Same blocked /
+   * wake-up / max-speed semantics. Preferred in per-frame hot paths.
+   */
+  setVelocityXY(x: number, y: number): void {
+    if (this.isBlocked) return;
+
+    if (this.isSleeping && (x !== 0 || y !== 0)) {
+      this.wakeUp();
+    }
+
+    this.velocity[0] = x;
+    this.velocity[1] = y;
+
+    const speed = Math.sqrt(x * x + y * y);
+    if (speed > this.maxSpeed) {
+      const scale = this.maxSpeed / speed;
+      this.velocity[0] *= scale;
+      this.velocity[1] *= scale;
+    }
+  }
+
   stop(): void {
     this.velocity[0] = 0;
     this.velocity[1] = 0;

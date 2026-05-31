@@ -46,6 +46,17 @@ export class TransformComponent extends Component {
     this.position[1] = position[1];
   }
 
+  /**
+   * Scalar form of setPosition — writes in place without allocating a [x, y]
+   * array at the call site. Preferred in per-frame hot paths (physics integration,
+   * collision response).
+   */
+  setPositionXY(x: number, y: number): void {
+    if (this.fixed) return;
+    this.position[0] = x;
+    this.position[1] = y;
+  }
+
   move(dx: number, dy: number): void {
     if (this.fixed) return;
     this.position[0] += dx;
