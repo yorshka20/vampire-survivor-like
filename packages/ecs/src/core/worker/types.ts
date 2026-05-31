@@ -27,15 +27,19 @@ export interface GeneralWorkerTask<T extends WorkerTaskType> {
   task: PickWorkerTaskType<T>;
 }
 
-export type WorkerTaskType = 'collision' | 'rayTracing';
+export type WorkerTaskType = 'collision' | 'collisionSab' | 'rayTracing';
 
 export type PickWorkerTaskDataType<T extends WorkerTaskType> = T extends 'collision'
   ? CollisionWorkerData
-  : RayTracingWorkerData;
+  : T extends 'collisionSab'
+    ? CollisionSabWorkerData
+    : RayTracingWorkerData;
 
 export type PickWorkerTaskType<T extends WorkerTaskType> = T extends 'collision'
   ? CollisionWorkerTask
-  : RayTracingWorkerTask;
+  : T extends 'collisionSab'
+    ? CollisionSabWorkerTask
+    : RayTracingWorkerTask;
 
 // Collision worker interfaces (unchanged)
 export interface CollisionWorkerTask {
@@ -45,6 +49,42 @@ export interface CollisionWorkerTask {
   reject: (reason?: any) => void;
   priority: number;
   data: CollisionWorkerData;
+}
+
+export interface CollisionSabWorkerTask {
+  taskId: number;
+  worker: Worker;
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  priority: number;
+  data: CollisionSabWorkerData;
+}
+
+/**
+ * SharedArrayBuffer-based payload for the object-object broad phase.
+ *
+ * Unlike {@link CollisionWorkerData}, the heavy per-entity data lives in shared
+ * memory rather than an object tree, so `postMessage` carries only buffer
+ * references plus a few scalars — no `structuredClone` of N entities per frame.
+ *
+ * Layout (strides/offsets) is defined in
+ * `@ecs/systems/physics/collision/collisionSabLayout`.
+ */
+export interface CollisionSabWorkerData extends BaseWorkerData {
+  /** Float64Array: per-entity columns [posX, posY, sizeX, sizeY, typeCode]. Shared by all workers. */
+  entityBuffer: SharedArrayBuffer;
+  /** Int32Array: per-pair entity indices [indexA, indexB]. Shared by all workers. */
+  pairBuffer: SharedArrayBuffer;
+  /** Float64Array: per-collision [indexA, indexB, normalX, normalY, penetration]. */
+  resultBuffer: SharedArrayBuffer;
+  /** Int32Array (length = workerCount): collisions written by each worker (Atomics handshake). */
+  countBuffer: SharedArrayBuffer;
+  /** This worker's slot in countBuffer. */
+  workerIndex: number;
+  /** Inclusive start pair index this worker processes. Also where it writes results. */
+  startPair: number;
+  /** Exclusive end pair index this worker processes. */
+  endPair: number;
 }
 
 /**

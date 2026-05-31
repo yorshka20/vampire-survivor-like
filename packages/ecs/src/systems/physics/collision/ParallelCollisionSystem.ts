@@ -1,15 +1,37 @@
-import {
-  ColliderComponent,
-  PhysicsComponent,
-  ShapeComponent,
-  TransformComponent,
-} from '@ecs/components';
+import { PhysicsComponent, ShapeComponent, TransformComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
-import { SimpleEntity, WorkerPoolManager } from '@ecs/core/worker';
-import { getNumericPairKey } from '@ecs/utils/name';
+import { WorkerPoolManager } from '@ecs/core/worker';
+import {
+  ENTITY_STRIDE,
+  E_POS_X,
+  E_POS_Y,
+  E_SIZE_X,
+  E_SIZE_Y,
+  E_TYPE,
+  PAIR_STRIDE,
+  P_INDEX_A,
+  P_INDEX_B,
+  RESULT_STRIDE,
+  R_INDEX_A,
+  R_INDEX_B,
+  R_NORMAL_X,
+  R_NORMAL_Y,
+  R_PENETRATION,
+  shapeTypeToCode,
+} from './collisionSabLayout';
 import { CollisionPair, CollisionResult, getCollisionNormalAndPenetration } from './collisionUtils';
+
+/**
+ * Per-frame dispatch context returned by startCollisionDetection: the worker
+ * completion promises plus where each worker's results live in the shared buffer.
+ */
+interface CollisionDispatch {
+  promises: Promise<unknown>[];
+  /** Per worker: the pair index at which it began writing results into resultView. */
+  resultStarts: number[];
+}
 
 interface ClusterInfo {
   bodies: Set<string>; // Store entity IDs
@@ -39,10 +61,76 @@ export class ParallelCollisionSystem extends System {
   private readonly SLEEP_ENERGY_THRESHOLD = 0.05;
   private readonly SLEEP_DELAY = 1000; // 1 second
 
+  // --- SharedArrayBuffer-backed broad-phase payload ---
+  // These buffers are reused (and only grown) across frames so the per-frame
+  // allocation of the worker payload drops to ~0, eliminating the structuredClone
+  // object tree that previously drove worker-side Major GC.
+  private entitySab: SharedArrayBuffer;
+  private entityView: Float64Array;
+  private entityCapacity = 0; // in entities
+
+  private pairSab: SharedArrayBuffer;
+  private pairView: Int32Array;
+  private resultSab: SharedArrayBuffer;
+  private resultView: Float64Array;
+  private pairCapacity = 0; // in pairs (sizes both pairSab and resultSab)
+
+  private countSab: SharedArrayBuffer;
+  private countView: Int32Array;
+
+  // Reused per-frame scratch (avoids per-frame allocation of the index maps).
+  private idToIndex: Map<string, number> = new Map();
+  private indexToEntityId: string[] = [];
+  private checkedPairs: Set<number> = new Set();
+
+  // The shared buffers are reused across frames, so only one collision batch may
+  // touch them at a time. The game loop fires logic sub-steps without awaiting
+  // (see GameLoop.updateLogic), so without this guard a new frame could overwrite
+  // the buffers while the previous frame's workers are still reading them.
+  private collisionInFlight = false;
+
   constructor(private positionalCorrectTimes: number = 6) {
     super('ParallelCollisionSystem', SystemPriorities.COLLISION, 'logic');
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
+
+    // countSab has a fixed slot per worker; allocate once.
+    const workerCount = Math.max(1, this.workerPoolManager.getWorkerCount());
+    this.countSab = new SharedArrayBuffer(workerCount * Int32Array.BYTES_PER_ELEMENT);
+    this.countView = new Int32Array(this.countSab);
+
+    // Seed entity/pair buffers; they grow on demand in ensure*Capacity().
+    this.entitySab = new SharedArrayBuffer(0);
+    this.entityView = new Float64Array(this.entitySab);
+    this.pairSab = new SharedArrayBuffer(0);
+    this.pairView = new Int32Array(this.pairSab);
+    this.resultSab = new SharedArrayBuffer(0);
+    this.resultView = new Float64Array(this.resultSab);
+    this.ensureEntityCapacity(1024);
+    this.ensurePairCapacity(4096);
+  }
+
+  /** Grow the entity column buffer to hold at least `count` entities (never shrinks). */
+  private ensureEntityCapacity(count: number): void {
+    if (count <= this.entityCapacity) return;
+    let cap = this.entityCapacity || 1024;
+    while (cap < count) cap *= 2;
+    this.entityCapacity = cap;
+    this.entitySab = new SharedArrayBuffer(cap * ENTITY_STRIDE * Float64Array.BYTES_PER_ELEMENT);
+    this.entityView = new Float64Array(this.entitySab);
+  }
+
+  /** Grow the pair + result buffers to hold at least `count` pairs (never shrinks). */
+  private ensurePairCapacity(count: number): void {
+    if (count <= this.pairCapacity) return;
+    let cap = this.pairCapacity || 4096;
+    while (cap < count) cap *= 2;
+    this.pairCapacity = cap;
+    this.pairSab = new SharedArrayBuffer(cap * PAIR_STRIDE * Int32Array.BYTES_PER_ELEMENT);
+    this.pairView = new Int32Array(this.pairSab);
+    // Each pair yields at most one collision, so the result buffer is sized per pair.
+    this.resultSab = new SharedArrayBuffer(cap * RESULT_STRIDE * Float64Array.BYTES_PER_ELEMENT);
+    this.resultView = new Float64Array(this.resultSab);
   }
 
   // Main update loop
@@ -54,52 +142,69 @@ export class ParallelCollisionSystem extends System {
 
     this.updateClusters(deltaTime);
 
-    // Start the collision detection process for the current frame
-    const activePromises = this.startCollisionDetection(grid);
+    // Bail if a previous sub-step's workers are still reading the shared buffers;
+    // re-entering here would overwrite them mid-flight (see collisionInFlight).
+    if (this.collisionInFlight) return;
 
-    if (activePromises.length > 0) {
-      await this.handleWorkerResults(activePromises);
+    // Start the collision detection process for the current frame
+    const dispatch = this.startCollisionDetection(grid);
+    if (!dispatch) return;
+
+    this.collisionInFlight = true;
+    try {
+      await this.handleWorkerResults(dispatch);
+    } finally {
+      this.collisionInFlight = false;
     }
   }
 
-  // Distributes collision detection tasks to the workers
-  private startCollisionDetection(
-    grid: Map<string, { objects: Set<string> }>,
-  ): Promise<CollisionPair[]>[] {
+  /**
+   * Writes the current frame's entities and candidate pairs into shared memory
+   * and dispatches disjoint pair ranges to the worker pool.
+   *
+   * Returns null when there is nothing to do, otherwise the worker completion
+   * promises plus each worker's result-region start offset.
+   */
+  private startCollisionDetection(grid: Map<string, { objects: Set<string> }>): CollisionDispatch | null {
     // !NOTICE: be sure to make object entity contain all necessary components.
     const allEntities = this.world.getEntitiesByCondition(
       (entity) => entity.active && !entity.toRemove && entity.isType('object'),
     );
-    const simpleEntities: Record<string, SimpleEntity> = {};
 
-    // Prepare a simplified dataset for the workers
+    // 1. Write entity columns into shared memory and build id -> dense index maps.
+    this.ensureEntityCapacity(allEntities.length);
+    this.idToIndex.clear();
+    const ev = this.entityView;
+    let entityCount = 0;
     for (const entity of allEntities) {
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
-      const collider = entity.getComponent<ColliderComponent>(ColliderComponent.componentName);
       const physics = entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName);
       const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
-      if (transform && collider && physics && shape) {
+      if (transform && physics && shape) {
         if (physics.isAsleep()) continue; // Skip sleeping entities in broadphase
         const position = transform.getPosition();
-        simpleEntities[entity.id] = {
-          id: entity.id,
-          numericId: entity.numericId,
-          isAsleep: physics.isAsleep(),
-          position: position,
-          collisionArea: collider.getCollisionArea(position, [0, 0, 0, 0]),
-          size: shape.getSize(),
-          type: shape.getType(),
-          entityType: 'object',
-        };
+        const size = shape.getSize();
+        const base = entityCount * ENTITY_STRIDE;
+        ev[base + E_POS_X] = position[0];
+        ev[base + E_POS_Y] = position[1];
+        ev[base + E_SIZE_X] = size[0];
+        ev[base + E_SIZE_Y] = size[1];
+        ev[base + E_TYPE] = shapeTypeToCode(shape.getType());
+
+        this.idToIndex.set(entity.id, entityCount);
+        this.indexToEntityId[entityCount] = entity.id;
+        entityCount++;
       }
     }
 
-    if (Object.keys(simpleEntities).length < 2) return [];
+    if (entityCount < 2) return null;
 
-    // Generate all unique object-object pairs from the grid
-    const pairs: { a: string; b: string }[] = [];
-    const checkedPairs = new Set<number>();
+    // 2. Generate unique object-object pairs from the grid, writing entity
+    //    indices straight into the pair buffer. De-dup uses an index-based key
+    //    (indexA * entityCount + indexB), unique within this frame.
+    this.checkedPairs.clear();
+    let pairCount = 0;
 
     for (const cellKey of grid.keys()) {
       const cell = grid.get(cellKey);
@@ -127,70 +232,91 @@ export class ParallelCollisionSystem extends System {
       const partnerObjects = Array.from(potentialPartners);
 
       for (let i = 0; i < cellObjects.length; i++) {
+        const indexA = this.idToIndex.get(cellObjects[i]);
+        if (indexA === undefined) continue;
         for (let j = 0; j < partnerObjects.length; j++) {
-          const idA = cellObjects[i];
-          const idB = partnerObjects[j];
+          const indexB = this.idToIndex.get(partnerObjects[j]);
+          if (indexB === undefined || indexA === indexB) continue;
 
-          if (idA === idB) continue; // An object cannot collide with itself
-          if (!simpleEntities[idA] || !simpleEntities[idB]) continue;
+          const pairKey =
+            indexA < indexB
+              ? indexA * entityCount + indexB
+              : indexB * entityCount + indexA;
+          if (this.checkedPairs.has(pairKey)) continue;
+          this.checkedPairs.add(pairKey);
 
-          const pairKey = getNumericPairKey(
-            simpleEntities[idA].numericId,
-            simpleEntities[idB].numericId,
-          );
-          if (!checkedPairs.has(pairKey)) {
-            pairs.push({ a: idA, b: idB });
-            checkedPairs.add(pairKey);
-          }
+          this.ensurePairCapacity(pairCount + 1);
+          const pairBase = pairCount * PAIR_STRIDE;
+          this.pairView[pairBase + P_INDEX_A] = indexA;
+          this.pairView[pairBase + P_INDEX_B] = indexB;
+          pairCount++;
         }
       }
     }
 
-    if (pairs.length === 0) return [];
+    if (pairCount === 0) return null;
 
-    // Distribute pairs among workers
+    // 3. Distribute disjoint pair ranges among workers. The entity / pair / result
+    //    buffers are shared by reference, so postMessage only carries scalars.
     const workerCount = this.workerPoolManager.getWorkerCount();
-    const pairsPerWorker = Math.ceil(pairs.length / workerCount);
-    const activePromises: Promise<CollisionPair[]>[] = [];
+    const pairsPerWorker = Math.ceil(pairCount / workerCount);
+    this.countView.fill(0); // reset per-worker collision counts before dispatch
+
+    const promises: Promise<unknown>[] = [];
+    const resultStarts: number[] = [];
 
     for (let i = 0; i < workerCount; i++) {
       const start = i * pairsPerWorker;
-      const end = start + pairsPerWorker;
-      const assignedPairs = pairs.slice(start, end);
+      if (start >= pairCount) break;
+      const end = Math.min(start + pairsPerWorker, pairCount);
 
-      if (assignedPairs.length > 0) {
-        const workerEntities: Record<string, SimpleEntity> = {};
-        for (const pair of assignedPairs) {
-          if (simpleEntities[pair.a] && !workerEntities[pair.a]) {
-            workerEntities[pair.a] = simpleEntities[pair.a];
-          }
-          if (simpleEntities[pair.b] && !workerEntities[pair.b]) {
-            workerEntities[pair.b] = simpleEntities[pair.b];
-          }
-        }
-
-        activePromises.push(
-          this.workerPoolManager.submitTask(
-            'collision',
-            {
-              entities: workerEntities,
-              pairs: assignedPairs,
-              pairMode: 'object-object',
-            },
-            this.priority,
-          ),
-        );
-      }
+      resultStarts.push(start);
+      promises.push(
+        this.workerPoolManager.submitTask(
+          'collisionSab',
+          {
+            entityBuffer: this.entitySab,
+            pairBuffer: this.pairSab,
+            resultBuffer: this.resultSab,
+            countBuffer: this.countSab,
+            workerIndex: i,
+            startPair: start,
+            endPair: end,
+          },
+          this.priority,
+        ),
+      );
     }
-    return activePromises;
+
+    return { promises, resultStarts };
   }
 
-  // Awaits and processes results from all workers
-  private async handleWorkerResults(activePromises: Promise<CollisionPair[]>[]) {
+  // Awaits workers, reads collisions out of shared memory, and resolves them
+  private async handleWorkerResults(dispatch: CollisionDispatch) {
     try {
-      const results = await Promise.all(activePromises);
+      await Promise.all(dispatch.promises);
 
-      const allCollisions = results.flat();
+      // Read detected collisions back out of the shared result buffer. Each
+      // worker wrote `count` entries starting at its pair-range offset.
+      const rv = this.resultView;
+      const allCollisions: CollisionPair[] = [];
+      for (let i = 0; i < dispatch.resultStarts.length; i++) {
+        const count = Atomics.load(this.countView, i);
+        let off = dispatch.resultStarts[i] * RESULT_STRIDE;
+        for (let k = 0; k < count; k++) {
+          const idA = this.indexToEntityId[rv[off + R_INDEX_A]];
+          const idB = this.indexToEntityId[rv[off + R_INDEX_B]];
+          allCollisions.push({
+            a: idA,
+            b: idB,
+            type: 'object-object',
+            normal: [rv[off + R_NORMAL_X], rv[off + R_NORMAL_Y]],
+            penetration: rv[off + R_PENETRATION],
+          });
+          off += RESULT_STRIDE;
+        }
+      }
+
       const uniqueCollisions = this.filterUniqueCollisions(allCollisions);
       this.identifyClusters(uniqueCollisions);
 
