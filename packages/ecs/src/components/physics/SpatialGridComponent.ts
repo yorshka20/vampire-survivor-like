@@ -64,8 +64,9 @@ interface CacheConfig {
 
 export class SpatialGridComponent extends Component {
   static componentName = 'SpatialGrid';
-  public grid: Map<string, GridCell> = new Map();
   public cellSize: number;
+  /** internal raw data bucket. should not be used directly by others. */
+  private grid: Map<string, GridCell> = new Map();
 
   // Cache system with local invalidation support
   private readonly caches: Map<SpatialQueryType, Map<string, CacheEntry>> = new Map();
@@ -140,6 +141,10 @@ export class SpatialGridComponent extends Component {
     return `${cellX},${cellY}`;
   }
 
+  getCellByKey(key: string) {
+    return this.grid.get(key);
+  }
+
   getCellBounds(cellKey: string): { x: number; y: number; width: number; height: number } {
     const [cellX, cellY] = cellKey.split(',').map(Number);
     return {
@@ -148,6 +153,14 @@ export class SpatialGridComponent extends Component {
       width: this.cellSize,
       height: this.cellSize,
     };
+  }
+
+  /**
+   * only for full iteration. not used for cache read.
+   * @returns
+   */
+  getAllGrids() {
+    return this.grid;
   }
 
   /**

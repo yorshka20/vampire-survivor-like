@@ -198,7 +198,7 @@ export class ParallelCollisionSystem extends System {
   async update(deltaTime: number): Promise<void> {
     if (!this.gridComponent) return;
 
-    const grid = this.gridComponent.grid;
+    const grid = this.gridComponent.getAllGrids();
     if (!grid || grid.size === 0) return;
 
     this.updateClusters(deltaTime);

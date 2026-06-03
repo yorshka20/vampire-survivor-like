@@ -64,7 +64,7 @@ export class ExactCollisionSystem extends System {
     if (!this.gridComponent) return;
 
     // Get the grid map from SpatialGridComponent
-    const grid = this.gridComponent.grid;
+    const grid = this.gridComponent.getAllGrids();
     if (!grid || grid.size === 0) return;
 
     // For each pass, try to resolve all overlaps

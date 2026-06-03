@@ -30,6 +30,8 @@ export class BorderSystem extends System {
   // pair it with a wall, and once outside nothing pushes it back.
   private bounds: Viewport | null = null;
 
+  private borderCells: string[] = [];
+
   constructor(private friction: number = 1) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
     this.friction = friction;
@@ -43,6 +45,19 @@ export class BorderSystem extends System {
    */
   setBounds(bounds: Viewport | null): void {
     this.bounds = bounds;
+    this.updateBorderCells();
+  }
+
+  private updateBorderCells() {
+    const cellSize = this.world.spatialCellSize;
+    const cells: string[] = [];
+    const [x, y, w, h] = this.bounds ?? [0, 0, 0, 0];
+    for (let i = x; i <= x + w; i = i + cellSize) {
+      for (let j = y; j <= y + h; j = j + cellSize) {
+        cells.push(`${Math.floor(i / cellSize)},${Math.floor(j / cellSize)}`);
+      }
+    }
+    this.borderCells = cells;
   }
 
   /**
@@ -55,9 +70,8 @@ export class BorderSystem extends System {
    */
   async update(deltaTime: number): Promise<void> {
     // Elastic bounce off obstacle (wall) entities via the spatial grid.
-    const grid = this.gridComponent?.grid;
-    if (grid && grid.size > 0) {
-      const activePromises = this.startCollisionDetection(grid);
+    if (this.borderCells.length) {
+      const activePromises = this.startCollisionDetection(this.borderCells);
       if (activePromises.length > 0) {
         await this.handleWorkerResults(activePromises);
       }
@@ -141,9 +155,7 @@ export class BorderSystem extends System {
   }
 
   // Distributes collision detection tasks to the workers
-  private startCollisionDetection(
-    grid: Map<string, { objects: Set<string>; obstacles?: Set<string> }>,
-  ): Promise<CollisionPair[]>[] {
+  private startCollisionDetection(grid: string[]): Promise<CollisionPair[]>[] {
     const simpleEntities: Record<string, SimpleEntity> = {};
     const objectEntities: Entity[] = [];
     const obstacleEntities: Entity[] = [];
@@ -152,13 +164,14 @@ export class BorderSystem extends System {
     const obstacleIds = new Set<string>();
 
     // Collect unique object and obstacle IDs from the grid
-    for (const cell of grid.values()) {
-      if (cell.objects) {
+    for (const key of grid) {
+      const cell = this.gridComponent?.getCellByKey(key);
+      if (cell?.objects) {
         for (const id of cell.objects) {
           objectIds.add(id);
         }
       }
-      if (cell.obstacles) {
+      if (cell?.obstacles) {
         for (const id of cell.obstacles) {
           obstacleIds.add(id);
         }
@@ -222,8 +235,8 @@ export class BorderSystem extends System {
     const pairs: { a: string; b: string }[] = [];
     const checkedPairs = new Set<string>();
 
-    for (const cellKey of grid.keys()) {
-      const cell = grid.get(cellKey);
+    for (const cellKey of grid) {
+      const cell = this.gridComponent?.getCellByKey(cellKey);
       if (!cell || !cell.objects || !cell.obstacles) continue;
 
       const neighborKeys: string[] = [];
@@ -236,7 +249,7 @@ export class BorderSystem extends System {
 
       const nearbyObstacles = new Set<string>();
       for (const key of neighborKeys) {
-        const neighborCell = grid.get(key);
+        const neighborCell = this.gridComponent?.getCellByKey(key);
         if (neighborCell && neighborCell.obstacles) {
           for (const obsId of neighborCell.obstacles) {
             nearbyObstacles.add(obsId);

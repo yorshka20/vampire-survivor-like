@@ -206,7 +206,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
       return [];
     }
 
-    const grid = this.getSpatialGridComponent().grid;
+    const grid = this.getSpatialGridComponent().getAllGrids();
 
     type Task = {
       cellKey: string;
