@@ -69,7 +69,7 @@ export class SpatialGridSystem extends System {
   init(): void {
     // Create spatial grid entity
     this.spatialGridEntity = new Entity('spatial-grid', 'other');
-    this.spatialComponent = new SpatialGridComponent(100);
+    this.spatialComponent = new SpatialGridComponent(this.world.spatialCellSize);
     this.spatialGridEntity.addComponent(this.spatialComponent);
 
     // Subscribe to entity lifecycle BEFORE adding any entity (including our own
@@ -85,6 +85,12 @@ export class SpatialGridSystem extends System {
     // The grid is an unbounded spatial hash, so a resize does not change cell
     // coordinates. We still reseed to be safe against any external grid clear.
     window.addEventListener('resize', this.onResize);
+  }
+
+  updateCellCache(size: number) {
+    this.spatialComponent?.reset();
+    this.spatialComponent = null;
+    this.spatialComponent = new SpatialGridComponent(size);
   }
 
   /**

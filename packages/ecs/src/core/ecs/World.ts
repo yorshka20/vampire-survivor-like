@@ -1,3 +1,5 @@
+import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { SpatialGridSystem } from '@ecs/systems';
 import { generateEntityId } from '../../utils/name';
 import { ComponentPoolList, EntityPoolList } from '../pool/constants';
 import { PoolManager } from '../pool/PoolManager';
@@ -22,6 +24,8 @@ export class World implements IWorld {
   entities: Set<Entity> = new Set();
   private entitiesByType: Map<EntityType, Entity[]> = new Map();
   private entitiesById: Map<string, Entity> = new Map();
+
+  private spatialGridCellSize: number = 100;
 
   systems: Map<string, ISystem> = new Map();
   renderSystems: ISystem[] = [];
@@ -218,6 +222,18 @@ export class World implements IWorld {
   removeSystem(systemName: string): void {
     this.systems.delete(systemName);
     this.updateSystemOrder();
+  }
+
+  get spatialCellSize() {
+    return this.spatialGridCellSize;
+  }
+
+  setSpatialGridCellSize(size: number) {
+    this.spatialGridCellSize = size;
+    this.getSystem<SpatialGridSystem>(
+      'SpatialGridSystem',
+      SystemPriorities.SPATIAL_GRID,
+    )?.updateCellCache(size);
   }
 
   /**
