@@ -99,11 +99,29 @@ export class Canvas2dRenderer implements IRenderer {
     });
   }
 
-  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
+  update(
+    deltaTime: number,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+    zoom: number = 1,
+  ): void {
+    // All layers share mainCtx, so a single scale here zooms every layer at once.
+    // Each layer's own save/translate/restore composes on top of this base scale,
+    // yielding canvasPixel = zoom * (cameraOffset + worldPos).
+    const applyZoom = zoom !== 1;
+    if (applyZoom) {
+      this.mainCtx.save();
+      this.mainCtx.scale(zoom, zoom);
+    }
+
     for (const layer of this.layers) {
       if (layer.visible) {
         layer.update(deltaTime, viewport, cameraOffset);
       }
+    }
+
+    if (applyZoom) {
+      this.mainCtx.restore();
     }
   }
 

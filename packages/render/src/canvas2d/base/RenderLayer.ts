@@ -54,20 +54,21 @@ export abstract class BaseRenderLayer extends IRenderLayer {
 
     if (!this.renderSystem) return false;
     const cameraOffset = this.renderSystem.getCameraOffset();
+    const zoom = this.renderSystem.getZoom();
 
     const [w, h] = shape.getSize();
     const halfW = w / 2;
     const halfH = h / 2;
 
-    // The renderer draws world (wx, wy) at canvas pixel (wx + cameraOffset[0], ...).
+    // The renderer draws world (wx, wy) at canvas pixel zoom*(wx + cameraOffset[0]).
     // Visible on canvas = canvas pixel in [viewport[0], viewport[0]+viewport[2]],
-    // so the visible world AABB is [viewport[0..2]] shifted by -cameraOffset.
-    // This formulation works for both camera-follow games (cameraOffset moves
-    // with the player) and static scenes like the simulator (cameraOffset = 0).
-    const vL = viewport[0] - cameraOffset[0];
-    const vR = viewport[0] + viewport[2] - cameraOffset[0];
-    const vT = viewport[1] - cameraOffset[1];
-    const vB = viewport[1] + viewport[3] - cameraOffset[1];
+    // so the visible world AABB is [viewport[0..2]]/zoom shifted by -cameraOffset.
+    // With zoom = 1 this collapses to the original camera-offset-only formulation,
+    // which keeps camera-follow games and static scenes unaffected.
+    const vL = viewport[0] / zoom - cameraOffset[0];
+    const vR = (viewport[0] + viewport[2]) / zoom - cameraOffset[0];
+    const vT = viewport[1] / zoom - cameraOffset[1];
+    const vB = (viewport[1] + viewport[3]) / zoom - cameraOffset[1];
 
     const ePos = transform.getPosition();
     return (

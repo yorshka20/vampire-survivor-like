@@ -30,7 +30,12 @@ export interface IRenderer {
 
   clear(): void;
 
-  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void;
+  update(
+    deltaTime: number,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+    zoom?: number,
+  ): void;
 
   onResize(): void;
 

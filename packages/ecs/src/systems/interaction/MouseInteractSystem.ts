@@ -1,4 +1,4 @@
-import { InteractComponent } from '@ecs/components';
+import { InteractActiveComponent, InteractComponent, SpatialGridComponent } from '@ecs/components';
 import { ShapeComponent } from '@ecs/components/physics/shape/ShapeComponent';
 import { TransformComponent } from '@ecs/components/physics/TransformComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
@@ -6,6 +6,7 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { Point } from '@ecs/types/types';
 import { isMobileDevice } from '@ecs/utils/platform';
+import { SpatialGridSystem } from '../physics/SpatialGridSystem';
 import { RenderSystem } from '../rendering/RenderSystem';
 
 /**
@@ -26,14 +27,27 @@ import { RenderSystem } from '../rendering/RenderSystem';
 export class MouseInteractSystem extends System {
   private isMobileDevice: boolean;
 
-  /** Entities currently carrying an InteractComponent (hit-test candidates). */
-  private interactEntities: Set<Entity> = new Set();
-
   private renderSystem: RenderSystem | null = null;
   private rootElement: HTMLElement | null = null;
 
   /** Entity being held/dragged by the pointer, null when idle. */
   private draggingEntity: Entity | null = null;
+
+  /**
+   * The currently hovered and selected entities. Tracking them directly (instead
+   * of re-deriving from a full scan of every interactive entity) keeps both the
+   * per-event work and the InteractionLayer's border rendering O(1): the only
+   * entities that ever need their flags touched or a border drawn are these two.
+   */
+  private hovered: Entity | null = null;
+  private selected: Entity | null = null;
+
+  /**
+   * Spatial hash used to answer "what's under the cursor" without scanning every
+   * interactive entity. Resolved lazily from the SpatialGridSystem; null when the
+   * world has no grid, in which case hit-testing falls back to a linear scan.
+   */
+  private interactGrid: SpatialGridComponent | null = null;
 
   /**
    * Offset (world space) between the entity origin and the pointer at grab time,
@@ -51,9 +65,6 @@ export class MouseInteractSystem extends System {
 
   /** Set to true to print interaction diagnostics. */
   debugInteract = true;
-
-  /** Last hovered entity id, so hover logs fire only on change (not every move). */
-  private lastHoveredId: string | null = null;
 
   constructor() {
     super('MouseInteractSystem', SystemPriorities.MOUSE_INTERACT, 'logic');
@@ -84,9 +95,9 @@ export class MouseInteractSystem extends System {
       target.addEventListener('mouseleave', this.handleMouseLeave);
     }
 
-    this.refreshInteractEntities();
-
-    this.world.onEntityAdded.subscribe(this.handleEntityAdded);
+    // We don't keep our own list of interactive entities — the World already
+    // indexes them in the InteractComponent bucket. We only need notification when
+    // an entity disappears so a stale hovered/selected/dragging reference is cleared.
     this.world.onEntityRemoved.subscribe(this.handleEntityRemoved);
 
     // if (this.debugInteract) {
@@ -117,11 +128,11 @@ export class MouseInteractSystem extends System {
       }
     }
 
-    this.world.onEntityAdded.unsubscribe(this.handleEntityAdded);
     this.world.onEntityRemoved.unsubscribe(this.handleEntityRemoved);
 
-    this.interactEntities.clear();
     this.draggingEntity = null;
+    this.hovered = null;
+    this.selected = null;
   }
 
   update(): void {
@@ -131,34 +142,42 @@ export class MouseInteractSystem extends System {
 
   // ===== Entity bookkeeping =================================================
 
-  private handleEntityAdded = (entity: Entity) => {
-    if (entity.hasComponent(InteractComponent.componentName)) {
-      this.interactEntities.add(entity);
-    }
-  };
-
   private handleEntityRemoved = (entity: Entity) => {
-    this.interactEntities.delete(entity);
     if (this.draggingEntity === entity) {
       this.draggingEntity = null;
     }
+    if (this.hovered === entity) {
+      this.hovered = null;
+    }
+    if (this.selected === entity) {
+      this.selected = null;
+    }
   };
 
-  private refreshInteractEntities(): void {
-    this.interactEntities.clear();
-    const entities = this.world.getEntitiesByCondition((entity) =>
-      entity.hasComponent(InteractComponent.componentName),
-    );
-    for (const entity of entities) {
-      this.interactEntities.add(entity);
+  /**
+   * Reflect an entity's "active" interaction state (hovered or selected) as the
+   * presence of an {@link InteractActiveComponent}. This keeps the active set in a
+   * dedicated, tiny World bucket so renderers can pull it without scanning the full
+   * interactive set. Called whenever this system flips an entity's hover/select.
+   */
+  private syncActiveTag(entity: Entity): void {
+    const interact = this.getInteract(entity);
+    const active = interact.isHovered || interact.isSelected;
+    const has = entity.hasComponent(InteractActiveComponent.componentName);
+    if (active && !has) {
+      entity.addComponent(this.world.createComponent(InteractActiveComponent, undefined));
+    } else if (!active && has) {
+      entity.removeComponent(InteractActiveComponent.componentName);
     }
   }
 
   // ===== Mouse handlers =====================================================
 
   private handleMouseDown = (event: MouseEvent) => {
-    // Only react to the primary (left) button for selection/drag.
-    if (event.button !== 0) {
+    // Only react to the primary (left) button for selection/drag. Ctrl+left is
+    // reserved as a camera-pan gesture by callers, so ignore it here to avoid
+    // grabbing an entity at the same time.
+    if (event.button !== 0 || event.ctrlKey) {
       return;
     }
     const [worldX, worldY] = this.screenToWorld(event.clientX, event.clientY);
@@ -241,6 +260,7 @@ export class MouseInteractSystem extends System {
 
     if (!hit) {
       this.deselectAll();
+      this.clearHover();
       return false;
     }
 
@@ -249,25 +269,34 @@ export class MouseInteractSystem extends System {
     this.grabOffset[0] = worldX - px;
     this.grabOffset[1] = worldY - py;
 
-    this.draggingEntity = hit;
-
-    for (const entity of this.interactEntities) {
-      const interact = this.getInteract(entity);
-      const isHit = entity === hit;
-      // Clicking an entity makes it the sole selection.
-      interact.setState({
-        isSelected: isHit,
-        isActive: isHit,
-        isHovered: isHit,
-        isDragging: isHit,
-      });
-      if (!isHit) {
-        interact.setDragPosition(null);
-      }
+    // Clicking an entity makes it the sole selection. Only the previously selected
+    // / hovered entities need their flags cleared — no scan over all entities.
+    if (this.selected && this.selected !== hit) {
+      const prev = this.selected;
+      const prevInteract = this.getInteract(prev);
+      prevInteract.setState({ isSelected: false, isActive: false, isDragging: false });
+      prevInteract.setDragPosition(null);
+      this.syncActiveTag(prev);
+    }
+    if (this.hovered && this.hovered !== hit) {
+      const prevHover = this.hovered;
+      this.getInteract(prevHover).setState({ isHovered: false });
+      this.syncActiveTag(prevHover);
     }
 
+    this.selected = hit;
+    this.hovered = hit;
+    this.draggingEntity = hit;
+
     const hitInteract = this.getInteract(hit);
+    hitInteract.setState({
+      isSelected: true,
+      isActive: true,
+      isHovered: true,
+      isDragging: true,
+    });
     hitInteract.setDragPosition([px, py]);
+    this.syncActiveTag(hit);
 
     return true;
   }
@@ -306,38 +335,39 @@ export class MouseInteractSystem extends System {
 
   private updateHover(worldX: number, worldY: number): void {
     const hit = this.hitTest(worldX, worldY);
-    for (const entity of this.interactEntities) {
-      this.getInteract(entity).setState({ isHovered: entity === hit });
+    if (hit === this.hovered) {
+      return; // hover target unchanged — nothing to update
     }
-
-    // if (this.debugInteract) {
-    //   const hitId = hit ? hit.id : null;
-    //   if (hitId !== this.lastHoveredId) {
-    //     this.lastHoveredId = hitId;
-    //     if (hit) {
-    //       const transform = hit.getComponent<TransformComponent>(TransformComponent.componentName);
-    //       console.log('[MouseInteract] hover', {
-    //         id: hit.id,
-    //         type: hit.type,
-    //         entityPos: transform.getPosition().map(Math.round),
-    //         world: [Math.round(worldX), Math.round(worldY)],
-    //       });
-    //     }
-    //   }
-    // }
+    // Only the entity leaving hover and the one entering it change state.
+    const prev = this.hovered;
+    this.hovered = hit;
+    if (prev) {
+      this.getInteract(prev).setState({ isHovered: false });
+      this.syncActiveTag(prev);
+    }
+    if (hit) {
+      this.getInteract(hit).setState({ isHovered: true });
+      this.syncActiveTag(hit);
+    }
   }
 
   private clearHover(): void {
-    for (const entity of this.interactEntities) {
-      this.getInteract(entity).setState({ isHovered: false });
+    if (this.hovered) {
+      const prev = this.hovered;
+      this.hovered = null;
+      this.getInteract(prev).setState({ isHovered: false });
+      this.syncActiveTag(prev);
     }
   }
 
   private deselectAll(): void {
-    for (const entity of this.interactEntities) {
-      const interact = this.getInteract(entity);
+    if (this.selected) {
+      const prev = this.selected;
+      this.selected = null;
+      const interact = this.getInteract(prev);
       interact.setState({ isSelected: false, isActive: false, isDragging: false });
       interact.setDragPosition(null);
+      this.syncActiveTag(prev);
     }
   }
 
@@ -352,22 +382,59 @@ export class MouseInteractSystem extends System {
     let best: Entity | null = null;
     let bestArea = Infinity;
 
-    for (const entity of this.interactEntities) {
-      const interact = this.getInteract(entity);
-      if (interact.isDisabled) {
-        continue;
+    const consider = (entity: Entity | undefined) => {
+      if (!entity || !entity.hasComponent(InteractComponent.componentName)) {
+        return;
       }
-      if (!this.containsPoint(entity, worldX, worldY)) {
-        continue;
+      const interact = this.getInteract(entity);
+      if (interact.isDisabled || !this.containsPoint(entity, worldX, worldY)) {
+        return;
       }
       const area = this.footprintArea(entity);
       if (area < bestArea) {
         best = entity;
         bestArea = area;
       }
+    };
+
+    const grid = this.getGrid();
+    if (grid) {
+      // Mouse position -> grid cells -> narrow phase. An entity's id is registered
+      // in every cell its AABB covers, so a one-cell-radius query around the cursor
+      // yields every candidate whose box could contain the point; we then run the
+      // exact containsPoint test on that handful. No scan of the interactive set.
+      const ids = grid.getNearbyEntities([worldX, worldY], grid.cellSize, 'collision');
+      for (const id of ids) {
+        consider(this.world.getEntityById(id));
+      }
+    } else {
+      // No spatial grid in this world — fall back to the World's InteractComponent
+      // bucket (the canonical "interactive entities" index) rather than a private set.
+      for (const entity of this.world.getEntitiesWithComponents([InteractComponent])) {
+        consider(entity);
+      }
     }
 
     return best;
+  }
+
+  /** Lazily resolve the spatial grid component from the SpatialGridSystem. */
+  private getGrid(): SpatialGridComponent | null {
+    if (this.interactGrid) {
+      return this.interactGrid;
+    }
+    const gridSystem = this.world.getSystem<SpatialGridSystem>(
+      'SpatialGridSystem',
+      SystemPriorities.SPATIAL_GRID,
+    );
+    if (gridSystem) {
+      try {
+        this.interactGrid = gridSystem.getSpatialGridComponent();
+      } catch {
+        this.interactGrid = null;
+      }
+    }
+    return this.interactGrid;
   }
 
   /**
@@ -429,9 +496,13 @@ export class MouseInteractSystem extends System {
     }
     const rect = this.rootElement.getBoundingClientRect();
     const dpr = this.renderSystem.getDevicePixelRatio();
+    const zoom = this.renderSystem.getZoom();
     const [offsetX, offsetY] = this.renderSystem.getCameraOffset();
-    const worldX = (clientX - rect.left) * dpr - offsetX;
-    const worldY = (clientY - rect.top) * dpr - offsetY;
+    // Invert canvasPixel = zoom * (worldPos + cameraOffset). The shared main canvas
+    // is not DPR-scaled, so first lift CSS pixels to device pixels, then undo zoom
+    // and the camera offset.
+    const worldX = ((clientX - rect.left) * dpr) / zoom - offsetX;
+    const worldY = ((clientY - rect.top) * dpr) / zoom - offsetY;
     return [worldX, worldY];
   }
 }

@@ -107,7 +107,17 @@ export class World implements IWorld {
     }
     entity.setWorld(this);
 
-    this.entitiesByType.set(entity.type, [...(this.entitiesByType.get(entity.type) ?? []), entity]);
+    // Append in place. The previous `[...bucket, entity]` spread reallocated the
+    // whole bucket on every add, which is O(n^2) when many entities share a type
+    // (e.g. spawning tens of thousands of 'object' entities froze startup for
+    // seconds). getEntitiesByType returns this same live array, and callers
+    // re-fetch it per frame, so mutating in place is safe.
+    const bucket = this.entitiesByType.get(entity.type);
+    if (bucket) {
+      bucket.push(entity);
+    } else {
+      this.entitiesByType.set(entity.type, [entity]);
+    }
 
     this.eventEmitter.emit('entityAdded', entity);
   }
@@ -175,6 +185,45 @@ export class World implements IWorld {
       entity.type,
       this.entitiesByType.get(entity.type)?.filter((e) => e !== entity) ?? [],
     );
+  }
+
+  /**
+   * Remove every entity of a given type in one pass. Equivalent to calling
+   * removeEntity on each, but the type bucket is reset once at the end instead of
+   * being `.filter()`-ed per entity — turning an O(n^2) teardown (which stalled
+   * clearing tens of thousands of same-type entities) into O(n).
+   */
+  removeEntitiesByType(type: EntityType): void {
+    const bucket = this.entitiesByType.get(type);
+    if (!bucket || bucket.length === 0) {
+      return;
+    }
+    // Reset the bucket up front so the per-entity work below stays O(1) each.
+    this.entitiesByType.set(type, []);
+
+    for (const entity of bucket) {
+      entity.setWorld(null);
+      for (const name of entity.components.keys()) {
+        this.componentIndex.get(name)?.delete(entity);
+      }
+
+      entity.notifyRemoved();
+
+      entity.components.forEach((component) => {
+        component.onDetach();
+        this.poolManager.returnComponentToPool(
+          component.constructor as ComponentConstructor<IComponent>,
+          component,
+        );
+      });
+      entity.components.clear();
+      entity.reset();
+
+      this.entities.delete(entity);
+      this.entitiesById.delete(entity.id);
+      this.eventEmitter.emit('entityRemoved', entity);
+      this.poolManager.returnEntityToPool(entity.type, entity);
+    }
   }
 
   createEntity(type: EntityType): Entity {

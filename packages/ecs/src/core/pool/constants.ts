@@ -10,6 +10,7 @@ import {
   ExperienceComponent,
   HealthComponent,
   InputComponent,
+  InteractActiveComponent,
   InteractComponent,
   LifecycleComponent,
   LightSourceComponent,
@@ -67,4 +68,5 @@ export const ComponentPoolList: ComponentConstructor<IComponent>[] = [
   LightSourceComponent,
   Camera3DComponent,
   InteractComponent,
+  InteractActiveComponent,
 ];

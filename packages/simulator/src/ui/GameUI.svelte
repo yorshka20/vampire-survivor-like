@@ -174,6 +174,8 @@
   <div id="canvas-wrapper" class="canvas-wrapper" bind:this={canvasWrapper}></div>
 </div>
 
+<a class="rendering-test-link" href="#/rendering-test">Rendering Test →</a>
+
 {#if showPerformancePanel}
   <div
     class="performance-panel"
@@ -489,6 +491,27 @@
   .pool-size {
     color: #ffd93d;
     font-weight: bold;
+  }
+  .rendering-test-link {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.6);
+    padding: 8px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1500;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .rendering-test-link:hover {
+    background: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.6);
   }
   .github-button {
     position: fixed;

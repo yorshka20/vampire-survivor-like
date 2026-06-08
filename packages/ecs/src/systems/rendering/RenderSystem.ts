@@ -28,6 +28,14 @@ export class RenderSystem extends System {
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
 
+  // World->canvas scale applied uniformly by the renderer. 1 = no zoom (the
+  // default, so existing scenes are unaffected). Combined with cameraOffset the
+  // full mapping is: canvasPixel = zoom * (worldPos + cameraOffset).
+  private zoom: number = 1;
+
+  // Number of entities the entity layer drew last frame (visible/in-viewport).
+  private renderedEntityCount: number = 0;
+
   constructor(rootElement: HTMLElement, bgImage?: HTMLImageElement) {
     super('RenderSystem', SystemPriorities.RENDER, 'render');
 
@@ -90,6 +98,29 @@ export class RenderSystem extends System {
   }
 
   /**
+   * Uniform world->canvas zoom. Entities are rendered at
+   * `zoom * (worldPos + cameraOffset)`, and viewport culling / pointer hit-testing
+   * account for it. Clamped to a small positive minimum to stay invertible.
+   */
+  setZoom(zoom: number): void {
+    this.zoom = Math.max(0.01, zoom);
+  }
+
+  getZoom(): number {
+    return this.zoom;
+  }
+
+  /** Set by the entity layer each rendered frame: how many entities it drew. */
+  reportRenderedEntities(count: number): void {
+    this.renderedEntityCount = count;
+  }
+
+  /** Entities drawn on the last rendered frame (i.e. those inside the viewport). */
+  getRenderedEntityCount(): number {
+    return this.renderedEntityCount;
+  }
+
+  /**
    * The DOM element the renderer is mounted into. Pointer-interaction systems
    * use it to scope mouse listeners to the canvas area and to convert client
    * (CSS pixel) coordinates into world coordinates via getBoundingClientRect.
@@ -129,7 +160,7 @@ export class RenderSystem extends System {
     this.clear();
 
     // call renderer update
-    this.renderer.update(deltaTime, this.viewport, this.cameraOffset);
+    this.renderer.update(deltaTime, this.viewport, this.cameraOffset, this.zoom);
   }
 
   getPlayerPosition(): [number, number] | undefined {

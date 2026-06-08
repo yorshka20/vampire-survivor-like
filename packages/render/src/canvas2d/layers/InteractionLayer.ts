@@ -1,4 +1,9 @@
-import { InteractComponent, ShapeComponent, TransformComponent } from '@ecs/components';
+import {
+  InteractActiveComponent,
+  InteractComponent,
+  ShapeComponent,
+  TransformComponent,
+} from '@ecs/components';
 import { IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
@@ -23,11 +28,13 @@ export class InteractionLayer extends CanvasRenderLayer {
   }
 
   update(_deltaTime: number, _viewport: RectArea, cameraOffset: [number, number]): void {
-    // Query the (small) InteractComponent bucket directly instead of scanning all
-    // entities — there are only a handful of interactive entities even when tens
-    // of thousands of balls exist.
+    // Pull only the active (hovered/selected) entities via their dedicated tag
+    // bucket. MouseInteractSystem maintains InteractActiveComponent on those 0-2
+    // entities, so the World returns the smallest bucket directly — no scan of the
+    // full InteractComponent set (which is every entity when all are interactive),
+    // and no reference to the interaction system.
     const entities = this.getWorld().getEntitiesWithComponents([
-      InteractComponent,
+      InteractActiveComponent,
       TransformComponent,
       ShapeComponent,
     ]);
@@ -37,11 +44,9 @@ export class InteractionLayer extends CanvasRenderLayer {
 
     const dpr = this.renderSystem?.getDevicePixelRatio() ?? 1;
 
+    // todo: batch render.
     for (const entity of entities) {
       const interact = entity.getComponent<InteractComponent>(InteractComponent.componentName);
-      if (!interact.isSelected && !interact.isHovered) {
-        continue;
-      }
       this.renderBorder(entity, cameraOffset, dpr, interact.isSelected);
     }
   }
@@ -87,8 +92,7 @@ export class InteractionLayer extends CanvasRenderLayer {
 
   filterEntity(entity: IEntity, viewport: RectArea): boolean {
     return (
-      entity.hasComponent(InteractComponent.componentName) &&
-      super.filterEntity(entity, viewport)
+      entity.hasComponent(InteractComponent.componentName) && super.filterEntity(entity, viewport)
     );
   }
 }

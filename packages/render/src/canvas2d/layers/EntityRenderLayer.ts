@@ -23,6 +23,9 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     const entities = this.getLayerEntities(viewport);
+    // Surface how many entities actually survived culling (i.e. are in-viewport)
+    // so HUDs can show the live drawn count, not just the world total.
+    this.renderSystem?.reportRenderedEntities(entities.length);
     for (const entity of entities) {
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
