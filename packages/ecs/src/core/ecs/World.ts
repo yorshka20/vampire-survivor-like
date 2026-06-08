@@ -339,8 +339,12 @@ export class World implements IWorld {
       // skip cooldown systems
       if (!system.canInvoke()) continue;
 
-      // logic systems are always updated
-      await system.update(deltaTime, 'logic');
+      // Honor enabled / skip settings, same as the render path. For a default
+      // (non-skippable) logic system shouldUpdate() only gates on `enabled`, so
+      // this preserves "always update" behavior while allowing runtime toggles.
+      if (system.shouldUpdate()) {
+        await system.update(deltaTime, 'logic');
+      }
     }
   }
 

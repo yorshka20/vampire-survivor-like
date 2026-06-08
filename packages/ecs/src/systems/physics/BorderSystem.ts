@@ -32,11 +32,32 @@ export class BorderSystem extends System {
 
   private borderCells: string[] = [];
 
+  // Gates only the object<->obstacle elastic collision pass (the expensive worker
+  // dispatch). The play-area clamp in clampObjectsToBounds() is the boundary
+  // "wall" containment and always runs, so disabling this still keeps entities on
+  // screen — used to drop obstacle/in-space collision load when profiling render.
+  private obstacleCollisionEnabled = true;
+
+  // todo: assign unskippable obstacle as wall entities.
+
   constructor(private friction: number = 1) {
     super('BorderSystem', SystemPriorities.BORDER, 'logic');
     this.friction = friction;
 
     this.workerPoolManager = WorkerPoolManager.getInstance();
+  }
+
+  /**
+   * Enable/disable the object<->obstacle elastic collision pass. The hard
+   * play-area boundary clamp is unaffected and keeps running, so toggling this
+   * off removes obstacle collision load without letting entities escape.
+   */
+  setObstacleCollisionEnabled(enabled: boolean): void {
+    this.obstacleCollisionEnabled = enabled;
+  }
+
+  isObstacleCollisionEnabled(): boolean {
+    return this.obstacleCollisionEnabled;
   }
 
   /**
@@ -69,15 +90,17 @@ export class BorderSystem extends System {
    * @param deltaTime
    */
   async update(deltaTime: number): Promise<void> {
-    // Elastic bounce off obstacle (wall) entities via the spatial grid.
-    if (this.borderCells.length) {
+    // Elastic bounce off in-space obstacle entities via the spatial grid. Can be
+    // toggled off to shed collision load; the boundary clamp below still runs.
+    if (this.obstacleCollisionEnabled && this.borderCells.length) {
       const activePromises = this.startCollisionDetection(this.borderCells);
       if (activePromises.length > 0) {
         await this.handleWorkerResults(activePromises);
       }
     }
 
-    // Guaranteed containment: clamp any object that escaped the play area back in.
+    // Guaranteed containment ("wall" boundary): clamp any object that escaped the
+    // play area back in. Always runs so entities never fly off screen.
     this.clampObjectsToBounds();
   }
 

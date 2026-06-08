@@ -8,7 +8,7 @@ const packageJson = fs.readJSONSync(path.resolve(__dirname, '../../package.json'
 export default defineConfig(({ mode }) => {
   return {
     base: '/',
-    plugins: [svelte()],
+    plugins: [svelte({})],
     publicDir: 'public',
     build: {
       outDir: 'dist',

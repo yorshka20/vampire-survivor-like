@@ -89,16 +89,16 @@ export class MouseInteractSystem extends System {
     this.world.onEntityAdded.subscribe(this.handleEntityAdded);
     this.world.onEntityRemoved.subscribe(this.handleEntityRemoved);
 
-    if (this.debugInteract) {
-      const rect = this.rootElement.getBoundingClientRect();
-      console.log('[MouseInteract] init', {
-        isMobileDevice: this.isMobileDevice,
-        interactEntities: this.interactEntities.size,
-        dpr: this.renderSystem.getDevicePixelRatio(),
-        cameraOffset: this.renderSystem.getCameraOffset(),
-        rootRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-      });
-    }
+    // if (this.debugInteract) {
+    //   const rect = this.rootElement.getBoundingClientRect();
+    //   console.log('[MouseInteract] init', {
+    //     isMobileDevice: this.isMobileDevice,
+    //     interactEntities: this.interactEntities.size,
+    //     dpr: this.renderSystem.getDevicePixelRatio(),
+    //     cameraOffset: this.renderSystem.getCameraOffset(),
+    //     rootRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+    //   });
+    // }
   }
 
   destroy(): void {
@@ -231,13 +231,13 @@ export class MouseInteractSystem extends System {
   private beginInteraction(worldX: number, worldY: number): boolean {
     const hit = this.hitTest(worldX, worldY);
 
-    if (this.debugInteract) {
-      console.log('[MouseInteract] press', {
-        world: [Math.round(worldX), Math.round(worldY)],
-        candidates: this.interactEntities.size,
-        hit: hit ? { id: hit.id, type: hit.type } : null,
-      });
-    }
+    // if (this.debugInteract) {
+    //   console.log('[MouseInteract] press', {
+    //     world: [Math.round(worldX), Math.round(worldY)],
+    //     candidates: this.interactEntities.size,
+    //     hit: hit ? { id: hit.id, type: hit.type } : null,
+    //   });
+    // }
 
     if (!hit) {
       this.deselectAll();
@@ -310,21 +310,21 @@ export class MouseInteractSystem extends System {
       this.getInteract(entity).setState({ isHovered: entity === hit });
     }
 
-    if (this.debugInteract) {
-      const hitId = hit ? hit.id : null;
-      if (hitId !== this.lastHoveredId) {
-        this.lastHoveredId = hitId;
-        if (hit) {
-          const transform = hit.getComponent<TransformComponent>(TransformComponent.componentName);
-          console.log('[MouseInteract] hover', {
-            id: hit.id,
-            type: hit.type,
-            entityPos: transform.getPosition().map(Math.round),
-            world: [Math.round(worldX), Math.round(worldY)],
-          });
-        }
-      }
-    }
+    // if (this.debugInteract) {
+    //   const hitId = hit ? hit.id : null;
+    //   if (hitId !== this.lastHoveredId) {
+    //     this.lastHoveredId = hitId;
+    //     if (hit) {
+    //       const transform = hit.getComponent<TransformComponent>(TransformComponent.componentName);
+    //       console.log('[MouseInteract] hover', {
+    //         id: hit.id,
+    //         type: hit.type,
+    //         entityPos: transform.getPosition().map(Math.round),
+    //         world: [Math.round(worldX), Math.round(worldY)],
+    //       });
+    //     }
+    //   }
+    // }
   }
 
   private clearHover(): void {

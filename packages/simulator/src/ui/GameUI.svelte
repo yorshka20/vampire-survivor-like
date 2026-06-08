@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RenderSystem } from '@ecs';
+  import { BorderSystem, ParallelCollisionSystem, RenderSystem } from '@ecs';
   import { SystemPriorities } from '@ecs/constants/systemPriorities';
   import { Canvas2dRenderer } from '@render/canvas2d/Canvas2dRenderer';
   import { onMount } from 'svelte';
@@ -25,6 +25,8 @@
   let forceDirection = [0, 1];
   let ballSize = 2; // size of balls the spawner emits (applies to newly spawned only)
   let skip = false;
+  let generatorStopped = false;
+  let collisionEnabled = true; // when false, all load shifts onto the renderer
 
   function togglePause() {
     isPaused = !isPaused;
@@ -91,6 +93,32 @@
     }
   }
 
+  /**
+   * Toggle collision on/off at runtime to profile the renderer in isolation.
+   *
+   * - ParallelCollisionSystem (object-object) is fully disabled via System.enabled
+   *   (honored by World.updateLogic through shouldUpdate).
+   * - BorderSystem stays enabled but its object-obstacle pass is gated off; its
+   *   play-area boundary clamp keeps running so entities can't fly off screen.
+   */
+  function toggleCollision() {
+    if (!globalGame) return;
+    const world = globalGame.getWorld();
+    const collisionSystem = world.getSystem<ParallelCollisionSystem>(
+      'ParallelCollisionSystem',
+      SystemPriorities.COLLISION,
+    );
+    const borderSystem = world.getSystem<BorderSystem>('BorderSystem', SystemPriorities.BORDER);
+
+    collisionEnabled = !collisionEnabled;
+    if (collisionSystem) {
+      collisionSystem.enabled = collisionEnabled;
+    }
+    if (borderSystem) {
+      borderSystem.setObstacleCollisionEnabled(collisionEnabled);
+    }
+  }
+
   function stopGenerator() {
     const world = globalGame.getWorld();
     const generators = world.getEntitiesByType('spawner');
@@ -100,6 +128,7 @@
         (generator as SpawnerEntityType).setStopped((v) => !v);
       }
     }
+    generatorStopped = !generatorStopped;
   }
 
   /**
@@ -300,11 +329,17 @@
 {/if}
 
 <div class="buttons">
-  <button class="stop util-button" on:click={stopGenerator}>Stop Generator</button>
+  <button class="stop util-button" on:click={stopGenerator}
+    >{generatorStopped ? 'Start' : 'Stop'} Generator</button
+  >
 
   <button class="skip util-button" on:click={skipRayTracing}
     >{!skip ? 'Show Ray Tracing' : 'Hide Ray Tracing'}</button
   >
+
+  <button class="collision util-button" on:click={toggleCollision}>
+    {collisionEnabled ? 'Disable Collision' : 'Enable Collision'}
+  </button>
 
   {#if showPauseButton}
     <button class="pause util-button" class:hidden={!isGameStarted} on:click={togglePause}>
