@@ -38,20 +38,44 @@ export class RenderUtils {
         ctx.closePath();
         ctx.fill();
         break;
-      case 'rect':
-      case 'bezier':
       case 'polygon':
       case 'parametric':
+      case 'bezier': {
+        // Draw the tessellated outline as a closed path. Falls back to a box if
+        // the shape has no polyline form (shouldn't happen for these types).
+        const outline = shape.getOutline();
+        if (outline.length >= 3) {
+          ctx.beginPath();
+          ctx.moveTo(outline[0][0], outline[0][1]);
+          for (let i = 1; i < outline.length; i++) {
+            ctx.lineTo(outline[i][0], outline[i][1]);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else {
+          this.drawBox(ctx, width, height);
+        }
+        break;
+      }
+      case 'rect':
       case 'composite':
       case 'path':
       case 'text':
       default:
-        ctx.fillRect(-width / 2, -height / 2, width, height);
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-width / 2, -height / 2, width, height);
+        this.drawBox(ctx, width, height);
         break;
     }
+  }
+
+  /** Filled rectangle with a faint outline, centered at the origin. */
+  private static drawBox(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+    ctx.fillRect(-width / 2, -height / 2, width, height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-width / 2, -height / 2, width, height);
   }
 
   static drawPatternImage(

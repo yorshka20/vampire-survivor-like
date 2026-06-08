@@ -5,6 +5,7 @@ import {
   PatternEffect,
   PatternState,
 } from '@render/canvas2d/resource/PatternAssetManager';
+import { CurveRegistry } from './curveRegistry';
 import { CircleDescriptor, PatternDescriptor, RenderPatternType, ShapeDescriptor } from './types';
 
 interface ShapeProps {
@@ -137,17 +138,17 @@ export class ShapeComponent extends Component {
         // Rect: size is [width, height]
         return [desc.width, desc.height];
       case 'polygon':
-        // Polygon: use bounding box if available, else [0,0]
-        if (this.bounds) {
-          return [this.bounds.max[0] - this.bounds.min[0], this.bounds.max[1] - this.bounds.min[1]];
-        }
-        return [0, 0];
+      case 'parametric':
+      case 'bezier': {
+        // Tessellatable shapes: derive size from the (cached) outline bounding box.
+        const { min, max } = this.getOutlineBounds();
+        return [max[0] - min[0], max[1] - min[1]];
+      }
       case 'pattern':
         // Pattern: size is [width, height]
         return [desc.width, desc.height];
-      case 'bezier':
       case 'composite':
-        // Bezier/composite: use bounding box if available
+        // Composite: use bounding box if available
         if (this.bounds) {
           return [this.bounds.max[0] - this.bounds.min[0], this.bounds.max[1] - this.bounds.min[1]];
         }
@@ -155,6 +156,83 @@ export class ShapeComponent extends Component {
       default:
         return [0, 0];
     }
+  }
+
+  /**
+   * Outline (polyline) approximation of this shape in local space, centered on
+   * the entity origin. Polygons return their vertices directly; parametric
+   * curves are sampled through the {@link CurveRegistry} over their domain.
+   * Result is cached in `tessellated` and reused until the descriptor changes.
+   *
+   * Returns an empty array for shapes that have no polyline form (circle, rect,
+   * sdf, pattern); callers should fall back to {@link getSize} for those.
+   */
+  getOutline(): Point[] {
+    if (!this.dirty && this.tessellated.length > 0) {
+      return this.tessellated;
+    }
+    const outline = this.computeOutline();
+    if (outline.length > 0) {
+      this.tessellated = outline;
+      this.dirty = false;
+    }
+    return outline;
+  }
+
+  private computeOutline(): Point[] {
+    const desc = this.descriptor;
+    if (desc.type === 'polygon') {
+      return desc.vertices.map((v) => [v[0], v[1]] as Point);
+    }
+    if (desc.type === 'parametric') {
+      const equation = CurveRegistry.getInstance().getParametricUnsafe(desc.equationName);
+      if (!equation) {
+        return [];
+      }
+      const resolution = Math.max(3, desc.resolution ?? 64);
+      const [start, end] = desc.domain ?? [0, 1];
+      const points: Point[] = [];
+      for (let i = 0; i < resolution; i++) {
+        const t = start + ((end - start) * i) / resolution;
+        points.push(equation(t, desc.parameters));
+      }
+      return points;
+    }
+    return [];
+  }
+
+  /**
+   * Axis-aligned bounding box of {@link getOutline}, cached in `bounds`.
+   * Falls back to a zero-extent box when the shape has no outline.
+   */
+  private getOutlineBounds(): { min: Point; max: Point } {
+    if (this.bounds) {
+      return this.bounds;
+    }
+    const outline = this.getOutline();
+    if (outline.length === 0) {
+      return { min: [0, 0], max: [0, 0] };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [x, y] of outline) {
+      if (x < minX) {
+        minX = x;
+      }
+      if (y < minY) {
+        minY = y;
+      }
+      if (x > maxX) {
+        maxX = x;
+      }
+      if (y > maxY) {
+        maxY = y;
+      }
+    }
+    this.setBounds([minX, minY], [maxX, maxY]);
+    return this.bounds!;
   }
 
   /**

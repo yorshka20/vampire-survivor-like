@@ -50,9 +50,12 @@ export const SHAPE_RECT = 0;
 export const SHAPE_CIRCLE = 1;
 
 export function shapeTypeToCode(type: string): number {
-  if (type === 'rect') return SHAPE_RECT;
   if (type === 'circle') return SHAPE_CIRCLE;
-  return SHAPE_UNKNOWN;
+  // Everything else (rect plus complex geometry: polygon, parametric, bezier...)
+  // collides as its axis-aligned bounding box. ShapeComponent.getSize() returns
+  // that box for the complex types, so this is a "good enough" AABB approximation
+  // without per-type narrow-phase support.
+  return SHAPE_RECT;
 }
 
 export function shapeCodeToType(code: number): string {

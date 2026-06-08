@@ -2,12 +2,15 @@ import { ISpawnerEntity, SpawnerComponent, TransformComponent, World } from '@ec
 import { Entity } from '@ecs/core/ecs/Entity';
 import { generateEntityId, Point, randomRgb, Vec2 } from '@ecs/utils';
 import { createBall } from './ball';
+import { createGeneralShape } from './generalShape';
 import { createSquare } from './square';
+
+type GeneratorType = 'ball' | 'square' | 'random';
 
 type GeneratorProps = {
   position: Point;
   velocity?: Vec2;
-  generatorType: 'ball' | 'square';
+  generatorType: GeneratorType;
   ballSize?: number;
   maxEntities: number;
   spawnGap?: number;
@@ -21,7 +24,7 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
   private ballSize: number;
   private currentEntities: number = 0;
   private lastSpawnTime: number = 0;
-  private generatorType: 'ball' | 'square';
+  private generatorType: GeneratorType;
 
   private isStopped: boolean = false;
 
@@ -75,6 +78,13 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
         });
       case 'square':
         return createSquare(world, {
+          position: this.position,
+          size: this.ballSize,
+          velocity: this.velocity,
+          color: randomRgb(Math.random()),
+        });
+      case 'random':
+        return createGeneralShape(world, {
           position: this.position,
           size: this.ballSize,
           velocity: this.velocity,
