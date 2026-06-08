@@ -1,6 +1,7 @@
 import {
   InputComponent,
   InputState,
+  InteractComponent,
   PhysicsComponent,
   StatsComponent,
   TransformComponent,
@@ -35,6 +36,11 @@ export class TransformSystem extends System {
   }
 
   update(deltaTime: number): void {
+    // Pointer drag takes over an entity's transform: while MouseInteractSystem
+    // marks an InteractComponent as dragging, its published target position wins
+    // over physics/input for that entity this frame.
+    this.handleDraggedEntities();
+
     // First handle movement for entities with input
     const inputEntities = this.world.getEntitiesWithComponents([
       TransformComponent,
@@ -70,6 +76,37 @@ export class TransformSystem extends System {
       transform.scale = this.isMobileDevice ? TransformSystem.mobileScale : TransformSystem.scale;
 
       this.handleTransformations(entity.id, transform, deltaTime);
+    }
+  }
+
+  /**
+   * Move entities that are currently being dragged to their pointer-driven target
+   * position. Velocity is zeroed so the entity doesn't keep accumulating speed
+   * under it (and fling away on release) while the pointer holds it in place.
+   */
+  private handleDraggedEntities(): void {
+    const draggable = this.world.getEntitiesWithComponents([
+      TransformComponent,
+      InteractComponent,
+    ]);
+
+    for (const entity of draggable) {
+      const interact = entity.getComponent<InteractComponent>(InteractComponent.componentName);
+      if (!interact.isDragging) {
+        continue;
+      }
+
+      const dragPosition = interact.getDragPosition();
+      if (!dragPosition) {
+        continue;
+      }
+
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      transform.setPositionXY(dragPosition[0], dragPosition[1]);
+
+      if (entity.hasComponent(PhysicsComponent.componentName)) {
+        entity.getComponent<PhysicsComponent>(PhysicsComponent.componentName).stop();
+      }
     }
   }
 

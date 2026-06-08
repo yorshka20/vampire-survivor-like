@@ -349,6 +349,11 @@
 
     /* Optional: Add some visual feedback */
     box-sizing: border-box;
+
+    /* The parent .ui-container is pointer-events: none (so the HUD overlay is
+       click-through); re-enable events here so the canvas can receive mouse
+       interaction for MouseInteractSystem. */
+    pointer-events: auto;
   }
 
   .fps {

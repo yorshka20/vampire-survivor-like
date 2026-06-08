@@ -11,6 +11,9 @@ export enum RenderLayerPriority {
   /** grid debug */
   GRID_DEBUG,
 
+  /** hover / selected interaction borders, drawn above entities */
+  INTERACTION,
+
   RAY_TRACING,
 }
 
@@ -21,5 +24,6 @@ export enum RenderLayerIdentifier {
   ITEM = 'item',
   PROJECTILE = 'projectile',
   GRID_DEBUG = 'grid-debug',
+  INTERACTION = 'interaction',
   RAY_TRACING = 'ray-tracing',
 }

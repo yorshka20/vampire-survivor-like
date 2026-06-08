@@ -1,10 +1,13 @@
 import { Component } from '@ecs/core/ecs/Component';
+import { Point } from '@ecs/types/types';
 
 export interface InteractState {
   isSelected: boolean;
   isActive: boolean;
   isHovered: boolean;
   isDisabled: boolean;
+  /** True while the entity is being held and dragged by the pointer. */
+  isDragging: boolean;
 }
 
 export class InteractComponent extends Component {
@@ -15,7 +18,16 @@ export class InteractComponent extends Component {
     isActive: false,
     isHovered: false,
     isDisabled: false,
+    isDragging: false,
   };
+
+  /**
+   * World-space position the entity should be moved to while dragging.
+   * Written by MouseInteractSystem and consumed by TransformSystem so the drag
+   * "owns" the transform without the interaction system reaching into physics.
+   * Null when not dragging.
+   */
+  private dragPosition: Point | null = null;
 
   constructor() {
     super('Interact');
@@ -45,6 +57,18 @@ export class InteractComponent extends Component {
     return this.state.isDisabled;
   }
 
+  get isDragging(): boolean {
+    return this.state.isDragging;
+  }
+
+  setDragPosition(position: Point | null): void {
+    this.dragPosition = position;
+  }
+
+  getDragPosition(): Point | null {
+    return this.dragPosition;
+  }
+
   reset(): void {
     super.reset();
     this.state = {
@@ -52,6 +76,8 @@ export class InteractComponent extends Component {
       isActive: false,
       isHovered: false,
       isDisabled: false,
+      isDragging: false,
     };
+    this.dragPosition = null;
   }
 }

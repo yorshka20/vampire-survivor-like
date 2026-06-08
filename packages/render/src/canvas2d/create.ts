@@ -1,7 +1,7 @@
 import { RayTracingLayer } from '@render/rayTracing/rayTracingLayer';
 import { IRenderer } from '@render/types/IRenderer';
 import { Canvas2dRenderer } from './Canvas2dRenderer';
-import { BackgroundRenderLayer, EntityRenderLayer } from './layers';
+import { BackgroundRenderLayer, EntityRenderLayer, InteractionLayer } from './layers';
 
 export function createCanvas2dRenderer(
   rootElement: HTMLElement,
@@ -13,6 +13,7 @@ export function createCanvas2dRenderer(
   // add necessary layers
   renderer.addRenderLayer(EntityRenderLayer);
   renderer.addRenderLayer(BackgroundRenderLayer);
+  renderer.addRenderLayer(InteractionLayer);
   // renderer.addRenderLayer(GridDebugLayer);
 
   // Add the RayTracingLayer

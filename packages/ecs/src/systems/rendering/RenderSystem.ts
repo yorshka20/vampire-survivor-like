@@ -89,6 +89,15 @@ export class RenderSystem extends System {
     return this.viewport;
   }
 
+  /**
+   * The DOM element the renderer is mounted into. Pointer-interaction systems
+   * use it to scope mouse listeners to the canvas area and to convert client
+   * (CSS pixel) coordinates into world coordinates via getBoundingClientRect.
+   */
+  getRootElement(): HTMLElement {
+    return this.rootElement;
+  }
+
   setBackgroundImage(image: HTMLImageElement): void {
     this.renderer.setBackgroundImage(image);
   }

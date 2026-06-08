@@ -1,6 +1,7 @@
 import {
   ColliderComponent,
   createShapeDescriptor,
+  InteractComponent,
   PhysicsComponent,
   RenderComponent,
   ShapeComponent,
@@ -60,5 +61,10 @@ export function createBall(world: World, props: BallProps) {
       layer: RenderLayerIdentifier.PROJECTILE,
     }),
   );
+
+  // Make the ball pointer-interactive: hover/select/drag handled by
+  // MouseInteractSystem, border drawn by the InteractionLayer.
+  ball.addComponent(world.createComponent(InteractComponent, {}));
+
   return ball;
 }

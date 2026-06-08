@@ -5,6 +5,7 @@ import {
   createShapeDescriptor,
   Entity,
   GetParametricParams,
+  InteractComponent,
   ParametricCurveName,
   PhysicsComponent,
   Point,
@@ -159,6 +160,10 @@ export function createGeneralShape(world: World, props: ShapeProps): Entity {
       layer: RenderLayerIdentifier.PROJECTILE,
     }),
   );
+
+  // Make the entity pointer-interactive: hover/select/drag handled by
+  // MouseInteractSystem, border drawn by the InteractionLayer.
+  shape.addComponent(world.createComponent(InteractComponent, {}));
 
   return shape;
 }

@@ -4,6 +4,7 @@ import {
   createShapeDescriptor,
   ForceFieldSystem,
   LightSourceComponent,
+  MouseInteractSystem,
   ParallelCollisionSystem,
   PhysicsSystem,
   RenderSystem,
@@ -93,6 +94,9 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   world.addSystem(new BorderSystem(1));
   world.addSystem(new PhysicsSystem());
   world.addSystem(new TransformSystem());
+  world.addSystem(new MouseInteractSystem());
+
+  world.setSpatialGridCellSize(20);
 
   // Add a force field system for basic world forces
   const forceFieldSystem = new ForceFieldSystem();
@@ -137,10 +141,10 @@ function initializeEntities(world: World, viewport: Viewport) {
   const generator = createGenerator(world, {
     position: [100, 100],
     maxEntities: 20000,
-    ballSize: 2,
+    ballSize: 10,
     velocity: [initialV * 110, initialV],
-    spawnGap: 10,
-    generatorType: 'ball',
+    spawnGap: 5,
+    generatorType: 'random',
   });
   world.addEntity(generator);
 
@@ -154,10 +158,10 @@ function initializeEntities(world: World, viewport: Viewport) {
   });
   world.addEntity(ball);
 
-  // createObstacleBlock(world, [200, 700], [100, 100]);
+  createObstacleBlock(world, [200, 700], [100, 100]);
   // createObstacleBlock(world, [400, 400], [100, 100]);
 
-  // createObstacleCircle(world, [200, 1200], 100);
+  createObstacleCircle(world, [200, 1200], 100);
 
   // createObstacleCircle(world, [1200, 1100], 200);
 
