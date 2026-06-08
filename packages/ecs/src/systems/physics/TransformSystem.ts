@@ -1,12 +1,14 @@
 import {
   InputComponent,
   InputState,
+  InteractActiveComponent,
   InteractComponent,
   PhysicsComponent,
   StatsComponent,
   TransformComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { isMobileDevice } from '@ecs/utils/platform';
 
@@ -34,6 +36,29 @@ export class TransformSystem extends System {
     super('TransformSystem', SystemPriorities.TRANSFORM, 'render');
     this.isMobileDevice = isMobileDevice();
   }
+
+  init(): void {
+    super.init();
+    // Platform scale is constant for an entity's lifetime, so stamp it once on add
+    // instead of rewriting it on every entity every frame (which, with tens of
+    // thousands of static entities, was a pure-waste O(n) pass each render frame).
+    for (const entity of this.world.getEntitiesWithComponents([TransformComponent])) {
+      this.applyPlatformScale(entity);
+    }
+    this.world.onEntityAdded.subscribe(this.applyPlatformScale);
+  }
+
+  destroy(): void {
+    this.world.onEntityAdded.unsubscribe(this.applyPlatformScale);
+  }
+
+  private applyPlatformScale = (entity: Entity): void => {
+    if (!entity.hasComponent(TransformComponent.componentName)) {
+      return;
+    }
+    const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    transform.scale = this.isMobileDevice ? TransformSystem.mobileScale : TransformSystem.scale;
+  };
 
   update(deltaTime: number): void {
     // Pointer drag takes over an entity's transform: while MouseInteractSystem
@@ -66,16 +91,19 @@ export class TransformSystem extends System {
       }
     }
 
-    // Then handle all entities with TransformComponent for rotation and scale
-    const transformEntities = this.world.getEntitiesWithComponents([TransformComponent]);
-    for (const entity of transformEntities) {
+    // Animate only the entities that actually have a pending rotation/scale target.
+    // Iterating every TransformComponent here just to early-return was the bulk of
+    // this system's per-frame cost at high entity counts. Snapshot the keys since
+    // handleTransformations may delete entries mid-iteration.
+    for (const entityId of [...this.transformData.keys()]) {
+      const entity = this.world.getEntityById(entityId);
+      if (!entity) {
+        this.transformData.delete(entityId);
+        continue;
+      }
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
       if (!transform) continue;
-
-      // Apply scale based on platform
-      transform.scale = this.isMobileDevice ? TransformSystem.mobileScale : TransformSystem.scale;
-
-      this.handleTransformations(entity.id, transform, deltaTime);
+      this.handleTransformations(entityId, transform, deltaTime);
     }
   }
 
@@ -85,7 +113,10 @@ export class TransformSystem extends System {
    * under it (and fling away on release) while the pointer holds it in place.
    */
   private handleDraggedEntities(): void {
+    // A dragged entity is always selected, so it carries the InteractActive tag.
+    // Iterate that tiny bucket (0-2 entities) instead of every draggable entity.
     const draggable = this.world.getEntitiesWithComponents([
+      InteractActiveComponent,
       TransformComponent,
       InteractComponent,
     ]);
