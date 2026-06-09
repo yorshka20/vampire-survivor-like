@@ -44,7 +44,6 @@ export class InteractionLayer extends CanvasRenderLayer {
 
     const dpr = this.renderSystem?.getDevicePixelRatio() ?? 1;
 
-    // todo: batch render.
     for (const entity of entities) {
       const interact = entity.getComponent<InteractComponent>(InteractComponent.componentName);
       this.renderBorder(entity, cameraOffset, dpr, interact.isSelected);

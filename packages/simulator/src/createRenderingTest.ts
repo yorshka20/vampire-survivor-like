@@ -1,4 +1,11 @@
-import { MouseInteractSystem, PhysicsSystem, RenderSystem, TransformSystem, World } from '@ecs';
+import {
+  MouseInteractSystem,
+  PhysicsSystem,
+  RenderSystem,
+  SpatialGridSystem,
+  TransformSystem,
+  World,
+} from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { randomRgb } from '@ecs/utils/color';
 import { createCanvas2dRenderer } from '@render/canvas2d';
@@ -118,13 +125,18 @@ export async function createRenderingTest(
 
   // Keep Performance (HUD reads it); drop the spatial grid — nothing queries it
   // here and rebuilding it every logic frame over 50k entities is pure waste.
-  const spatialGrid = world.getSystem('SpatialGridSystem', SystemPriorities.SPATIAL_GRID);
+  const spatialGrid = world.getSystem<SpatialGridSystem>(
+    'SpatialGridSystem',
+    SystemPriorities.SPATIAL_GRID,
+  );
   if (spatialGrid) {
     // Don't run the per-frame grid maintenance (entities are static, nothing
     // crosses cells), but the grid is still populated on insert via the
-    // onEntityAdded subscription — so it stays a valid index for pointer hit-testing.
+    // onEntityAdded subscription — so it stays a valid index for pointer hit-testing
+    // and for counting how many entities fall in the viewport.
     spatialGrid.enabled = false;
   }
+  const gridComponent = spatialGrid?.getSpatialGridComponent() ?? null;
 
   // ===== Camera helpers ======================================================
 
@@ -142,6 +154,39 @@ export async function createRenderingTest(
     // canvasPixel = z * (world + off); we want world (worldX,worldY) at vp center.
     off[0] = vp[2] / 2 / z - worldX;
     off[1] = vp[3] / 2 / z - worldY;
+  };
+
+  /**
+   * Count entities currently inside the viewport by querying the spatial grid for
+   * the cells the visible world rect covers, deduping ids that span cells. This is
+   * a direct viewport→cells lookup — no per-frame bookkeeping from the renderer.
+   */
+  const countEntitiesInViewport = (): number => {
+    if (!gridComponent) {
+      return 0;
+    }
+    const vp = renderSystem.getViewport();
+    const z = renderSystem.getZoom();
+    const off = renderSystem.getCameraOffset();
+    const cs = gridComponent.cellSize;
+    // Visible world rect: invert canvasPixel = z * (world + off).
+    const cx0 = Math.floor((vp[0] / z - off[0]) / cs);
+    const cx1 = Math.floor(((vp[0] + vp[2]) / z - off[0]) / cs);
+    const cy0 = Math.floor((vp[1] / z - off[1]) / cs);
+    const cy1 = Math.floor(((vp[1] + vp[3]) / z - off[1]) / cs);
+
+    const seen = new Set<string>();
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const cell = gridComponent.getCellByKey(`${cx},${cy}`);
+        if (cell) {
+          for (const id of cell.objects) {
+            seen.add(id);
+          }
+        }
+      }
+    }
+    return seen.size;
   };
 
   const syncViewport = () => {
@@ -246,7 +291,7 @@ export async function createRenderingTest(
     },
     clearEntities,
     getLoadedCount,
-    getVisibleCount: () => renderSystem.getRenderedEntityCount(),
+    getVisibleCount: countEntitiesInViewport,
     getTargetCount: () => target,
     syncViewport,
     centerOn,

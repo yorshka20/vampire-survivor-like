@@ -33,9 +33,6 @@ export class RenderSystem extends System {
   // full mapping is: canvasPixel = zoom * (worldPos + cameraOffset).
   private zoom: number = 1;
 
-  // Number of entities the entity layer drew last frame (visible/in-viewport).
-  private renderedEntityCount: number = 0;
-
   constructor(rootElement: HTMLElement, bgImage?: HTMLImageElement) {
     super('RenderSystem', SystemPriorities.RENDER, 'render');
 
@@ -108,16 +105,6 @@ export class RenderSystem extends System {
 
   getZoom(): number {
     return this.zoom;
-  }
-
-  /** Set by the entity layer each rendered frame: how many entities it drew. */
-  reportRenderedEntities(count: number): void {
-    this.renderedEntityCount = count;
-  }
-
-  /** Entities drawn on the last rendered frame (i.e. those inside the viewport). */
-  getRenderedEntityCount(): number {
-    return this.renderedEntityCount;
   }
 
   /**
