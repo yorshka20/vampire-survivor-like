@@ -1,6 +1,6 @@
 import { Component } from '@ecs/core/ecs/Component';
 import { EntityType } from '@ecs/core/ecs/types';
-import { Point } from '@ecs/types/types';
+import { Point, RectArea } from '@ecs/types/types';
 
 /**
  * Grid cell with pre-classified entity storage for better performance.
@@ -181,6 +181,21 @@ export class SpatialGridComponent extends Component {
       cellIndex: -1,
     };
   }
+
+  /**
+   * Every entity type the grid stores. Keep in sync with getEntitySetByType — it
+   * is the set of types a rect query can return. Used to query "all entities in a
+   * region" without the caller having to spell out the type list.
+   */
+  static readonly INDEXED_TYPES: readonly EntityType[] = [
+    'enemy',
+    'projectile',
+    'pickup',
+    'player',
+    'areaEffect',
+    'object',
+    'obstacle',
+  ];
 
   /**
    * Whether an entity type is indexed by the spatial grid.
@@ -599,6 +614,67 @@ export class SpatialGridComponent extends Component {
     }
 
     return Array.from(result);
+  }
+
+  /**
+   * Visit each entity of the given types whose cell overlaps a world-space rect,
+   * exactly once. This is the spatial primitive for viewport culling: the cost is
+   * bounded by the cells the rect covers (i.e. the viewport), never the world —
+   * so it stays cheap no matter how many entities exist off-screen.
+   *
+   * We walk by cell COORDINATE (not over all populated cells) precisely so the
+   * cost tracks the viewport rather than world occupancy. `visit` is called with
+   * each id once; entities spanning several covered cells are deduped. Not
+   * re-entrant (a shared dedup set is not used — `visit` may allocate but must not
+   * start another rect query).
+   */
+  // Reused across rect queries so a per-frame viewport cull allocates no Set.
+  // Safe because queries are synchronous and non-re-entrant (see forEachEntityInRect).
+  private readonly rectQuerySeen = new Set<string>();
+
+  forEachEntityInRect(
+    rect: RectArea,
+    types: readonly EntityType[],
+    visit: (entityId: string) => void,
+  ): void {
+    const cs = this.cellSize;
+    const cellMinX = Math.floor(rect[0] / cs);
+    const cellMaxX = Math.floor((rect[0] + rect[2]) / cs);
+    const cellMinY = Math.floor(rect[1] / cs);
+    const cellMaxY = Math.floor((rect[1] + rect[3]) / cs);
+
+    const seen = this.rectQuerySeen;
+    seen.clear();
+    for (let cx = cellMinX; cx <= cellMaxX; cx++) {
+      for (let cy = cellMinY; cy <= cellMaxY; cy++) {
+        this.visitCellEntities(`${cx},${cy}`, types, seen, visit);
+      }
+    }
+  }
+
+  /** Visit the not-yet-seen entities of `types` in one cell. */
+  private visitCellEntities(
+    cellKey: string,
+    types: readonly EntityType[],
+    seen: Set<string>,
+    visit: (entityId: string) => void,
+  ): void {
+    const cell = this.grid.get(cellKey);
+    if (!cell) {
+      return;
+    }
+    for (const type of types) {
+      const set = this.getEntitySetByType(cell, type);
+      if (!set) {
+        continue;
+      }
+      for (const id of set) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          visit(id);
+        }
+      }
+    }
   }
 
   // Get all entities in a specific cell

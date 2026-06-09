@@ -1,5 +1,7 @@
+import { SpatialGridComponent } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { SpatialGridSystem } from '@ecs/systems';
+import { RectArea } from '@ecs/types/types';
 import { generateEntityId } from '../../utils/name';
 import { ComponentPoolList, EntityPoolList } from '../pool/constants';
 import { PoolManager } from '../pool/PoolManager';
@@ -34,6 +36,14 @@ export class World implements IWorld {
   private eventEmitter: EventEmitter = new EventEmitter();
 
   private poolManager: PoolManager = PoolManager.getInstance();
+
+  // Bumped once per render tick so getEntitiesInViewport can reuse its result for
+  // every consumer in the same tick, yet always recompute on the next tick (no
+  // persistent cache — we have no reliable cross-tick invalidation signal yet).
+  private renderTick: number = 0;
+  private viewportQueryTick: number = -1;
+  private readonly viewportQueryRect: RectArea = [NaN, NaN, NaN, NaN];
+  private viewportQueryResult: Entity[] = [];
 
   constructor() {
     if (World.instance) {
@@ -383,6 +393,70 @@ export class World implements IWorld {
     return Array.from(this.entities).filter(condition);
   }
 
+  /**
+   * Return the entities whose spatial-grid cell overlaps a world-space rectangle —
+   * i.e. the viewport-culled candidate set. Same shape as getEntitiesByType so
+   * callers consume it the same way, then narrow further (by type/visibility).
+   *
+   * The result is reused for every call within the same render tick (consumers in
+   * one frame share one computation); it is recomputed on the next tick. There is
+   * no cross-tick cache — we have no reliable signal for when the grid changed.
+   *
+   * Returns an empty array when the world has no spatial grid.
+   */
+  getEntitiesInViewport(worldRect: RectArea): Entity[] {
+    const cached = this.viewportQueryRect;
+    if (
+      this.viewportQueryTick === this.renderTick &&
+      cached[0] === worldRect[0] &&
+      cached[1] === worldRect[1] &&
+      cached[2] === worldRect[2] &&
+      cached[3] === worldRect[3]
+    ) {
+      return this.viewportQueryResult;
+    }
+
+    const result: Entity[] = [];
+    const grid = this.getSpatialGrid();
+    if (grid) {
+      grid.forEachEntityInRect(worldRect, SpatialGridComponent.INDEXED_TYPES, (id) => {
+        const entity = this.entitiesById.get(id);
+        if (entity) {
+          result.push(entity);
+        }
+      });
+    }
+
+    this.viewportQueryTick = this.renderTick;
+    cached[0] = worldRect[0];
+    cached[1] = worldRect[1];
+    cached[2] = worldRect[2];
+    cached[3] = worldRect[3];
+    this.viewportQueryResult = result;
+    return result;
+  }
+
+  /** Whether a type is stored in the spatial grid (false when there is no grid). */
+  isTypeSpatiallyIndexed(type: EntityType): boolean {
+    const grid = this.getSpatialGrid();
+    return grid ? grid.isIndexedType(type) : false;
+  }
+
+  private getSpatialGrid(): SpatialGridComponent | null {
+    const system = this.getSystem<SpatialGridSystem>(
+      'SpatialGridSystem',
+      SystemPriorities.SPATIAL_GRID,
+    );
+    if (!system) {
+      return null;
+    }
+    try {
+      return system.getSpatialGridComponent();
+    } catch {
+      return null;
+    }
+  }
+
   async updateLogic(deltaTime: number): Promise<void> {
     for (const system of this.logicSystems) {
       // skip cooldown systems
@@ -398,6 +472,8 @@ export class World implements IWorld {
   }
 
   async updateRender(deltaTime: number): Promise<void> {
+    // New render tick: invalidates the per-tick viewport-query reuse.
+    this.renderTick++;
     for (const system of this.renderSystems) {
       // skip cooldown systems
       if (!system.canInvoke()) continue;

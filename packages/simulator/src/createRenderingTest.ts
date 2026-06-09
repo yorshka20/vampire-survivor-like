@@ -1,12 +1,13 @@
 import {
   MouseInteractSystem,
-  PhysicsSystem,
+  RectArea,
   RenderSystem,
   SpatialGridSystem,
   TransformSystem,
   World,
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { EntityType } from '@ecs/core/ecs/types';
 import { randomRgb } from '@ecs/utils/color';
 import { createCanvas2dRenderer } from '@render/canvas2d';
 import { createGeneralShape } from './entities/generalShape';
@@ -94,7 +95,6 @@ export async function createRenderingTest(
   const game = new Game();
   const world = game.getWorld();
 
-  world.addSystem(new PhysicsSystem());
   world.addSystem(new TransformSystem());
   world.addSystem(new MouseInteractSystem());
   world.setSpatialGridCellSize(64);
@@ -157,10 +157,16 @@ export async function createRenderingTest(
   };
 
   /**
-   * Count entities currently inside the viewport by querying the spatial grid for
-   * the cells the visible world rect covers, deduping ids that span cells. This is
-   * a direct viewport→cells lookup — no per-frame bookkeeping from the renderer.
+   * Count entities currently inside the viewport via the grid's viewport-region
+   * query — a direct viewport→cells lookup. All scratch (rect, type list, visitor)
+   * is reused so polling this every frame allocates nothing.
    */
+  const countRect: RectArea = [0, 0, 0, 0];
+  const countTypes: EntityType[] = ['object'];
+  let countAccum = 0;
+  const tallyVisible = (): void => {
+    countAccum++;
+  };
   const countEntitiesInViewport = (): number => {
     if (!gridComponent) {
       return 0;
@@ -168,25 +174,14 @@ export async function createRenderingTest(
     const vp = renderSystem.getViewport();
     const z = renderSystem.getZoom();
     const off = renderSystem.getCameraOffset();
-    const cs = gridComponent.cellSize;
     // Visible world rect: invert canvasPixel = z * (world + off).
-    const cx0 = Math.floor((vp[0] / z - off[0]) / cs);
-    const cx1 = Math.floor(((vp[0] + vp[2]) / z - off[0]) / cs);
-    const cy0 = Math.floor((vp[1] / z - off[1]) / cs);
-    const cy1 = Math.floor(((vp[1] + vp[3]) / z - off[1]) / cs);
-
-    const seen = new Set<string>();
-    for (let cx = cx0; cx <= cx1; cx++) {
-      for (let cy = cy0; cy <= cy1; cy++) {
-        const cell = gridComponent.getCellByKey(`${cx},${cy}`);
-        if (cell) {
-          for (const id of cell.objects) {
-            seen.add(id);
-          }
-        }
-      }
-    }
-    return seen.size;
+    countRect[0] = vp[0] / z - off[0];
+    countRect[1] = vp[1] / z - off[1];
+    countRect[2] = vp[2] / z;
+    countRect[3] = vp[3] / z;
+    countAccum = 0;
+    gridComponent.forEachEntityInRect(countRect, countTypes, tallyVisible);
+    return countAccum;
   };
 
   const syncViewport = () => {

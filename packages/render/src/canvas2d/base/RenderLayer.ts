@@ -72,10 +72,7 @@ export abstract class BaseRenderLayer extends IRenderLayer {
 
     const ePos = transform.getPosition();
     return (
-      ePos[0] + halfW > vL &&
-      ePos[0] - halfW < vR &&
-      ePos[1] + halfH > vT &&
-      ePos[1] - halfH < vB
+      ePos[0] + halfW > vL && ePos[0] - halfW < vR && ePos[1] + halfH > vT && ePos[1] - halfH < vB
     );
   }
 
@@ -110,19 +107,62 @@ export abstract class BaseRenderLayer extends IRenderLayer {
     return null;
   }
 
+  /**
+   * Collect the entities this layer should draw, viewport-first.
+   *
+   * The render side culls by viewport before iterating: it takes the world's
+   * viewport-culled candidate set (computed once per tick, shared across layers)
+   * and keeps the ones whose type this layer wants. Iterating the whole world and
+   * filtering afterwards is what we avoid — at high entity counts that O(total)
+   * scan is the bottleneck.
+   *
+   * Types the grid does not index (camera/light/effect) are few by nature and are
+   * read from their own type buckets.
+   */
   protected getLayerEntities(viewport: RectArea): IEntity[] {
     const types = this.getRelevantEntityTypes();
-    if (types) {
-      const out: IEntity[] = [];
-      for (const t of types) {
-        const bucket = this.getWorld().getEntitiesByType(t);
-        for (const entity of bucket) {
-          if (this.filterEntity(entity, viewport)) out.push(entity);
-        }
-      }
-      return out;
+    if (!types) {
+      // Layers that don't declare types have no spatial hint; keep the legacy scan.
+      return this.getWorld().getEntitiesByCondition((entity) =>
+        this.filterEntity(entity, viewport),
+      );
     }
-    return this.getWorld().getEntitiesByCondition((entity) => this.filterEntity(entity, viewport));
+
+    const world = this.getWorld();
+    const out: IEntity[] = [];
+
+    // Indexed types: keep the wanted types out of the world's viewport candidates.
+    const candidates = world.getEntitiesInViewport(this.toWorldRect(viewport));
+    for (const entity of candidates) {
+      if (types.includes(entity.type) && this.filterEntity(entity, viewport)) {
+        out.push(entity);
+      }
+    }
+
+    // Non-indexed declared types aren't in the grid (and are few) — read their buckets.
+    for (const type of types) {
+      if (world.isTypeSpatiallyIndexed(type)) {
+        continue;
+      }
+      for (const entity of world.getEntitiesByType(type)) {
+        if (this.filterEntity(entity, viewport)) out.push(entity);
+      }
+    }
+
+    return out;
+  }
+
+  /** Visible world rect: invert canvasPixel = zoom * (world + cameraOffset). */
+  private toWorldRect(viewport: RectArea): RectArea {
+    const rs = this.renderSystem!;
+    const [ox, oy] = rs.getCameraOffset();
+    const zoom = rs.getZoom();
+    return [
+      viewport[0] / zoom - ox,
+      viewport[1] / zoom - oy,
+      viewport[2] / zoom,
+      viewport[3] / zoom,
+    ];
   }
 
   protected getWorld() {
