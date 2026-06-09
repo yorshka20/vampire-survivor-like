@@ -6,38 +6,55 @@ export class RenderUtils {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
   }
 
+  /**
+   * Draw a shape centered at `(cx, cy)` scaled by `scale`.
+   *
+   * The translation and per-entity scale are baked into the coordinates here so
+   * callers can draw straight onto the shared layer context without pushing a
+   * `save / translate / scale / restore` per entity — the dominant overhead at
+   * high entity counts. With the default `(0, 0, 1)` it behaves exactly like the
+   * old origin-centered draw, so callers that still set up a transform matrix
+   * (e.g. rotated entities) keep working unchanged.
+   */
   static drawShape(
     ctx: CanvasRenderingContext2D,
     render: RenderComponent,
     shape: ShapeComponent,
+    cx = 0,
+    cy = 0,
+    scale = 1,
   ): void {
-    const color = render.getColor();
     const shapeType = shape.getType();
     // getSize() narrows the descriptor internally and returns [width, height]
     // (for circles it returns [diameter, diameter], so radius = width / 2).
     const [width, height] = shape.getSize();
 
-    ctx.fillStyle = this.colorToString(color);
+    ctx.fillStyle = render.getColorString();
     switch (shapeType) {
       case 'line':
-        this.drawLineProjectile(ctx, width, height, color);
+        // Orientation-based projectile: only meaningful under a rotation
+        // transform, so it ignores cx/cy/scale and draws at the current origin.
+        this.drawLineProjectile(ctx, width, height, render.getColor());
         break;
       case 'circle':
         ctx.beginPath();
-        ctx.arc(0, 0, width / 2, 0, Math.PI * 2);
+        ctx.arc(cx, cy, (width / 2) * scale, 0, Math.PI * 2);
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * scale;
         ctx.stroke();
         ctx.fill();
         break;
-      case 'triangle':
+      case 'triangle': {
+        const hw = (width / 2) * scale;
+        const hh = (height / 2) * scale;
         ctx.beginPath();
-        ctx.moveTo(0, -height / 2);
-        ctx.lineTo(width / 2, height / 2);
-        ctx.lineTo(-width / 2, height / 2);
+        ctx.moveTo(cx, cy - hh);
+        ctx.lineTo(cx + hw, cy + hh);
+        ctx.lineTo(cx - hw, cy + hh);
         ctx.closePath();
         ctx.fill();
         break;
+      }
       case 'polygon':
       case 'parametric':
       case 'bezier': {
@@ -46,17 +63,17 @@ export class RenderUtils {
         const outline = shape.getOutline();
         if (outline.length >= 3) {
           ctx.beginPath();
-          ctx.moveTo(outline[0][0], outline[0][1]);
+          ctx.moveTo(cx + outline[0][0] * scale, cy + outline[0][1] * scale);
           for (let i = 1; i < outline.length; i++) {
-            ctx.lineTo(outline[i][0], outline[i][1]);
+            ctx.lineTo(cx + outline[i][0] * scale, cy + outline[i][1] * scale);
           }
           ctx.closePath();
           ctx.fill();
           ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2 * scale;
           ctx.stroke();
         } else {
-          this.drawBox(ctx, width, height);
+          this.drawBox(ctx, width * scale, height * scale, cx, cy);
         }
         break;
       }
@@ -65,23 +82,34 @@ export class RenderUtils {
       case 'path':
       case 'text':
       default:
-        this.drawBox(ctx, width, height);
+        this.drawBox(ctx, width * scale, height * scale, cx, cy);
         break;
     }
   }
 
-  /** Filled rectangle with a faint outline, centered at the origin. */
-  private static drawBox(ctx: CanvasRenderingContext2D, width: number, height: number): void {
-    ctx.fillRect(-width / 2, -height / 2, width, height);
+  /** Filled rectangle with a faint outline, centered at `(cx, cy)`. */
+  private static drawBox(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    cx = 0,
+    cy = 0,
+  ): void {
+    const x = cx - width / 2;
+    const y = cy - height / 2;
+    ctx.fillRect(x, y, width, height);
     ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 2;
-    ctx.strokeRect(-width / 2, -height / 2, width, height);
+    ctx.strokeRect(x, y, width, height);
   }
 
   static drawPatternImage(
     ctx: CanvasRenderingContext2D,
     patternImage: HTMLImageElement,
     shape: ShapeComponent,
+    cx = 0,
+    cy = 0,
+    scale = 1,
   ): void {
     const [sizeX, sizeY] = shape.getSize();
 
@@ -98,9 +126,12 @@ export class RenderUtils {
       drawHeight = sizeX / aspectRatio;
     }
 
-    // Center the image
-    const x = -drawWidth / 2;
-    const y = -drawHeight / 2;
+    drawWidth *= scale;
+    drawHeight *= scale;
+
+    // Center the image on (cx, cy)
+    const x = cx - drawWidth / 2;
+    const y = cy - drawHeight / 2;
 
     // Render pattern image
     ctx.drawImage(patternImage, x, y, drawWidth, drawHeight);

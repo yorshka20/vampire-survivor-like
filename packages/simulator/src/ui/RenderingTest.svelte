@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getMaxDpr, setMaxDpr } from '@render/utils/dpr';
   import { onMount, tick } from 'svelte';
   import { createRenderingTest, type RenderingTestController } from '../createRenderingTest';
   import { gameState } from '../game/gameState';
@@ -22,6 +23,18 @@
   let loadedCount = 0;
   let targetCount = 0;
   let visibleCount = 0;
+
+  // DPR toggle (1 / 1.5 / 2). The backing store is `dpr²` pixels, so this is the
+  // single biggest GPU fill-rate lever for the stress test. Presets are filtered
+  // to what the device can actually produce (the cap is `min(devicePixelRatio, v)`,
+  // so requesting above the device ratio is a no-op).
+  const DPR_PRESETS = [1, 1.5, 2];
+  const deviceMaxDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const dprOptions = DPR_PRESETS.filter((v) => v <= Math.min(deviceMaxDpr, 2));
+  let maxDpr = (() => {
+    const stored = getMaxDpr();
+    return dprOptions.includes(stored) ? stored : dprOptions[dprOptions.length - 1];
+  })();
 
   // Poll the live in-viewport count (set by the entity layer each rendered frame).
   let pollId = 0;
@@ -81,6 +94,18 @@
   // base size (±20%). Same path as Regenerate, just with the new size applied.
   function onSizeChange() {
     controller?.regenerate(requestedCount, entitySize);
+  }
+
+  function setDpr(value: number) {
+    if (value === maxDpr) {
+      return;
+    }
+    maxDpr = value;
+    setMaxDpr(value);
+    // Everything here reads DPR live and the canvas is shared, so re-fitting the
+    // backing store + culling viewport in place is enough — no reload, so the
+    // loaded population and camera are preserved for a clean GPU A/B.
+    controller?.syncViewport();
   }
 
   function resetView() {
@@ -222,6 +247,7 @@
       </div>
     {/if}
     <div class="row">Zoom: {zoom.toFixed(2)}x</div>
+    <div class="row">DPR: <b>{maxDpr}x</b></div>
     <div class="row">Viewport: {VIEWPORT_SIZES[viewportMode].label}</div>
   </div>
 
@@ -257,6 +283,15 @@
         bind:value={entitySize}
         on:change={onSizeChange}
       />
+    </div>
+
+    <div class="control-group">
+      <span class="group-label">DPR (GPU fill-rate)</span>
+      {#each dprOptions as v}
+        <button class="btn" class:active={maxDpr === v} on:click={() => setDpr(v)}>
+          {v}x
+        </button>
+      {/each}
     </div>
 
     <div class="control-group">

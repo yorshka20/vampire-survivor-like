@@ -123,22 +123,26 @@ export class ItemRenderLayer extends CanvasRenderLayer {
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
 
+    // Fast path: unrotated pickup — bake translation + scale into coordinates so
+    // neither the live draw nor the offscreen-cache rebuild pays for a
+    // per-entity transform + save/restore.
+    if (rotation === 0) {
+      if (patternImage && patternImage.complete) {
+        RenderUtils.drawPatternImage(ctx, patternImage, shape, dx, dy, scale);
+      } else {
+        RenderUtils.drawShape(ctx, render, shape, dx, dy, scale);
+      }
+      return;
+    }
+
+    // Slow path: rotation needs the matrix.
     ctx.save();
     ctx.translate(dx, dy);
     ctx.rotate(rotation);
     ctx.scale(scale, scale);
 
     if (patternImage && patternImage.complete) {
-      const [sizeX, sizeY] = shape.getSize();
-      const aspectRatio = patternImage.width / patternImage.height;
-      let drawWidth = sizeX;
-      let drawHeight = sizeY;
-      if (sizeX / sizeY > aspectRatio) {
-        drawWidth = sizeY * aspectRatio;
-      } else {
-        drawHeight = sizeX / aspectRatio;
-      }
-      ctx.drawImage(patternImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      RenderUtils.drawPatternImage(ctx, patternImage, shape);
     } else {
       RenderUtils.drawShape(ctx, render, shape);
     }

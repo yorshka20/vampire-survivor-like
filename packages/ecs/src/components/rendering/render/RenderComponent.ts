@@ -31,6 +31,16 @@ export class RenderComponent extends Component {
   private laser: { aim: Point } | undefined;
   private color: Color;
 
+  // Cached `rgba(...)` form of `color`. Building this string and letting the
+  // canvas re-parse it every frame is a real cost at high entity counts, so we
+  // memoize it and only rebuild when the underlying channels actually change
+  // (compared by value, so in-place color mutation is handled correctly).
+  private colorStr: string | null = null;
+  private colorStrR = -1;
+  private colorStrG = -1;
+  private colorStrB = -1;
+  private colorStrA = -1;
+
   /**
    * RenderComponent is only responsible for rendering style (color, layer, visibility, etc.),
    * and does not contain any geometry or pattern information.
@@ -79,6 +89,28 @@ export class RenderComponent extends Component {
   }
   getColor(): Color {
     return this.color;
+  }
+  /**
+   * `color` as a cached `rgba(...)` string for direct assignment to
+   * `ctx.fillStyle` / `strokeStyle`. Prefer this over `colorToString(getColor())`
+   * on hot render paths — it avoids a per-frame string allocation + CSS parse.
+   */
+  getColorString(): string {
+    const c = this.color;
+    if (
+      this.colorStr === null ||
+      c.r !== this.colorStrR ||
+      c.g !== this.colorStrG ||
+      c.b !== this.colorStrB ||
+      c.a !== this.colorStrA
+    ) {
+      this.colorStr = `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+      this.colorStrR = c.r;
+      this.colorStrG = c.g;
+      this.colorStrB = c.b;
+      this.colorStrA = c.a;
+    }
+    return this.colorStr;
   }
   getOffset(): Point {
     return this.offset;

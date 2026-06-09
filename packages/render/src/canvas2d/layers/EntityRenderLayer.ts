@@ -23,6 +23,11 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     const entities = this.getLayerEntities(viewport);
+    // One save/restore for the whole layer instead of one per entity: the fast
+    // path below bakes translation + scale into draw coordinates and leaves the
+    // shared context's fill/stroke styles dirty, so we isolate the layer's state
+    // changes from sibling layers exactly once per tick.
+    this.ctx.save();
     for (const entity of entities) {
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
@@ -30,6 +35,7 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
       this.renderEntity(render, transform, shape, cameraOffset);
     }
+    this.ctx.restore();
   }
 
   protected getRelevantEntityTypes(): EntityType[] {
@@ -60,13 +66,24 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
 
+    const hasAnimation = entity.hasComponent(AnimationComponent.componentName);
+
+    // Fast path: unrotated, non-animated entities (the bulk of the population,
+    // e.g. the static shape stress test). Translation + scale are baked into the
+    // draw coordinates so we touch neither the transform matrix nor the
+    // save/restore stack per entity.
+    if (rotation === 0 && !hasAnimation) {
+      this.renderNormalEntity(entity, render, shape, dx, dy, scale);
+      return;
+    }
+
+    // Slow path: rotation and/or sprite animation genuinely need the matrix.
     this.ctx.save();
     this.ctx.translate(dx, dy);
     this.ctx.rotate(rotation);
     this.ctx.scale(scale, scale);
 
-    // Check if entity has animation component
-    if (entity.hasComponent(AnimationComponent.componentName)) {
+    if (hasAnimation) {
       const animation = entity.getComponent<AnimationComponent>(AnimationComponent.componentName);
 
       if (entity.isType('effect')) {
@@ -235,6 +252,9 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     entity: IEntity,
     render: RenderComponent,
     shape: ShapeComponent,
+    cx = 0,
+    cy = 0,
+    scale = 1,
   ): void {
     let patternImage = null;
 
@@ -247,9 +267,9 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     }
 
     if (patternImage && patternImage.complete) {
-      RenderUtils.drawPatternImage(this.ctx, patternImage, shape);
+      RenderUtils.drawPatternImage(this.ctx, patternImage, shape, cx, cy, scale);
     } else {
-      RenderUtils.drawShape(this.ctx, render, shape);
+      RenderUtils.drawShape(this.ctx, render, shape, cx, cy, scale);
     }
   }
 }

@@ -19,6 +19,9 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     const projectiles = this.getLayerEntities(viewport);
+    // Single save/restore for the layer; the unrotated fast path leaves the
+    // shared context's styles dirty, so isolate them from sibling layers once.
+    this.ctx.save();
     for (const projectile of projectiles) {
       const render = projectile.getComponent<RenderComponent>(RenderComponent.componentName);
       const transform = projectile.getComponent<TransformComponent>(
@@ -27,6 +30,7 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
       const shape = projectile.getComponent<ShapeComponent>(ShapeComponent.componentName);
       this.renderEntity(render, transform, shape, cameraOffset);
     }
+    this.ctx.restore();
   }
 
   filterEntity(entity: Entity, viewport: RectArea): boolean {
@@ -49,6 +53,18 @@ export class ProjectileRenderLayer extends CanvasRenderLayer {
     const dx = cameraOffset[0] + position[0] + offsetX;
     const dy = cameraOffset[1] + position[1] + offsetY;
 
+    // Fast path: unrotated projectile — bake translation + scale into the draw
+    // coordinates and skip the per-entity transform/save/restore.
+    if (rotation === 0) {
+      if (this.usePatternImage && patternImage && patternImage.complete) {
+        RenderUtils.drawPatternImage(this.ctx, patternImage, shape, dx, dy, scale);
+      } else {
+        RenderUtils.drawShape(this.ctx, render, shape, dx, dy, scale);
+      }
+      return;
+    }
+
+    // Slow path: rotation needs the matrix (e.g. oriented line projectiles).
     this.ctx.save();
     this.ctx.translate(dx, dy);
     this.ctx.rotate(rotation);

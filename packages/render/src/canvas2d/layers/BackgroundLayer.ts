@@ -32,9 +32,14 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     this.renderEffects(deltaTime, viewport, cameraOffset);
 
     const entities = this.getLayerEntities(viewport);
+    // Single save/restore for the whole batch: renderBackgroundEntity bakes the
+    // translation into draw coordinates and leaves styles dirty, so we isolate
+    // the layer's state from siblings once instead of once per entity.
+    this.ctx.save();
     for (const entity of entities) {
       this.renderBackgroundEntity(entity, cameraOffset);
     }
+    this.ctx.restore();
   }
 
   private renderBackground(
@@ -223,18 +228,15 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
     const dx = pos[0] + cameraOffset[0];
     const dy = pos[1] + cameraOffset[1];
 
-    this.ctx.save();
-    this.ctx.translate(dx, dy);
-
+    // obstacle/camera/light never rotate; bake the translation into coordinates
+    // and draw straight onto the (layer-level saved) context.
     if (entity.isType('camera') || entity.isType('light')) {
       const patternImage = shape.getPatternImage();
       if (patternImage) {
-        RenderUtils.drawPatternImage(this.ctx, patternImage, shape);
+        RenderUtils.drawPatternImage(this.ctx, patternImage, shape, dx, dy);
       }
     } else {
-      RenderUtils.drawShape(this.ctx, render, shape);
+      RenderUtils.drawShape(this.ctx, render, shape, dx, dy);
     }
-
-    this.ctx.restore();
   }
 }
