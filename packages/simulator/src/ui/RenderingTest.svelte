@@ -101,6 +101,13 @@
     RenderUtils.strokeShapes = strokeEnabled;
   }
 
+  // Idle-frame skip: skip the whole re-raster on frames where nothing changed.
+  let idleSkip = true;
+  function toggleIdleSkip() {
+    idleSkip = !idleSkip;
+    controller?.setIdleSkip(idleSkip);
+  }
+
   function selectRandom() {
     useRandom = true;
     standardKinds = { circle: false, rect: false, triangle: false };
@@ -151,6 +158,7 @@
       baseSize: entitySize,
       onProgress,
       geometry: currentGeometry(),
+      idleSkip,
     });
     gameState.setGame(controller.game);
     gameState.start();
@@ -400,6 +408,13 @@
       <span class="group-label">Stroke (outline)</span>
       <button class="btn" class:active={strokeEnabled} on:click={toggleStroke}>
         {strokeEnabled ? 'On' : 'Off'}
+      </button>
+    </div>
+
+    <div class="control-group">
+      <span class="group-label">Idle frame skip</span>
+      <button class="btn" class:active={idleSkip} on:click={toggleIdleSkip}>
+        {idleSkip ? 'On' : 'Off'}
       </button>
     </div>
 

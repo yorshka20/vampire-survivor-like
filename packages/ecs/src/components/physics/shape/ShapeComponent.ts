@@ -27,6 +27,13 @@ export class ShapeComponent extends Component {
 
   private dirty: boolean = true;
 
+  /**
+   * Monotonic counter bumped whenever the descriptor changes. Lets render-dirty
+   * detection (idle-frame-skip) treat the shape as a cheap version number instead
+   * of re-hashing geometry every frame.
+   */
+  version = 0;
+
   constructor(props: ShapeProps) {
     super('Shape');
     this.descriptor = props.descriptor;
@@ -72,6 +79,7 @@ export class ShapeComponent extends Component {
     this.dirty = true;
     this.tessellated = [];
     this.bounds = null;
+    this.version++;
   }
 
   /**
@@ -293,6 +301,7 @@ export class ShapeComponent extends Component {
     this.bounds = null;
     this.dirty = true;
     this.descriptor = { type: 'circle', radius: 1 } as CircleDescriptor;
+    this.version++;
   }
 
   /**
@@ -309,6 +318,7 @@ export class ShapeComponent extends Component {
     } else {
       this.patternImage = null;
     }
+    this.version++;
   }
 
   /**

@@ -25,6 +25,11 @@ export class RenderSystem extends System {
 
   private coarseMode: boolean = false;
 
+  // Single-frame render skip, set by an optional IdleFrameSkipSystem running just
+  // before this system. Default false → when no skip system is present this is a
+  // no-op (one branch per frame) and rendering always proceeds.
+  private skipRequested: boolean = false;
+
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
 
@@ -136,12 +141,29 @@ export class RenderSystem extends System {
     this.cameraFollow = true;
   }
 
+  /**
+   * Ask the renderer to skip the next clear+draw for this frame. Called by an
+   * optional IdleFrameSkipSystem when it detects nothing render-relevant changed.
+   * The flag is consumed (reset) by the very next `update`.
+   */
+  requestSkip(): void {
+    this.skipRequested = true;
+  }
+
   update(deltaTime: number): void {
     // Update player position every frame. Used in isInViewport check.
     this.updatePlayerPosition();
 
     // Calculate camera offset
     this.updateCameraOffset();
+
+    // Idle-frame skip: nothing changed since last frame → keep the last frame on
+    // the (persistent) canvas by skipping both clear and draw. Camera/player
+    // bookkeeping above still runs so state stays consistent.
+    if (this.skipRequested) {
+      this.skipRequested = false;
+      return;
+    }
 
     // Clear main canvas
     this.clear();

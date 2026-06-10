@@ -31,6 +31,7 @@ export enum SystemPriorities {
   DAMAGE_TEXT = 8000, // Render damage text
   STATE_EFFECT = 8001, // Process state effects
   ANIMATION = 8002, // Process animation
+  RENDER_SKIP = 9998, // Decide idle-frame skip just before final render (opt-in)
   RENDER = 9999, // Final rendering
 }
 

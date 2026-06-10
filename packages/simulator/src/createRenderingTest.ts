@@ -1,4 +1,5 @@
 import {
+  IdleFrameSkipSystem,
   MouseInteractSystem,
   RectArea,
   RenderSystem,
@@ -34,6 +35,8 @@ export interface RenderingTestOptions {
   onProgress?: (loaded: number, target: number) => void;
   /** Geometry source for spawned entities. Defaults to `'random'`. */
   geometry?: GeometryMode;
+  /** Whether the idle-frame-skip system is enabled. Defaults to true. */
+  idleSkip?: boolean;
 }
 
 /** "Large" viewport footprint (CSS px); the default region is a 3x3 grid of these. */
@@ -69,6 +72,8 @@ export interface RenderingTestController {
   setMaxDpr: (value: number) => void;
   /** Switch the geometry source and respawn the current population with it. */
   setGeometry: (mode: GeometryMode) => void;
+  /** Enable/disable idle-frame skipping (no respawn; takes effect next frame). */
+  setIdleSkip: (enabled: boolean) => void;
   /** Put the given world point at the center of the viewport. */
   centerOn: (worldX: number, worldY: number) => void;
   /** Current region extent (world units). */
@@ -119,6 +124,15 @@ export async function createRenderingTest(
   renderSystem.setRenderer(renderer);
   renderSystem.init();
   world.addSystem(renderSystem);
+
+  // Idle-frame skip: this scene is near-static (only camera + interaction move),
+  // so this system lets fully-idle frames skip the whole re-raster. It is opt-in
+  // per scene — the dynamic game never adds it and pays nothing. Here it is always
+  // added but toggled via `enabled`: when off, its update never runs (no hash
+  // cost) and the RenderSystem always draws.
+  const idleSkipSystem = new IdleFrameSkipSystem();
+  idleSkipSystem.enabled = options.idleSkip ?? true;
+  world.addSystem(idleSkipSystem);
 
   // World coords live in device pixels (the main canvas ctx is not dpr-scaled), so
   // the region is the requested CSS footprint times the dpr. It is fixed for the
@@ -317,6 +331,9 @@ export async function createRenderingTest(
       // Geometry is baked into each entity at spawn, so switching it means
       // respawning the current population (same count) with the new descriptor.
       respawnCurrent();
+    },
+    setIdleSkip: (enabled: boolean) => {
+      idleSkipSystem.enabled = enabled;
     },
     clearEntities,
     getLoadedCount,
