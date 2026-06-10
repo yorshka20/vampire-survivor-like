@@ -10,23 +10,74 @@ import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
-import { CanvasRenderLayer } from '../base';
+import { CanvasRenderLayer, OffscreenLayerCache } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';
 import { RenderUtils } from '../utils/RenderUtils';
 
 const ENTITY_LAYER_TYPES: EntityType[] = ['player', 'enemy', 'effect', 'object'];
 
 export class EntityRenderLayer extends CanvasRenderLayer {
+  /**
+   * Offscreen pan cache. On 'transform' frames (camera panned, content stable)
+   * we blit this instead of re-rasterizing every shape. Only engaged at zoom 1
+   * (cache px == world units → crisp 1:1 blit); other zooms render live.
+   */
+  private cache = new OffscreenLayerCache(0.25);
+  private cacheValid = false;
+
   constructor(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
     super(RenderLayerIdentifier.ENTITY, RenderLayerPriority.ENTITY, canvas, context);
   }
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
+    const rs = this.renderSystem;
+    // Pan cache only applies at zoom 1 and when enabled; otherwise draw live.
+    if (!rs || !rs.isPanCacheEnabled() || rs.getZoom() !== 1) {
+      this.renderLive(viewport, cameraOffset);
+      return;
+    }
+
+    // RenderSystem already handled 'skip'; here mode is 'transform' or 'rebuild'.
+    const mode = rs.getRenderMode();
+    const resized = this.cache.ensureSize(viewport);
+    const anchor = this.cache.computeAnchor(viewport, cameraOffset);
+    const needRebuild =
+      !this.cacheValid ||
+      resized ||
+      mode !== 'transform' ||
+      this.cache.isAnchorOutsideSafeBand(anchor);
+
+    if (needRebuild) {
+      const entities = this.collectBandEntities(this.cache.viewWorldRect(anchor));
+      this.cache.rebuild(anchor, (cacheCtx, synthOffset) => {
+        // Temporarily retarget this layer's draws to the offscreen context, using
+        // the cache's synthetic offset so world coords land at the right pixel.
+        const mainCtx = this.ctx;
+        this.ctx = cacheCtx;
+        this.ctx.save();
+        for (const entity of entities) {
+          const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
+          const transform = entity.getComponent<TransformComponent>(
+            TransformComponent.componentName,
+          );
+          const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+          this.renderEntity(render, transform, shape, synthOffset);
+        }
+        this.ctx.restore();
+        this.ctx = mainCtx;
+      });
+      this.cacheValid = true;
+    }
+
+    this.cache.blit(this.ctx, cameraOffset);
+  }
+
+  /** Live per-entity draw straight to the layer context (no cache). */
+  private renderLive(viewport: RectArea, cameraOffset: [number, number]): void {
+    // Going live invalidates the cache so the next 'transform' frame rebuilds.
+    this.cacheValid = false;
     const entities = this.getLayerEntities(viewport);
-    // One save/restore for the whole layer instead of one per entity: the fast
-    // path below bakes translation + scale into draw coordinates and leaves the
-    // shared context's fill/stroke styles dirty, so we isolate the layer's state
-    // changes from sibling layers exactly once per tick.
+    // One save/restore for the whole layer instead of one per entity.
     this.ctx.save();
     for (const entity of entities) {
       const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
@@ -36,6 +87,27 @@ export class EntityRenderLayer extends CanvasRenderLayer {
       this.renderEntity(render, transform, shape, cameraOffset);
     }
     this.ctx.restore();
+  }
+
+  /**
+   * Entities overlapping the cache band (this layer's types, fully componented).
+   * Unlike getLayerEntities this does NOT cull to the viewport — the whole band
+   * is rasterized so panning within it needs no rebuild.
+   */
+  private collectBandEntities(bandRect: RectArea): IEntity[] {
+    const world = this.getWorld();
+    const out: IEntity[] = [];
+    for (const entity of world.getEntitiesInViewport(bandRect)) {
+      if (
+        ENTITY_LAYER_TYPES.includes(entity.type) &&
+        entity.hasComponent(ShapeComponent.componentName) &&
+        entity.hasComponent(RenderComponent.componentName) &&
+        entity.hasComponent(TransformComponent.componentName)
+      ) {
+        out.push(entity);
+      }
+    }
+    return out;
   }
 
   protected getRelevantEntityTypes(): EntityType[] {

@@ -6,6 +6,15 @@ import { RenderLayerIdentifier } from '@render/constant';
 import { IRenderer, IRenderLayer } from '@render/types';
 import { getCappedDevicePixelRatio } from '@render/utils/dpr';
 
+/**
+ * Per-frame render decision, produced by an optional IdleFrameSkipSystem:
+ * - `'skip'`: nothing changed → keep the last frame (no clear, no draw).
+ * - `'transform'`: only the camera panned → pan-cache layers may blit their
+ *   cached bitmap instead of re-rasterizing.
+ * - `'rebuild'`: content (or zoom/viewport) changed → full draw. The default.
+ */
+export type RenderMode = 'skip' | 'transform' | 'rebuild';
+
 export class RenderSystem extends System {
   static getInstance(): RenderSystem {
     if (!RenderSystem.instance) {
@@ -25,10 +34,13 @@ export class RenderSystem extends System {
 
   private coarseMode: boolean = false;
 
-  // Single-frame render skip, set by an optional IdleFrameSkipSystem running just
-  // before this system. Default false → when no skip system is present this is a
-  // no-op (one branch per frame) and rendering always proceeds.
-  private skipRequested: boolean = false;
+  // Render mode for the upcoming frame, set by an optional IdleFrameSkipSystem
+  // running just before this system. Default 'rebuild' = full draw, so when no
+  // skip system is present behaviour is unchanged.
+  private renderMode: RenderMode = 'rebuild';
+  // Whether pan-cache-capable layers (EntityRenderLayer) may reuse their cache on
+  // 'transform' frames. Off = they re-raster live (baseline for A/B).
+  private panCacheEnabled: boolean = true;
 
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
@@ -141,13 +153,20 @@ export class RenderSystem extends System {
     this.cameraFollow = true;
   }
 
-  /**
-   * Ask the renderer to skip the next clear+draw for this frame. Called by an
-   * optional IdleFrameSkipSystem when it detects nothing render-relevant changed.
-   * The flag is consumed (reset) by the very next `update`.
-   */
-  requestSkip(): void {
-    this.skipRequested = true;
+  /** Set this frame's render mode (called by IdleFrameSkipSystem just before this system runs). */
+  setRenderMode(mode: RenderMode): void {
+    this.renderMode = mode;
+  }
+  /** This frame's render mode; layers read it to decide pan-cache reuse vs re-raster. */
+  getRenderMode(): RenderMode {
+    return this.renderMode;
+  }
+  /** Toggle whether pan-cache layers may reuse their cache on 'transform' frames. */
+  setPanCacheEnabled(enabled: boolean): void {
+    this.panCacheEnabled = enabled;
+  }
+  isPanCacheEnabled(): boolean {
+    return this.panCacheEnabled;
   }
 
   update(deltaTime: number): void {
@@ -157,19 +176,21 @@ export class RenderSystem extends System {
     // Calculate camera offset
     this.updateCameraOffset();
 
-    // Idle-frame skip: nothing changed since last frame → keep the last frame on
-    // the (persistent) canvas by skipping both clear and draw. Camera/player
-    // bookkeeping above still runs so state stays consistent.
-    if (this.skipRequested) {
-      this.skipRequested = false;
+    const mode = this.renderMode;
+    // 'skip': nothing changed → keep the last frame on the (persistent) canvas by
+    // skipping both clear and draw. Camera/player bookkeeping above still runs.
+    if (mode === 'skip') {
+      this.renderMode = 'rebuild';
       return;
     }
 
-    // Clear main canvas
+    // 'transform' / 'rebuild': clear + draw. Layers read getRenderMode() to choose
+    // between serving from a pan cache ('transform') and re-rasterizing ('rebuild').
     this.clear();
-
-    // call renderer update
     this.renderer.update(deltaTime, this.viewport, this.cameraOffset, this.zoom);
+
+    // Default back to full draw; the skip system re-sets the mode each frame.
+    this.renderMode = 'rebuild';
   }
 
   getPlayerPosition(): [number, number] | undefined {

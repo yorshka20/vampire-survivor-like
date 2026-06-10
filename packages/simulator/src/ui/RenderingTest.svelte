@@ -108,6 +108,13 @@
     controller?.setIdleSkip(idleSkip);
   }
 
+  // Pan cache: blit a cached bitmap on pan instead of re-rasterizing (zoom 1 only).
+  let panCache = true;
+  function togglePanCache() {
+    panCache = !panCache;
+    controller?.setPanCache(panCache);
+  }
+
   function selectRandom() {
     useRandom = true;
     standardKinds = { circle: false, rect: false, triangle: false };
@@ -159,6 +166,7 @@
       onProgress,
       geometry: currentGeometry(),
       idleSkip,
+      panCache,
     });
     gameState.setGame(controller.game);
     gameState.start();
@@ -365,72 +373,86 @@
       <div class="controls-body">
         <div class="control-group">
           <span class="group-label">Viewport</span>
-      {#each Object.entries(VIEWPORT_SIZES) as [mode, cfg]}
-        <button
-          class="btn"
-          class:active={viewportMode === mode}
-          on:click={() => setViewportMode(mode as ViewportMode)}
-        >
-          {cfg.label}
-        </button>
-      {/each}
-    </div>
+          {#each Object.entries(VIEWPORT_SIZES) as [mode, cfg]}
+            <button
+              class="btn"
+              class:active={viewportMode === mode}
+              on:click={() => setViewportMode(mode as ViewportMode)}
+            >
+              {cfg.label}
+            </button>
+          {/each}
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">Entities</span>
-      <input class="count-input" type="number" min="0" step="5000" bind:value={requestedCount} />
-      <button class="btn" on:click={regenerate}>Regenerate</button>
-    </div>
+        <div class="control-group">
+          <span class="group-label">Entities</span>
+          <input
+            class="count-input"
+            type="number"
+            min="0"
+            step="5000"
+            bind:value={requestedCount}
+          />
+          <button class="btn" on:click={regenerate}>Regenerate</button>
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">Size: {entitySize} (±20%)</span>
-      <input
-        class="size-slider"
-        type="range"
-        min="1"
-        max="40"
-        step="1"
-        bind:value={entitySize}
-        on:change={onSizeChange}
-      />
-    </div>
+        <div class="control-group">
+          <span class="group-label">Size: {entitySize} (±20%)</span>
+          <input
+            class="size-slider"
+            type="range"
+            min="1"
+            max="40"
+            step="1"
+            bind:value={entitySize}
+            on:change={onSizeChange}
+          />
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">DPR (GPU fill-rate)</span>
-      {#each dprOptions as v}
-        <button class="btn" class:active={maxDpr === v} on:click={() => setDpr(v)}>
-          {v}x
-        </button>
-      {/each}
-    </div>
+        <div class="control-group">
+          <span class="group-label">DPR (GPU fill-rate)</span>
+          {#each dprOptions as v}
+            <button class="btn" class:active={maxDpr === v} on:click={() => setDpr(v)}>
+              {v}x
+            </button>
+          {/each}
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">Stroke (outline)</span>
-      <button class="btn" class:active={strokeEnabled} on:click={toggleStroke}>
-        {strokeEnabled ? 'On' : 'Off'}
-      </button>
-    </div>
+        <div class="control-group">
+          <span class="group-label">Stroke (outline)</span>
+          <button class="btn" class:active={strokeEnabled} on:click={toggleStroke}>
+            {strokeEnabled ? 'On' : 'Off'}
+          </button>
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">Idle frame skip</span>
-      <button class="btn" class:active={idleSkip} on:click={toggleIdleSkip}>
-        {idleSkip ? 'On' : 'Off'}
-      </button>
-    </div>
+        <div class="control-group">
+          <span class="group-label">Idle frame skip</span>
+          <button class="btn" class:active={idleSkip} on:click={toggleIdleSkip}>
+            {idleSkip ? 'On' : 'Off'}
+          </button>
+          <button
+            class="btn"
+            class:active={panCache}
+            on:click={togglePanCache}
+            title="Blit a cached bitmap on pan instead of re-rasterizing (zoom 1 only)"
+          >
+            {panCache ? 'Pan cache' : 'No cache'}
+          </button>
+        </div>
 
-    <div class="control-group">
-      <span class="group-label">Geometry</span>
-      <button class="btn" class:active={useRandom} on:click={selectRandom}>Random</button>
-      {#each STANDARD_KINDS as kind}
-        <button
-          class="btn"
-          class:active={!useRandom && standardKinds[kind]}
-          on:click={() => toggleStandard(kind)}
-        >
-          {kind}
-        </button>
-      {/each}
-    </div>
+        <div class="control-group">
+          <span class="group-label">Geometry</span>
+          <button class="btn" class:active={useRandom} on:click={selectRandom}>Random</button>
+          {#each STANDARD_KINDS as kind}
+            <button
+              class="btn"
+              class:active={!useRandom && standardKinds[kind]}
+              on:click={() => toggleStandard(kind)}
+            >
+              {kind}
+            </button>
+          {/each}
+        </div>
 
         <div class="control-group">
           <span class="group-label">Camera</span>

@@ -37,6 +37,8 @@ export interface RenderingTestOptions {
   geometry?: GeometryMode;
   /** Whether the idle-frame-skip system is enabled. Defaults to true. */
   idleSkip?: boolean;
+  /** Whether the entity pan cache is enabled (blit on pan vs re-raster). Defaults to true. */
+  panCache?: boolean;
 }
 
 /** "Large" viewport footprint (CSS px); the default region is a 3x3 grid of these. */
@@ -74,6 +76,8 @@ export interface RenderingTestController {
   setGeometry: (mode: GeometryMode) => void;
   /** Enable/disable idle-frame skipping (no respawn; takes effect next frame). */
   setIdleSkip: (enabled: boolean) => void;
+  /** Enable/disable the entity pan cache (blit on pan vs re-raster). */
+  setPanCache: (enabled: boolean) => void;
   /** Put the given world point at the center of the viewport. */
   centerOn: (worldX: number, worldY: number) => void;
   /** Current region extent (world units). */
@@ -133,6 +137,10 @@ export async function createRenderingTest(
   const idleSkipSystem = new IdleFrameSkipSystem();
   idleSkipSystem.enabled = options.idleSkip ?? true;
   world.addSystem(idleSkipSystem);
+
+  // Pan cache: on 'transform' frames (pan, content stable) the entity layer blits
+  // a cached bitmap instead of re-rasterizing. Off = re-raster every pan (baseline).
+  renderSystem.setPanCacheEnabled(options.panCache ?? true);
 
   // World coords live in device pixels (the main canvas ctx is not dpr-scaled), so
   // the region is the requested CSS footprint times the dpr. It is fixed for the
@@ -334,6 +342,9 @@ export async function createRenderingTest(
     },
     setIdleSkip: (enabled: boolean) => {
       idleSkipSystem.enabled = enabled;
+    },
+    setPanCache: (enabled: boolean) => {
+      renderSystem.setPanCacheEnabled(enabled);
     },
     clearEntities,
     getLoadedCount,

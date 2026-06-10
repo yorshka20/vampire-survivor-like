@@ -1,102 +1,154 @@
 import {
+  InteractActiveComponent,
   InteractComponent,
   RenderComponent,
   ShapeComponent,
   TransformComponent,
 } from '@ecs/components';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { IComponent, SystemType } from '@ecs/core/ecs/types';
-import { RectArea } from '@ecs/types/types';
-import { RenderSystem } from './RenderSystem';
+import { RenderMode, RenderSystem } from './RenderSystem';
+
+/**
+ * Buckets whose entities can change every frame (interaction: hover / select /
+ * drag). The cheap detection hashes only these; everything else is assumed
+ * static and tracked structurally via the add/remove content epoch. Extend this
+ * list with any other genuinely per-frame-dynamic bucket (e.g. AnimationComponent).
+ */
+const DYNAMIC_BUCKETS: { componentName: string }[] = [InteractActiveComponent];
 
 /**
  * Optional idle-frame-skip system.
  *
- * Each render tick it derives a hash of everything that affects the next frame's
- * pixels — camera/viewport/dpr plus a per-component projection of every visible
- * entity — and compares it to last tick. If identical, it asks the RenderSystem
- * (running right after, at a lower priority) to skip its clear+draw, so a fully
- * static scene costs ~one cheap hash pass instead of a full re-raster.
+ * Each render tick it derives a signature of everything that affects the next
+ * frame's pixels and compares it to last tick. If identical, it asks the
+ * RenderSystem (running right after, at a lower priority) to skip its clear+draw.
+ *
+ * The signature is O(dynamic changes), NOT O(total entities): camera/viewport/dpr
+ * + a content epoch bumped on entity add/remove + a hash of only the small
+ * per-frame-dynamic buckets (interaction). A full per-frame hash of the whole
+ * population was measured at 15–20 ms at 150k and is unusable, so the static
+ * majority is tracked structurally (add/remove epoch) instead of re-hashed.
  *
  * Design notes:
  * - **Add it to get the skip; don't add it and there is zero cost.** All the
- *   hashing lives here; components stay plain data. The RenderSystem only carries
+ *   logic lives here; components stay plain data. The RenderSystem only carries
  *   a default-false skip flag (one branch/frame) when this system is absent.
- * - **Change detection, not write interception.** We observe the resulting state
- *   each frame rather than tracking who mutated what, so in-place mutation and
- *   object pooling are unaffected, and nothing can "forget" to mark dirty.
- * - **Fail-safe direction.** Hashing a superset / colliding only ever causes an
- *   extra redraw (safe); the only danger — a missed redraw — needs a 2^-32 hash
- *   collision, and even then it is a single stale frame.
- * - Relies on the spatial grid for the visible set (same query the layers cull
- *   with, so the per-tick result is shared). Intended for grid-backed scenes.
+ * - **Fail-safe direction.** A superset / collision only causes an extra redraw
+ *   (safe); a missed redraw needs a 2^-32 hash collision (one stale frame). The
+ *   cheap path additionally assumes static entities change only via add/remove.
+ * - Intended for near-static, grid-backed scenes (e.g. the render bench).
  */
 export class IdleFrameSkipSystem extends System {
   private renderSystem: RenderSystem | null = null;
-  private lastHash = 0;
   private hasLast = false;
+  private lastContent = 0;
+  private lastStruct = 0;
+  private lastOffsetX = 0;
+  private lastOffsetY = 0;
+
+  /**
+   * Bumped on every entity add/remove. The cheap path folds this in instead of
+   * re-hashing the static majority, so spawn/clear/recycle still force a redraw.
+   */
+  private contentEpoch = 0;
+  private readonly bumpEpoch = (): void => {
+    this.contentEpoch = (this.contentEpoch + 1) | 0;
+  };
 
   constructor() {
     super('IdleFrameSkipSystem', SystemPriorities.RENDER_SKIP, 'render');
   }
 
-  update(_deltaTime: number, _systemType: SystemType): void {
+  private getRenderSystem() {
     if (!this.renderSystem) {
-      try {
-        this.renderSystem = RenderSystem.getInstance();
-      } catch {
-        return; // renderer not ready yet
-      }
+      this.renderSystem = RenderSystem.getInstance();
     }
+    return this.renderSystem;
+  }
 
-    const hash = this.computeHash(this.renderSystem);
-    if (this.hasLast && hash === this.lastHash) {
-      this.renderSystem.requestSkip();
+  init(): void {
+    super.init();
+    this.world.onEntityAdded.subscribe(this.bumpEpoch);
+    this.world.onEntityRemoved.subscribe(this.bumpEpoch);
+  }
+
+  destroy(): void {
+    this.world.onEntityAdded.unsubscribe(this.bumpEpoch);
+    this.world.onEntityRemoved.unsubscribe(this.bumpEpoch);
+  }
+
+  update(_deltaTime: number, _systemType: SystemType): void {
+    const renderSystem = this.getRenderSystem();
+
+    const content = this.contentSig();
+    const struct = this.structSig(renderSystem);
+    const offset = renderSystem.getCameraOffset();
+
+    let mode: RenderMode;
+    if (!this.hasLast || content !== this.lastContent || struct !== this.lastStruct) {
+      // Content changed, or zoom/viewport/dpr changed → must re-raster.
+      mode = 'rebuild';
+    } else if (offset[0] !== this.lastOffsetX || offset[1] !== this.lastOffsetY) {
+      // Only the camera panned → pan-cache layers can blit instead of re-raster.
+      mode = 'transform';
+    } else {
+      // Nothing changed at all.
+      mode = 'skip';
     }
-    this.lastHash = hash;
+    renderSystem.setRenderMode(mode);
+
+    this.lastContent = content;
+    this.lastStruct = struct;
+    this.lastOffsetX = offset[0];
+    this.lastOffsetY = offset[1];
     this.hasLast = true;
   }
 
-  private computeHash(rs: RenderSystem): number {
-    const offset = rs.getCameraOffset();
-    const zoom = rs.getZoom();
-    const viewport = rs.getViewport();
-    const dpr = rs.getDevicePixelRatio();
-
-    // Global state that affects every pixel regardless of per-entity data.
-    let global = 0;
-    global = mixNumber(global, offset[0]);
-    global = mixNumber(global, offset[1]);
-    global = mixNumber(global, zoom);
-    global = mixNumber(global, viewport[0]);
-    global = mixNumber(global, viewport[1]);
-    global = mixNumber(global, viewport[2]);
-    global = mixNumber(global, viewport[3]);
-    global = mixNumber(global, dpr);
-
-    // Visible set: same world rect the layers cull with, so this reuses the
-    // per-tick viewport-query cache instead of computing a second time.
-    const worldRect = toWorldRect(viewport, offset, zoom);
-    const entities = this.world.getEntitiesInViewport(worldRect);
-
-    // Commutative combine (order-independent: the grid's iteration order may vary
-    // frame to frame). Entity id is folded in so swapping values between two
-    // entities still changes the sum.
+  /**
+   * Camera-independent content signature. Cost is O(dynamic-bucket size),
+   * independent of total entity count: content epoch (structural add/remove) +
+   * a hash of only the per-frame-dynamic buckets (interaction). Assumes the
+   * static majority changes only via add/remove — true for the near-static
+   * scenes this system targets.
+   */
+  private contentSig(): number {
+    let h = mixInt(0, this.contentEpoch);
+    const dynamic = this.world.getEntitiesWithComponents(DYNAMIC_BUCKETS);
     let acc = 0;
-    let count = 0;
-    for (const entity of entities) {
-      let h = mixString(0, entity.id);
-      for (const ex of EXTRACTORS) {
-        if (entity.hasComponent(ex.name)) {
-          h = mixInt(h, ex.extract(entity.getComponent(ex.name)));
-        }
-      }
-      acc = (acc + h) | 0;
-      count++;
+    for (let i = 0; i < dynamic.length; i++) {
+      acc = (acc + this.hashEntity(dynamic[i])) | 0;
     }
+    h = mixInt(h, acc);
+    return mixInt(h, dynamic.length);
+  }
 
-    return mixInt(mixInt(global, acc), count);
+  /**
+   * Scale/structure signature (zoom, viewport, dpr). A change here forces a
+   * rebuild because the pan cache is only valid at a fixed zoom/size. Camera
+   * *offset* (pan) is compared separately so it can yield 'transform' instead.
+   */
+  private structSig(rs: RenderSystem): number {
+    const vp = rs.getViewport();
+    let h = mixNumber(0, rs.getZoom());
+    h = mixNumber(h, vp[0]);
+    h = mixNumber(h, vp[1]);
+    h = mixNumber(h, vp[2]);
+    h = mixNumber(h, vp[3]);
+    h = mixNumber(h, rs.getDevicePixelRatio());
+    return h;
+  }
+
+  private hashEntity(entity: Entity): number {
+    let h = mixString(0, entity.id);
+    for (const ex of EXTRACTORS) {
+      if (entity.hasComponent(ex.name)) {
+        h = mixInt(h, ex.extract(entity.getComponent(ex.name)));
+      }
+    }
+    return h;
   }
 }
 
@@ -179,14 +231,4 @@ function mixString(h: number, s: string): number {
     h = mixInt(h, s.charCodeAt(i));
   }
   return h;
-}
-
-/** Visible world rect: invert canvasPixel = zoom * (world + cameraOffset). */
-function toWorldRect(viewport: RectArea, offset: [number, number], zoom: number): RectArea {
-  return [
-    viewport[0] / zoom - offset[0],
-    viewport[1] / zoom - offset[1],
-    viewport[2] / zoom,
-    viewport[3] / zoom,
-  ];
 }

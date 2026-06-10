@@ -85,6 +85,16 @@ export class OffscreenLayerCache {
   }
 
   /**
+   * World-space rect the cache canvas covers when centered on `anchor`. At
+   * zoom = 1 (cache px == world units) this is the region to query for entities
+   * so that panning within the margin band reveals already-cached content. Call
+   * after {@link ensureSize} so width/height are current.
+   */
+  viewWorldRect(anchor: [number, number]): RectArea {
+    return [anchor[0] - this.width / 2, anchor[1] - this.height / 2, this.width, this.height];
+  }
+
+  /**
    * Returns true if `anchor` has drifted outside the margin band relative to
    * the last rebuild — i.e. continuing without a rebuild would expose un-cached
    * area on at least one side.
@@ -93,14 +103,15 @@ export class OffscreenLayerCache {
     if (this.width === 0 || this.height === 0) return true;
     const cx = this.origin[0] + this.width / 2;
     const cy = this.origin[1] + this.height / 2;
-    // Margin in pixels per side. With ratio r the canvas is (1 + 2r) × viewport,
-    // so margin / canvas = r / (1 + 2r).
+    // The anchor (viewport center) may drift by at most the margin before the
+    // viewport edge reaches the cached edge: with ratio r the canvas is
+    // (1 + 2r) × viewport, so margin = canvas × r/(1 + 2r). Rebuilding the moment
+    // drift exceeds that keeps the viewport fully covered at any pan speed
+    // (rebuild recenters on the current anchor), so no edge is ever left blank.
     const marginPxFraction = this.marginRatio / (1 + 2 * this.marginRatio);
-    const safeRadiusX = this.width / 2 - this.width * marginPxFraction;
-    const safeRadiusY = this.height / 2 - this.height * marginPxFraction;
-    return (
-      Math.abs(anchor[0] - cx) > safeRadiusX || Math.abs(anchor[1] - cy) > safeRadiusY
-    );
+    const safeRadiusX = this.width * marginPxFraction;
+    const safeRadiusY = this.height * marginPxFraction;
+    return Math.abs(anchor[0] - cx) > safeRadiusX || Math.abs(anchor[1] - cy) > safeRadiusY;
   }
 
   /**
