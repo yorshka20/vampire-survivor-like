@@ -1,5 +1,4 @@
 import { RenderComponent, ShapeComponent } from '@ecs/components';
-import { Color } from '@ecs/types/types';
 
 export class RenderUtils {
   /**
@@ -10,10 +9,6 @@ export class RenderUtils {
    * it without threading a flag through every render call.
    */
   static strokeShapes = true;
-
-  static colorToString(color: Color): string {
-    return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
-  }
 
   /**
    * Draw a shape centered at `(cx, cy)` scaled by `scale`.
@@ -43,7 +38,7 @@ export class RenderUtils {
       case 'line':
         // Orientation-based projectile: only meaningful under a rotation
         // transform, so it ignores cx/cy/scale and draws at the current origin.
-        this.drawLineProjectile(ctx, width, height, render.getColor());
+        this.drawLineProjectile(ctx, width, height, render.getColorString());
         break;
       case 'circle':
         ctx.beginPath();
@@ -158,7 +153,7 @@ export class RenderUtils {
     startY: number,
     endX: number,
     endY: number,
-    color: Color,
+    color: string,
   ): void {
     // Calculate laser lifetime (0 to 1)
     const lifeTime = (Date.now() % 1000) / 1000; // Animation cycle of 1 second
@@ -167,10 +162,10 @@ export class RenderUtils {
     // Draw outer glow
     ctx.beginPath();
     ctx.shadowBlur = 20;
-    ctx.shadowColor = this.colorToString(color);
+    ctx.shadowColor = color;
     ctx.lineWidth = 20;
     ctx.globalAlpha = 0.3 * opacity;
-    ctx.strokeStyle = this.colorToString(color);
+    ctx.strokeStyle = color;
     ctx.moveTo(startX, startY);
     ctx.lineTo(endX, endY);
     ctx.stroke();
@@ -206,7 +201,7 @@ export class RenderUtils {
     ctx: CanvasRenderingContext2D,
     length: number,
     thickness: number,
-    color: Color = { r: 255, g: 255, b: 180, a: 1 },
+    color: string,
   ): void {
     const halfLen = length / 2;
 
@@ -223,7 +218,7 @@ export class RenderUtils {
 
     // Core
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = this.colorToString(color);
+    ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(1, thickness * 0.6);
     ctx.beginPath();
     ctx.moveTo(-halfLen, 0);

@@ -141,7 +141,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
       const shape = effect.getComponent<ShapeComponent>(ShapeComponent.componentName);
 
       const pos = transform.getPosition();
-      const color = render.getColor();
+      const color = render.getColorString();
       const shapeType = shape.getType();
 
       this.ctx.save();
@@ -154,7 +154,7 @@ export class BackgroundRenderLayer extends CanvasRenderLayer {
           const size = shape.getSize()[0] / 2;
 
           this.ctx.translate(relativeX, relativeY);
-          this.ctx.fillStyle = this.colorToString(color);
+          this.ctx.fillStyle = color;
           this.ctx.beginPath();
           this.ctx.arc(0, 0, size, 0, Math.PI * 2);
           this.ctx.fill();

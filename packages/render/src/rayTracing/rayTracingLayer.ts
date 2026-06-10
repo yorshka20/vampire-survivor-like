@@ -492,7 +492,7 @@ export class RayTracingLayer extends CanvasRenderLayer {
           position: transform.getPosition(),
           rotation: transform.rotation,
           material: {
-            color: render.getColor(),
+            color: render.getColor(), // needed for rayTracing
             reflectivity: 0.1,
             roughness: 0.8,
           },

@@ -111,7 +111,7 @@ export class DomRenderLayer extends BaseRenderLayer {
     const position = transform.getPosition();
     const [offsetX, offsetY] = render.getOffset();
     const [sizeX, sizeY] = shape.getSize();
-    const color = render.getColor();
+    const color = render.getColorString();
     const element = document.createElement('div') as HTMLDivElement;
 
     // Use CSS class for common styles
@@ -122,7 +122,7 @@ export class DomRenderLayer extends BaseRenderLayer {
     element.style.top = `${position[1] + offsetY}px`;
     element.style.width = `${sizeX}px`;
     element.style.height = `${sizeY}px`;
-    element.style.backgroundColor = this.colorToString(color);
+    element.style.backgroundColor = color;
     element.style.transform = `rotate(${rotation}deg)`;
     return element;
   }

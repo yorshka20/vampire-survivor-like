@@ -30,6 +30,38 @@
   let targetCount = 0;
   let visibleCount = 0;
 
+  // Right controls panel: collapsible (so it stays out of the way) and internally
+  // scrollable (so more control groups can be added without overflowing the screen).
+  let controlsCollapsed = false;
+
+  // Left HUD: draggable so it can be moved off whatever you're inspecting.
+  let hudX = 10;
+  let hudY = 10;
+  let hudDragging = false;
+  let hudGrabX = 0;
+  let hudGrabY = 0;
+
+  function onHudDown(event: MouseEvent) {
+    hudDragging = true;
+    hudGrabX = event.clientX - hudX;
+    hudGrabY = event.clientY - hudY;
+    event.preventDefault();
+    window.addEventListener('mousemove', onHudMove);
+    window.addEventListener('mouseup', onHudUp);
+  }
+  function onHudMove(event: MouseEvent) {
+    if (!hudDragging) {
+      return;
+    }
+    hudX = event.clientX - hudGrabX;
+    hudY = event.clientY - hudGrabY;
+  }
+  function onHudUp() {
+    hudDragging = false;
+    window.removeEventListener('mousemove', onHudMove);
+    window.removeEventListener('mouseup', onHudUp);
+  }
+
   // DPR toggle (1 / 1.5 / 2). The backing store is `dpr²` pixels, so this is the
   // single biggest GPU fill-rate lever for the stress test. Presets are filtered
   // to what the device can actually produce (the cap is `min(devicePixelRatio, v)`,
@@ -236,6 +268,8 @@
     canvasWrapper.addEventListener('contextmenu', onContextMenu);
     return () => {
       canvasWrapper.removeEventListener('contextmenu', onContextMenu);
+      window.removeEventListener('mousemove', onHudMove);
+      window.removeEventListener('mouseup', onHudUp);
       if (pollId) {
         cancelAnimationFrame(pollId);
       }
@@ -275,9 +309,17 @@
 </div>
 
 {#if isStarted}
-  <!-- Performance + entity HUD -->
-  <div class="hud">
-    <div class="hud-title">Rendering Test</div>
+  <!-- Performance + entity HUD (drag the title bar to move it) -->
+  <div class="hud" class:dragging={hudDragging} style="left:{hudX}px; top:{hudY}px;">
+    <div
+      class="hud-title"
+      on:mousedown={onHudDown}
+      role="toolbar"
+      tabindex="0"
+      aria-label="Drag to move the HUD"
+    >
+      ⠿ Rendering Test
+    </div>
     <div
       class="row"
       class:warning={$gameState.performance.renderFps < 45}
@@ -301,10 +343,20 @@
     <div class="row">Viewport: {VIEWPORT_SIZES[viewportMode].label}</div>
   </div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <div class="control-group">
-      <span class="group-label">Viewport</span>
+  <!-- Controls (collapse to the right; body scrolls when it grows) -->
+  <div class="controls" class:collapsed={controlsCollapsed}>
+    <button
+      class="collapse-handle"
+      on:click={() => (controlsCollapsed = !controlsCollapsed)}
+      title={controlsCollapsed ? 'Expand controls' : 'Collapse controls'}
+      aria-label={controlsCollapsed ? 'Expand controls' : 'Collapse controls'}
+    >
+      {controlsCollapsed ? '◀' : '▶'}
+    </button>
+    {#if !controlsCollapsed}
+      <div class="controls-body">
+        <div class="control-group">
+          <span class="group-label">Viewport</span>
       {#each Object.entries(VIEWPORT_SIZES) as [mode, cfg]}
         <button
           class="btn"
@@ -365,10 +417,12 @@
       {/each}
     </div>
 
-    <div class="control-group">
-      <span class="group-label">Camera</span>
-      <button class="btn" on:click={resetView}>Reset View</button>
-    </div>
+        <div class="control-group">
+          <span class="group-label">Camera</span>
+          <button class="btn" on:click={resetView}>Reset View</button>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <div class="hint">
@@ -414,7 +468,12 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     min-width: 170px;
     z-index: 1000;
-    pointer-events: none;
+    user-select: none;
+  }
+  .hud.dragging {
+    /* feedback while moving + don't fight pointer with the canvas underneath */
+    opacity: 0.92;
+    cursor: grabbing;
   }
   .hud-title {
     font-weight: bold;
@@ -422,6 +481,7 @@
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    cursor: grab;
   }
   .row {
     line-height: 1.5;
@@ -453,9 +513,35 @@
     top: 10px;
     right: 10px;
     display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+    z-index: 1000;
+    max-height: calc(100vh - 20px);
+  }
+  .controls-body {
+    display: flex;
     flex-direction: column;
     gap: 8px;
-    z-index: 1000;
+    /* Scroll internally instead of overflowing the viewport as groups are added. */
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    /* keep group borders clear of the scrollbar */
+    padding-right: 2px;
+  }
+  .collapse-handle {
+    flex: none;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 10px 5px;
+    cursor: pointer;
+  }
+  .collapse-handle:hover {
+    background: rgba(255, 255, 255, 0.18);
   }
   .control-group {
     display: flex;

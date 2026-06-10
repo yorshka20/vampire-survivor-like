@@ -281,6 +281,16 @@ export async function createRenderingTest(
     onProgress?.(0, 0);
   };
 
+  /** Rebuild the current population (same count) — used when a spawn-time
+   * property (geometry, color) changes and existing entities must be recreated. */
+  const respawnCurrent = () => {
+    const count = target || getLoadedCount();
+    cancelLoading();
+    world.removeEntitiesByType('object');
+    centerOn(0, 0);
+    startLoading(count);
+  };
+
   // ===== Initial layout ======================================================
 
   // Set the viewport first, then center the camera on the region origin so the
@@ -306,11 +316,7 @@ export async function createRenderingTest(
       geometryMode = mode;
       // Geometry is baked into each entity at spawn, so switching it means
       // respawning the current population (same count) with the new descriptor.
-      const count = target || getLoadedCount();
-      cancelLoading();
-      world.removeEntitiesByType('object');
-      centerOn(0, 0);
-      startLoading(count);
+      respawnCurrent();
     },
     clearEntities,
     getLoadedCount,
