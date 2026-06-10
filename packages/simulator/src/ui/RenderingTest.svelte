@@ -1,7 +1,13 @@
 <script lang="ts">
-  import { getMaxDpr, setMaxDpr } from '@render/utils/dpr';
+  import { RenderUtils } from '@render/canvas2d/utils/RenderUtils';
+  import { getMaxDpr } from '@render/utils/dpr';
   import { onMount, tick } from 'svelte';
-  import { createRenderingTest, type RenderingTestController } from '../createRenderingTest';
+  import {
+    createRenderingTest,
+    type GeometryMode,
+    type RenderingTestController,
+    type StandardShapeKind,
+  } from '../createRenderingTest';
   import { gameState } from '../game/gameState';
 
   type ViewportMode = 'small' | 'large' | 'fullscreen';
@@ -36,6 +42,46 @@
     return dprOptions.includes(stored) ? stored : dprOptions[dprOptions.length - 1];
   })();
 
+  // ===== Geometry experiment toggles =========================================
+  // Stroke is a pure render flag (no respawn). Geometry is baked at spawn, so
+  // changing it respawns the population via the controller.
+  let strokeEnabled = true;
+  // 'Random' is mutually exclusive with the standard kinds; checking a standard
+  // kind drops Random, and clearing the last standard kind falls back to Random.
+  let useRandom = true;
+  const STANDARD_KINDS: StandardShapeKind[] = ['circle', 'rect', 'triangle'];
+  let standardKinds: Record<StandardShapeKind, boolean> = {
+    circle: false,
+    rect: false,
+    triangle: false,
+  };
+
+  function currentGeometry(): GeometryMode {
+    if (useRandom) {
+      return 'random';
+    }
+    const kinds = STANDARD_KINDS.filter((k) => standardKinds[k]);
+    return kinds.length ? kinds : 'random';
+  }
+
+  function toggleStroke() {
+    strokeEnabled = !strokeEnabled;
+    RenderUtils.strokeShapes = strokeEnabled;
+  }
+
+  function selectRandom() {
+    useRandom = true;
+    standardKinds = { circle: false, rect: false, triangle: false };
+    controller?.setGeometry(currentGeometry());
+  }
+
+  function toggleStandard(kind: StandardShapeKind) {
+    standardKinds = { ...standardKinds, [kind]: !standardKinds[kind] };
+    // Any standard selection drops Random; clearing them all reverts to Random.
+    useRandom = !STANDARD_KINDS.some((k) => standardKinds[k]);
+    controller?.setGeometry(currentGeometry());
+  }
+
   // Poll the live in-viewport count (set by the entity layer each rendered frame).
   let pollId = 0;
   function pollStats() {
@@ -67,10 +113,12 @@
     }
     isStarted = true;
 
+    RenderUtils.strokeShapes = strokeEnabled;
     controller = await createRenderingTest(canvasWrapper, {
       count: requestedCount,
       baseSize: entitySize,
       onProgress,
+      geometry: currentGeometry(),
     });
     gameState.setGame(controller.game);
     gameState.start();
@@ -101,11 +149,13 @@
       return;
     }
     maxDpr = value;
-    setMaxDpr(value);
-    // Everything here reads DPR live and the canvas is shared, so re-fitting the
-    // backing store + culling viewport in place is enough — no reload, so the
-    // loaded population and camera are preserved for a clean GPU A/B.
-    controller?.syncViewport();
+    // The controller re-fits the backing store in place and compensates zoom so
+    // only resolution changes — no reload, so the population and view are
+    // preserved for a clean GPU fill-rate A/B.
+    controller?.setMaxDpr(value);
+    if (controller) {
+      zoom = controller.renderSystem.getZoom();
+    }
   }
 
   function resetView() {
@@ -290,6 +340,27 @@
       {#each dprOptions as v}
         <button class="btn" class:active={maxDpr === v} on:click={() => setDpr(v)}>
           {v}x
+        </button>
+      {/each}
+    </div>
+
+    <div class="control-group">
+      <span class="group-label">Stroke (outline)</span>
+      <button class="btn" class:active={strokeEnabled} on:click={toggleStroke}>
+        {strokeEnabled ? 'On' : 'Off'}
+      </button>
+    </div>
+
+    <div class="control-group">
+      <span class="group-label">Geometry</span>
+      <button class="btn" class:active={useRandom} on:click={selectRandom}>Random</button>
+      {#each STANDARD_KINDS as kind}
+        <button
+          class="btn"
+          class:active={!useRandom && standardKinds[kind]}
+          on:click={() => toggleStandard(kind)}
+        >
+          {kind}
         </button>
       {/each}
     </div>

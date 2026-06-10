@@ -2,6 +2,15 @@ import { RenderComponent, ShapeComponent } from '@ecs/components';
 import { Color } from '@ecs/types/types';
 
 export class RenderUtils {
+  /**
+   * Global experiment toggle: when false, the per-shape outline (stroke) is
+   * skipped in {@link drawShape}. Each stroke is a separate anti-aliased outline
+   * geometry — roughly doubling a path's GPU work — so this is the main lever for
+   * the geometry-bound stress test. Lives here as a static so the test UI can flip
+   * it without threading a flag through every render call.
+   */
+  static strokeShapes = true;
+
   static colorToString(color: Color): string {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
   }
@@ -39,9 +48,11 @@ export class RenderUtils {
       case 'circle':
         ctx.beginPath();
         ctx.arc(cx, cy, (width / 2) * scale, 0, Math.PI * 2);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2 * scale;
-        ctx.stroke();
+        if (RenderUtils.strokeShapes) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2 * scale;
+          ctx.stroke();
+        }
         ctx.fill();
         break;
       case 'triangle': {
@@ -69,9 +80,11 @@ export class RenderUtils {
           }
           ctx.closePath();
           ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-          ctx.lineWidth = 2 * scale;
-          ctx.stroke();
+          if (RenderUtils.strokeShapes) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 2 * scale;
+            ctx.stroke();
+          }
         } else {
           this.drawBox(ctx, width * scale, height * scale, cx, cy);
         }
@@ -98,9 +111,11 @@ export class RenderUtils {
     const x = cx - width / 2;
     const y = cy - height / 2;
     ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, width, height);
+    if (RenderUtils.strokeShapes) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+    }
   }
 
   static drawPatternImage(

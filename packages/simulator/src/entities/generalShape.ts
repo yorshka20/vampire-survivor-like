@@ -125,9 +125,60 @@ export function randomShape(size: number): GeneratedShape {
   return pickOne(shapeBuilders)(size);
 }
 
-export function createGeneralShape(world: World, props: ShapeProps): Entity {
+/** The simple, low-vertex shape families selectable in the rendering test. */
+export type StandardShapeKind = 'circle' | 'rect' | 'triangle';
+
+/**
+ * Geometry source for spawned entities:
+ * - `'random'` → the full random builders above (incl. 64-segment parametric/polygon).
+ * - a list of {@link StandardShapeKind} → restrict to those simple shapes, picked at random.
+ */
+export type GeometryMode = 'random' | StandardShapeKind[];
+
+/** Builders for the simple standard shapes (low vertex count, no curve tessellation). */
+const standardShapeBuilders: Record<StandardShapeKind, (size: number) => GeneratedShape> = {
+  circle: (size) => ({
+    descriptor: createShapeDescriptor('circle', { radius: size }),
+    collider: { type: 'circle', size: [size * 2, size * 2] },
+  }),
+  rect: (size) => {
+    const width = size * randFloat(1, 2);
+    const height = size * randFloat(1, 2);
+    return {
+      descriptor: createShapeDescriptor('rect', { width, height }),
+      collider: { type: 'rect', size: [width, height] },
+    };
+  },
+  // A 3-vertex polygon — a genuinely simple path, in contrast to the random
+  // mode's 64-segment outlines. Rendered through drawShape's polygon branch.
+  triangle: (size) => {
+    const vertices: Point[] = [
+      [0, -size],
+      [size * 0.866, size * 0.5],
+      [-size * 0.866, size * 0.5],
+    ];
+    return {
+      descriptor: createShapeDescriptor('polygon', { vertices }),
+      collider: { type: 'circle', size: [size * 2, size * 2] },
+    };
+  },
+};
+
+/** Resolve a {@link GeometryMode} into a concrete descriptor + collider for one entity. */
+export function buildShape(size: number, geometry: GeometryMode): GeneratedShape {
+  if (geometry === 'random' || geometry.length === 0) {
+    return randomShape(size);
+  }
+  return standardShapeBuilders[pickOne(geometry)](size);
+}
+
+export function createGeneralShape(
+  world: World,
+  props: ShapeProps,
+  geometry: GeometryMode = 'random',
+): Entity {
   const shape = world.createEntity('object');
-  const { descriptor, collider } = randomShape(props.size);
+  const { descriptor, collider } = buildShape(props.size, geometry);
 
   shape.addComponent(
     world.createComponent(TransformComponent, {

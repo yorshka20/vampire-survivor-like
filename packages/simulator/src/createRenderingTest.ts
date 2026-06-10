@@ -10,8 +10,11 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { EntityType } from '@ecs/core/ecs/types';
 import { randomRgb } from '@ecs/utils/color';
 import { createCanvas2dRenderer } from '@render/canvas2d';
-import { createGeneralShape } from './entities/generalShape';
+import { setMaxDpr as persistMaxDpr } from '@render/utils/dpr';
+import { createGeneralShape, type GeometryMode } from './entities/generalShape';
 import { Game } from './game/Game';
+
+export type { GeometryMode, StandardShapeKind } from './entities/generalShape';
 
 export interface RenderingTestOptions {
   /** How many random entities to spawn. */
@@ -29,6 +32,8 @@ export interface RenderingTestOptions {
   regionCssHeight?: number;
   /** Called as entities stream in (and on clear), with (loaded, target). */
   onProgress?: (loaded: number, target: number) => void;
+  /** Geometry source for spawned entities. Defaults to `'random'`. */
+  geometry?: GeometryMode;
 }
 
 /** "Large" viewport footprint (CSS px); the default region is a 3x3 grid of these. */
@@ -56,6 +61,14 @@ export interface RenderingTestController {
   getTargetCount: () => number;
   /** Re-fit the renderer + culling viewport to the current canvas size (view-preserving). */
   syncViewport: () => void;
+  /**
+   * Change the device-pixel-ratio cap. Re-fits the backing store and compensates
+   * zoom so the apparent scale and visible world stay identical — only the
+   * rendering resolution (and thus GPU fill cost) changes.
+   */
+  setMaxDpr: (value: number) => void;
+  /** Switch the geometry source and respawn the current population with it. */
+  setGeometry: (mode: GeometryMode) => void;
   /** Put the given world point at the center of the viewport. */
   centerOn: (worldX: number, worldY: number) => void;
   /** Current region extent (world units). */
@@ -91,6 +104,7 @@ export async function createRenderingTest(
 ): Promise<RenderingTestController> {
   const onProgress = options.onProgress;
   let baseSize = options.baseSize ?? 6;
+  let geometryMode: GeometryMode = options.geometry ?? 'random';
 
   const game = new Game();
   const world = game.getWorld();
@@ -205,12 +219,16 @@ export async function createRenderingTest(
 
   const spawnOne = () => {
     const size = randFloat(baseSize * 0.8, baseSize * 1.2);
-    const entity = createGeneralShape(world, {
-      position: [randFloat(-halfW, halfW), randFloat(-halfH, halfH)],
-      size,
-      velocity: [0, 0],
-      color: randomRgb(1),
-    });
+    const entity = createGeneralShape(
+      world,
+      {
+        position: [randFloat(-halfW, halfW), randFloat(-halfH, halfH)],
+        size,
+        velocity: [0, 0],
+        color: randomRgb(1),
+      },
+      geometryMode,
+    );
     world.addEntity(entity);
   };
 
@@ -284,11 +302,49 @@ export async function createRenderingTest(
       centerOn(0, 0);
       startLoading(n);
     },
+    setGeometry: (mode: GeometryMode) => {
+      geometryMode = mode;
+      // Geometry is baked into each entity at spawn, so switching it means
+      // respawning the current population (same count) with the new descriptor.
+      const count = target || getLoadedCount();
+      cancelLoading();
+      world.removeEntitiesByType('object');
+      centerOn(0, 0);
+      startLoading(count);
+    },
     clearEntities,
     getLoadedCount,
     getVisibleCount: countEntitiesInViewport,
     getTargetCount: () => target,
     syncViewport,
+    setMaxDpr: (value: number) => {
+      // Capture the effective dpr *before* changing the cap so we can compute the
+      // ratio (the cap is clamped by the device, so requested != effective).
+      const oldDpr = renderSystem.getDevicePixelRatio();
+      persistMaxDpr(value);
+      const newDpr = renderSystem.getDevicePixelRatio();
+      if (oldDpr === newDpr) {
+        return;
+      }
+
+      // Re-fit the backing store + culling viewport to the new dpr, preserving
+      // the currently centered world point.
+      const center = getViewCenterWorld();
+      renderSystem.getRenderer().onResize();
+      renderSystem.setViewport([
+        0,
+        0,
+        rootElement.clientWidth * newDpr,
+        rootElement.clientHeight * newDpr,
+      ]);
+
+      // World coords live in device pixels, so a world unit maps to `zoom / dpr`
+      // CSS pixels on screen. Scale zoom by the dpr ratio to cancel that out:
+      // apparent size and visible world extent stay identical, and the dpr change
+      // becomes a pure resolution (fill-rate) knob.
+      renderSystem.setZoom(renderSystem.getZoom() * (newDpr / oldDpr));
+      centerOn(center[0], center[1]);
+    },
     centerOn,
     getRegionSize: () => ({ width: regionWidth, height: regionHeight }),
     dispose: cancelLoading,
