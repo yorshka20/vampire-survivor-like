@@ -80,18 +80,24 @@ export class OffscreenLayerCache {
    * This is the natural choice for the cache anchor — pass into `rebuild()`
    * and `isAnchorOutsideSafeBand()`.
    */
-  computeAnchor(viewport: RectArea, cameraOffset: [number, number]): [number, number] {
-    return [viewport[2] / 2 - cameraOffset[0], viewport[3] / 2 - cameraOffset[1]];
+  computeAnchor(
+    viewport: RectArea,
+    cameraOffset: [number, number],
+    zoom = 1,
+  ): [number, number] {
+    // World point at the viewport center: invert canvasPixel = zoom*(world+offset).
+    return [viewport[2] / 2 / zoom - cameraOffset[0], viewport[3] / 2 / zoom - cameraOffset[1]];
   }
 
   /**
-   * World-space rect the cache canvas covers when centered on `anchor`. At
-   * zoom = 1 (cache px == world units) this is the region to query for entities
-   * so that panning within the margin band reveals already-cached content. Call
-   * after {@link ensureSize} so width/height are current.
+   * World-space rect the cache canvas covers when centered on `anchor`. The
+   * canvas holds `width`/`height` *device* px, i.e. `width/zoom` world units, so
+   * this is the region to query for entities to draw. Call after {@link ensureSize}.
    */
-  viewWorldRect(anchor: [number, number]): RectArea {
-    return [anchor[0] - this.width / 2, anchor[1] - this.height / 2, this.width, this.height];
+  viewWorldRect(anchor: [number, number], zoom = 1): RectArea {
+    const w = this.width / zoom;
+    const h = this.height / zoom;
+    return [anchor[0] - w / 2, anchor[1] - h / 2, w, h];
   }
 
   /**
@@ -99,18 +105,20 @@ export class OffscreenLayerCache {
    * the last rebuild — i.e. continuing without a rebuild would expose un-cached
    * area on at least one side.
    */
-  isAnchorOutsideSafeBand(anchor: [number, number]): boolean {
+  isAnchorOutsideSafeBand(anchor: [number, number], zoom = 1): boolean {
     if (this.width === 0 || this.height === 0) return true;
-    const cx = this.origin[0] + this.width / 2;
-    const cy = this.origin[1] + this.height / 2;
+    // `origin` is the world coord of pixel (0,0); the cache spans width/zoom world
+    // units, so its world center is origin + (width/2)/zoom.
+    const cx = this.origin[0] + this.width / 2 / zoom;
+    const cy = this.origin[1] + this.height / 2 / zoom;
     // The anchor (viewport center) may drift by at most the margin before the
     // viewport edge reaches the cached edge: with ratio r the canvas is
-    // (1 + 2r) × viewport, so margin = canvas × r/(1 + 2r). Rebuilding the moment
-    // drift exceeds that keeps the viewport fully covered at any pan speed
-    // (rebuild recenters on the current anchor), so no edge is ever left blank.
+    // (1 + 2r) × viewport, so margin = canvas × r/(1 + 2r). In world units that
+    // margin is divided by zoom. Rebuilding the moment drift exceeds it keeps the
+    // viewport fully covered at any pan speed (rebuild recenters on the anchor).
     const marginPxFraction = this.marginRatio / (1 + 2 * this.marginRatio);
-    const safeRadiusX = this.width * marginPxFraction;
-    const safeRadiusY = this.height * marginPxFraction;
+    const safeRadiusX = (this.width * marginPxFraction) / zoom;
+    const safeRadiusY = (this.height * marginPxFraction) / zoom;
     return Math.abs(anchor[0] - cx) > safeRadiusX || Math.abs(anchor[1] - cy) > safeRadiusY;
   }
 
@@ -128,13 +136,63 @@ export class OffscreenLayerCache {
   rebuild(
     anchor: [number, number],
     drawFn: (ctx: CanvasRenderingContext2D, syntheticCameraOffset: [number, number]) => void,
+    zoom = 1,
   ): void {
     this.origin = [
-      Math.floor(anchor[0] - this.width / 2),
-      Math.floor(anchor[1] - this.height / 2),
+      Math.floor(anchor[0] - this.width / 2 / zoom),
+      Math.floor(anchor[1] - this.height / 2 / zoom),
     ];
+    // Clear in device px (identity), then rasterize at `zoom` so the cache is at
+    // screen resolution — a world point lands at zoom*(world - origin). drawFn
+    // draws at world+synthetic with no scale of its own, so the ctx carries zoom.
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.width, this.height);
+    if (zoom !== 1) {
+      this.ctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+    }
     drawFn(this.ctx, [-this.origin[0], -this.origin[1]]);
+    if (zoom !== 1) {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+  }
+
+  /**
+   * Partial update: for each world-space `rect`, clear that region of the cache
+   * and invoke `drawFn` (clipped to it) to repaint only what overlaps it. Used
+   * for localized content changes so the whole cache need not be rebuilt. The
+   * cache's `origin` is unchanged, so unaffected pixels stay valid. `drawFn`
+   * receives the same `syntheticCameraOffset` as {@link rebuild} plus the rect.
+   */
+  patch(
+    worldRects: RectArea[],
+    drawFn: (
+      ctx: CanvasRenderingContext2D,
+      syntheticCameraOffset: [number, number],
+      worldRect: RectArea,
+    ) => void,
+    zoom = 1,
+  ): void {
+    if (this.width === 0 || this.height === 0) return;
+    const synthetic: [number, number] = [-this.origin[0], -this.origin[1]];
+    for (const rect of worldRects) {
+      // Device-pixel rect = zoom*(world - origin). Clip/clear in device space,
+      // then draw at `zoom` like rebuild does.
+      const dx = (rect[0] - this.origin[0]) * zoom;
+      const dy = (rect[1] - this.origin[1]) * zoom;
+      const dw = rect[2] * zoom;
+      const dh = rect[3] * zoom;
+      this.ctx.save();
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.beginPath();
+      this.ctx.rect(dx, dy, dw, dh);
+      this.ctx.clip();
+      this.ctx.clearRect(dx, dy, dw, dh);
+      if (zoom !== 1) {
+        this.ctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+      }
+      drawFn(this.ctx, synthetic, rect);
+      this.ctx.restore();
+    }
   }
 
   /**
@@ -142,12 +200,23 @@ export class OffscreenLayerCache {
    * offset. After this call the cached content sits at the same canvas pixel
    * positions it would have if the items had been drawn live.
    */
-  blit(target: CanvasRenderingContext2D, cameraOffset: [number, number]): void {
+  blit(target: CanvasRenderingContext2D, cameraOffset: [number, number], zoom = 1): void {
     if (this.width === 0 || this.height === 0) return;
-    target.drawImage(
-      this.canvas,
-      this.origin[0] + cameraOffset[0],
-      this.origin[1] + cameraOffset[1],
-    );
+    // World point W appears at device px zoom*(W + cameraOffset); the cache holds
+    // W at pixel zoom*(W - origin); so the image goes at zoom*(origin + cameraOffset).
+    const x = (this.origin[0] + cameraOffset[0]) * zoom;
+    const y = (this.origin[1] + cameraOffset[1]) * zoom;
+    if (zoom === 1) {
+      // Cache px == world units; draw under the target's current transform (this
+      // is also the path other layers/ItemRenderLayer rely on — unchanged).
+      target.drawImage(this.canvas, x, y);
+      return;
+    }
+    // Cache is device-resolution at this zoom; blit 1:1, bypassing the target's
+    // scale(zoom) so it isn't scaled a second time.
+    target.save();
+    target.setTransform(1, 0, 0, 1, 0, 0);
+    target.drawImage(this.canvas, x, y);
+    target.restore();
   }
 }

@@ -140,6 +140,15 @@ export class MouseInteractSystem extends System {
     // handlers; nothing to do per-frame here.
   }
 
+  setEnable(enable: boolean) {
+    this.enabled = enable;
+    if (!enable) {
+      this.destroy();
+    } else {
+      this.init();
+    }
+  }
+
   // ===== Entity bookkeeping =================================================
 
   private handleEntityRemoved = (entity: Entity) => {

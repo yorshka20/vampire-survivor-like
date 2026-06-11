@@ -115,6 +115,19 @@
     controller?.setPanCache(panCache);
   }
 
+  // Partial redraw: patch only dirty rects on localized content change vs full rebuild.
+  let partial = true;
+  function togglePartial() {
+    partial = !partial;
+    controller?.setPartial(partial);
+  }
+
+  let interactive = true;
+  function toggleInteractive() {
+    interactive = !interactive;
+    controller?.setInteractive(interactive);
+  }
+
   function selectRandom() {
     useRandom = true;
     standardKinds = { circle: false, rect: false, triangle: false };
@@ -167,6 +180,7 @@
       geometry: currentGeometry(),
       idleSkip,
       panCache,
+      partial,
     });
     gameState.setGame(controller.game);
     gameState.start();
@@ -310,6 +324,7 @@
   class="stage"
   style="--vw:{VIEWPORT_SIZES[viewportMode].width}; --vh:{VIEWPORT_SIZES[viewportMode].height};"
 >
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="canvas-wrapper"
     class:fullscreen={viewportMode === 'fullscreen'}
@@ -426,6 +441,13 @@
         </div>
 
         <div class="control-group">
+          <span class="group-label">Interactive</span>
+          <button class="btn" class:active={interactive} on:click={toggleInteractive}>
+            {interactive ? 'On' : 'Off'}
+          </button>
+        </div>
+
+        <div class="control-group">
           <span class="group-label">Idle frame skip</span>
           <button class="btn" class:active={idleSkip} on:click={toggleIdleSkip}>
             {idleSkip ? 'On' : 'Off'}
@@ -437,6 +459,14 @@
             title="Blit a cached bitmap on pan instead of re-rasterizing (zoom 1 only)"
           >
             {panCache ? 'Pan cache' : 'No cache'}
+          </button>
+          <button
+            class="btn"
+            class:active={partial}
+            on:click={togglePartial}
+            title="Patch only dirty rects on localized content change vs full rebuild"
+          >
+            {partial ? 'Partial' : 'No partial'}
           </button>
         </div>
 

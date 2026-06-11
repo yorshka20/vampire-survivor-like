@@ -39,6 +39,8 @@ export interface RenderingTestOptions {
   idleSkip?: boolean;
   /** Whether the entity pan cache is enabled (blit on pan vs re-raster). Defaults to true. */
   panCache?: boolean;
+  /** Whether localized content changes patch dirty rects vs full rebuild. Defaults to true. */
+  partial?: boolean;
 }
 
 /** "Large" viewport footprint (CSS px); the default region is a 3x3 grid of these. */
@@ -78,6 +80,10 @@ export interface RenderingTestController {
   setIdleSkip: (enabled: boolean) => void;
   /** Enable/disable the entity pan cache (blit on pan vs re-raster). */
   setPanCache: (enabled: boolean) => void;
+  /** Enable/disable partial (dirty-rect) redraw on localized content changes. */
+  setPartial: (enabled: boolean) => void;
+  /** Enable/disable mouse interaction. */
+  setInteractive: (enable: boolean) => void;
   /** Put the given world point at the center of the viewport. */
   centerOn: (worldX: number, worldY: number) => void;
   /** Current region extent (world units). */
@@ -119,8 +125,10 @@ export async function createRenderingTest(
   const world = game.getWorld();
 
   world.addSystem(new TransformSystem());
-  world.addSystem(new MouseInteractSystem());
   world.setSpatialGridCellSize(64);
+
+  const mouseInteractSystem = new MouseInteractSystem();
+  world.addSystem(mouseInteractSystem);
 
   // rayTracing = false: a 2D shape throughput test, the ray tracer would dominate.
   const renderSystem = new RenderSystem(rootElement);
@@ -136,6 +144,9 @@ export async function createRenderingTest(
   // cost) and the RenderSystem always draws.
   const idleSkipSystem = new IdleFrameSkipSystem();
   idleSkipSystem.enabled = options.idleSkip ?? true;
+  // Partial redraw: localized content changes patch just their dirty rects into
+  // the cache. Off = content changes force a full rebuild instead.
+  idleSkipSystem.partialEnabled = options.partial ?? true;
   world.addSystem(idleSkipSystem);
 
   // Pan cache: on 'transform' frames (pan, content stable) the entity layer blits
@@ -345,6 +356,12 @@ export async function createRenderingTest(
     },
     setPanCache: (enabled: boolean) => {
       renderSystem.setPanCacheEnabled(enabled);
+    },
+    setPartial: (enabled: boolean) => {
+      idleSkipSystem.partialEnabled = enabled;
+    },
+    setInteractive(enable) {
+      mouseInteractSystem.setEnable(enable);
     },
     clearEntities,
     getLoadedCount,

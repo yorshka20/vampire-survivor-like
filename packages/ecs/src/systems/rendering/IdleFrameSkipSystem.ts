@@ -9,6 +9,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { IComponent, SystemType } from '@ecs/core/ecs/types';
+import { RectArea } from '@ecs/types/types';
 import { RenderMode, RenderSystem } from './RenderSystem';
 
 /**
@@ -18,6 +19,11 @@ import { RenderMode, RenderSystem } from './RenderSystem';
  * list with any other genuinely per-frame-dynamic bucket (e.g. AnimationComponent).
  */
 const DYNAMIC_BUCKETS: { componentName: string }[] = [InteractActiveComponent];
+
+/** Above this many dirty rects in a frame, fall back to a full rebuild. */
+const MAX_DIRTY_RECTS = 64;
+/** Pad each dirty rect so stroke/anti-alias bleed outside the fill AABB is covered. */
+const DIRTY_PAD = 4;
 
 /**
  * Optional idle-frame-skip system.
@@ -42,6 +48,9 @@ const DYNAMIC_BUCKETS: { componentName: string }[] = [InteractActiveComponent];
  * - Intended for near-static, grid-backed scenes (e.g. the render bench).
  */
 export class IdleFrameSkipSystem extends System {
+  /** When false, content changes always force a full 'rebuild' instead of 'partial'. */
+  partialEnabled = true;
+
   private renderSystem: RenderSystem | null = null;
   private hasLast = false;
   private lastContent = 0;
@@ -50,12 +59,27 @@ export class IdleFrameSkipSystem extends System {
   private lastOffsetY = 0;
 
   /**
-   * Bumped on every entity add/remove. The cheap path folds this in instead of
-   * re-hashing the static majority, so spawn/clear/recycle still force a redraw.
+   * Bumped on every entity add/remove so spawn/clear/recycle force a redraw even
+   * if the dirty-rect list overflows (the content signature folds it in).
    */
   private contentEpoch = 0;
-  private readonly bumpEpoch = (): void => {
+  /** This frame's accumulated dirty rects from add/remove (world space). */
+  private pendingDirty: RectArea[] = [];
+  /** Set when too many add/remove rects piled up → fall back to full rebuild. */
+  private dirtyOverflow = false;
+  /** Last rendered AABB of each dynamic-bucket entity, to compute move rects. */
+  private readonly lastDynAabb = new Map<string, RectArea>();
+
+  private readonly onContentChanged = (entity: Entity): void => {
     this.contentEpoch = (this.contentEpoch + 1) | 0;
+    if (this.pendingDirty.length >= MAX_DIRTY_RECTS) {
+      this.dirtyOverflow = true;
+      return;
+    }
+    const rect = this.entityAabb(entity);
+    if (rect) {
+      this.pendingDirty.push(rect);
+    }
   };
 
   constructor() {
@@ -71,13 +95,13 @@ export class IdleFrameSkipSystem extends System {
 
   init(): void {
     super.init();
-    this.world.onEntityAdded.subscribe(this.bumpEpoch);
-    this.world.onEntityRemoved.subscribe(this.bumpEpoch);
+    this.world.onEntityAdded.subscribe(this.onContentChanged);
+    this.world.onEntityRemoved.subscribe(this.onContentChanged);
   }
 
   destroy(): void {
-    this.world.onEntityAdded.unsubscribe(this.bumpEpoch);
-    this.world.onEntityRemoved.unsubscribe(this.bumpEpoch);
+    this.world.onEntityAdded.unsubscribe(this.onContentChanged);
+    this.world.onEntityRemoved.unsubscribe(this.onContentChanged);
   }
 
   update(_deltaTime: number, _systemType: SystemType): void {
@@ -87,24 +111,51 @@ export class IdleFrameSkipSystem extends System {
     const struct = this.structSig(renderSystem);
     const offset = renderSystem.getCameraOffset();
 
-    let mode: RenderMode;
-    if (!this.hasLast || content !== this.lastContent || struct !== this.lastStruct) {
-      // Content changed, or zoom/viewport/dpr changed → must re-raster.
-      mode = 'rebuild';
-    } else if (offset[0] !== this.lastOffsetX || offset[1] !== this.lastOffsetY) {
-      // Only the camera panned → pan-cache layers can blit instead of re-raster.
-      mode = 'transform';
-    } else {
-      // Nothing changed at all.
-      mode = 'skip';
-    }
-    renderSystem.setRenderMode(mode);
+    // Build this frame's dirty rects (add/remove + dynamic-entity moves) and keep
+    // lastDynAabb current. Done every frame so a later 'partial' has correct deltas.
+    const dirty = this.collectDirtyRects();
 
+    const { mode, dirtyRects } = this.classifyMode(content, struct, offset, dirty);
+    renderSystem.setRenderMode(mode, dirtyRects);
+
+    this.pendingDirty = [];
+    this.dirtyOverflow = false;
     this.lastContent = content;
     this.lastStruct = struct;
     this.lastOffsetX = offset[0];
     this.lastOffsetY = offset[1];
     this.hasLast = true;
+  }
+
+  /**
+   * Decide this frame's render mode from the current signatures vs last frame:
+   * structural/first → rebuild; content changed → partial (localized & enabled)
+   * or rebuild (too broad / disabled); camera-only → transform; else skip.
+   */
+  private classifyMode(
+    content: number,
+    struct: number,
+    offset: [number, number],
+    dirty: RectArea[],
+  ): { mode: RenderMode; dirtyRects: RectArea[] | null } {
+    if (!this.hasLast || struct !== this.lastStruct) {
+      // First frame, or zoom/viewport/dpr changed (cache invalid at new scale).
+      return { mode: 'rebuild', dirtyRects: null };
+    }
+    if (content !== this.lastContent) {
+      // Content changed. Patch just the dirty rects when enabled and localized;
+      // otherwise (disabled, overflow, or too many rects) a full rebuild is cheaper.
+      if (this.partialEnabled && !this.dirtyOverflow && dirty.length <= MAX_DIRTY_RECTS) {
+        return { mode: 'partial', dirtyRects: dirty };
+      }
+      return { mode: 'rebuild', dirtyRects: null };
+    }
+    if (offset[0] !== this.lastOffsetX || offset[1] !== this.lastOffsetY) {
+      // Only the camera panned → pan-cache layers can blit instead of re-raster.
+      return { mode: 'transform', dirtyRects: null };
+    }
+    // Nothing changed at all.
+    return { mode: 'skip', dirtyRects: null };
   }
 
   /**
@@ -150,6 +201,77 @@ export class IdleFrameSkipSystem extends System {
     }
     return h;
   }
+
+  /**
+   * Dirty rects for this frame: pending add/remove rects plus the old∪new AABB of
+   * any dynamic-bucket entity that moved/resized (and the last AABB of any that
+   * left the bucket). Updates {@link lastDynAabb} as a side effect.
+   */
+  private collectDirtyRects(): RectArea[] {
+    const rects: RectArea[] = [];
+    for (let i = 0; i < this.pendingDirty.length; i++) {
+      rects.push(this.pendingDirty[i]);
+    }
+
+    const dynamic = this.world.getEntitiesWithComponents(DYNAMIC_BUCKETS);
+    const seen = new Set<string>();
+    for (let i = 0; i < dynamic.length; i++) {
+      const entity = dynamic[i];
+      seen.add(entity.id);
+      const aabb = this.entityAabb(entity);
+      const last = this.lastDynAabb.get(entity.id);
+      if (!aabb) {
+        if (last) {
+          rects.push(last);
+          this.lastDynAabb.delete(entity.id);
+        }
+        continue;
+      }
+      if (!last || !rectEq(last, aabb)) {
+        if (last) {
+          rects.push(last); // repaint the area it left
+        }
+        rects.push(aabb); // repaint the area it now occupies
+        this.lastDynAabb.set(entity.id, aabb);
+      }
+    }
+    // Entities that left the dynamic bucket since last frame: repaint their area.
+    for (const [id, last] of this.lastDynAabb) {
+      if (!seen.has(id)) {
+        rects.push(last);
+        this.lastDynAabb.delete(id);
+      }
+    }
+    return rects;
+  }
+
+  /** Padded world-space AABB of an entity's rendered footprint, or null if it has no geometry. */
+  private entityAabb(entity: Entity): RectArea | null {
+    if (
+      !entity.hasComponent(TransformComponent.componentName) ||
+      !entity.hasComponent(ShapeComponent.componentName)
+    ) {
+      return null;
+    }
+    const t = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+    const s = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+    const [w, h] = s.getSize();
+    const scale = t.scale;
+    let ox = 0;
+    let oy = 0;
+    if (entity.hasComponent(RenderComponent.componentName)) {
+      const off = entity.getComponent<RenderComponent>(RenderComponent.componentName).getOffset();
+      ox = off[0];
+      oy = off[1];
+    }
+    const cw = w * scale + 2 * DIRTY_PAD;
+    const ch = h * scale + 2 * DIRTY_PAD;
+    return [t.position[0] + ox - cw / 2, t.position[1] + oy - ch / 2, cw, ch];
+  }
+}
+
+function rectEq(a: RectArea, b: RectArea): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
 }
 
 // ===== Per-component hash extractors =========================================

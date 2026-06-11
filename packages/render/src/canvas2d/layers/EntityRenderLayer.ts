@@ -1,6 +1,7 @@
 import {
   AnimationComponent,
   HealthComponent,
+  InteractActiveComponent,
   RenderComponent,
   ShapeComponent,
   StateComponent,
@@ -9,6 +10,7 @@ import {
 import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
+import type { RenderMode, RenderSystem } from '@ecs';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer, OffscreenLayerCache } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';
@@ -31,50 +33,92 @@ export class EntityRenderLayer extends CanvasRenderLayer {
 
   update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
     const rs = this.renderSystem;
-    // Pan cache only applies at zoom 1 and when enabled; otherwise draw live.
-    if (!rs || !rs.isPanCacheEnabled() || rs.getZoom() !== 1) {
+    if (rs && this.canUseCache(rs)) {
+      this.renderCached(rs, viewport, cameraOffset);
+    } else {
+      // No cache (other zoom, disabled, or no render system) → draw live.
       this.renderLive(viewport, cameraOffset);
-      return;
     }
+  }
 
-    // RenderSystem already handled 'skip'; here mode is 'transform' or 'rebuild'.
+  /** Pan cache applies whenever enabled; it rebuilds at whatever zoom is current. */
+  private canUseCache(rs: RenderSystem): boolean {
+    return rs.isPanCacheEnabled();
+  }
+
+  /** Cached render: pick blit / patch / rebuild by mode, then blit the cache. */
+  private renderCached(rs: RenderSystem, viewport: RectArea, cameraOffset: [number, number]): void {
+    // The cache is rasterized at this zoom; a zoom change shows up as a 'rebuild'
+    // (structSig includes zoom), so the cache stays crisp at any zoom.
+    const zoom = rs.getZoom();
+    // RenderSystem already handled 'skip'; here mode is 'transform' | 'partial' | 'rebuild'.
     const mode = rs.getRenderMode();
     const resized = this.cache.ensureSize(viewport);
-    const anchor = this.cache.computeAnchor(viewport, cameraOffset);
-    const needRebuild =
+    const anchor = this.cache.computeAnchor(viewport, cameraOffset, zoom);
+
+    if (this.needsRebuild(mode, resized, anchor, zoom)) {
+      this.rebuildCache(anchor, zoom);
+    } else if (mode === 'partial') {
+      this.patchCache(rs.getDirtyRects(), zoom);
+    }
+    // mode === 'transform' (in band): cache is still valid, just blit it.
+
+    this.cache.blit(this.ctx, cameraOffset, zoom);
+  }
+
+  /**
+   * A full rebuild is forced when the cache can't be reused as-is: never built,
+   * canvas resized, the mode demands a full redraw, or the camera has left the
+   * cached margin band.
+   */
+  private needsRebuild(
+    mode: RenderMode,
+    resized: boolean,
+    anchor: [number, number],
+    zoom: number,
+  ): boolean {
+    return (
       !this.cacheValid ||
       resized ||
-      mode !== 'transform' ||
-      this.cache.isAnchorOutsideSafeBand(anchor);
+      mode === 'rebuild' ||
+      this.cache.isAnchorOutsideSafeBand(anchor, zoom)
+    );
+  }
 
-    if (needRebuild) {
-      const entities = this.collectBandEntities(this.cache.viewWorldRect(anchor));
-      this.cache.rebuild(anchor, (cacheCtx, synthOffset) => {
-        // Temporarily retarget this layer's draws to the offscreen context, using
-        // the cache's synthetic offset so world coords land at the right pixel.
-        const mainCtx = this.ctx;
-        this.ctx = cacheCtx;
-        this.ctx.save();
-        for (const entity of entities) {
-          const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
-          const transform = entity.getComponent<TransformComponent>(
-            TransformComponent.componentName,
-          );
-          const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
-          this.renderEntity(render, transform, shape, synthOffset);
-        }
-        this.ctx.restore();
-        this.ctx = mainCtx;
-      });
-      this.cacheValid = true;
+  /** Full (re)build: rasterize the whole band into the cache, recentered on `anchor`. */
+  private rebuildCache(anchor: [number, number], zoom: number): void {
+    const entities = this.collectEntitiesInRect(this.cache.viewWorldRect(anchor, zoom));
+    this.cache.rebuild(
+      anchor,
+      (cacheCtx, synthOffset) => {
+        this.drawEntitiesToCache(cacheCtx, entities, synthOffset);
+      },
+      zoom,
+    );
+    this.cacheValid = true;
+  }
+
+  /**
+   * Localized content change: clear + repaint only the dirty rects in place
+   * (cache origin unchanged). Empty/no rects (e.g. a hover-only change) leave the
+   * cache untouched; sibling layers still redraw on top via the normal clear+draw.
+   */
+  private patchCache(rects: RectArea[] | null, zoom: number): void {
+    if (!rects || !rects.length) {
+      return;
     }
-
-    this.cache.blit(this.ctx, cameraOffset);
+    this.cache.patch(
+      rects,
+      (cacheCtx, synthOffset, worldRect) => {
+        this.drawEntitiesToCache(cacheCtx, this.collectEntitiesInRect(worldRect), synthOffset);
+      },
+      zoom,
+    );
   }
 
   /** Live per-entity draw straight to the layer context (no cache). */
   private renderLive(viewport: RectArea, cameraOffset: [number, number]): void {
-    // Going live invalidates the cache so the next 'transform' frame rebuilds.
+    // Going live invalidates the cache so the next cached frame rebuilds.
     this.cacheValid = false;
     const entities = this.getLayerEntities(viewport);
     // One save/restore for the whole layer instead of one per entity.
@@ -90,24 +134,64 @@ export class EntityRenderLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Entities overlapping the cache band (this layer's types, fully componented).
-   * Unlike getLayerEntities this does NOT cull to the viewport — the whole band
-   * is rasterized so panning within it needs no rebuild.
+   * Draw the given entities into the offscreen cache context using the cache's
+   * synthetic offset (so world coords land at the right offscreen pixel). The
+   * layer's context is temporarily retargeted so renderEntity draws to the cache.
    */
-  private collectBandEntities(bandRect: RectArea): IEntity[] {
+  private drawEntitiesToCache(
+    cacheCtx: CanvasRenderingContext2D,
+    entities: IEntity[],
+    synthOffset: [number, number],
+  ): void {
+    const mainCtx = this.ctx;
+    this.ctx = cacheCtx;
+    this.ctx.save();
+    for (const entity of entities) {
+      const render = entity.getComponent<RenderComponent>(RenderComponent.componentName);
+      const transform = entity.getComponent<TransformComponent>(TransformComponent.componentName);
+      const shape = entity.getComponent<ShapeComponent>(ShapeComponent.componentName);
+      this.renderEntity(render, transform, shape, synthOffset);
+    }
+    this.ctx.restore();
+    this.ctx = mainCtx;
+  }
+
+  /**
+   * Entities overlapping `worldRect` (this layer's types, fully componented).
+   * Unlike getLayerEntities this does NOT cull to the viewport — used to fill the
+   * whole cache band on rebuild and the dirty rects on patch.
+   */
+  private collectEntitiesInRect(worldRect: RectArea): IEntity[] {
     const world = this.getWorld();
     const out: IEntity[] = [];
-    for (const entity of world.getEntitiesInViewport(bandRect)) {
-      if (
-        ENTITY_LAYER_TYPES.includes(entity.type) &&
-        entity.hasComponent(ShapeComponent.componentName) &&
-        entity.hasComponent(RenderComponent.componentName) &&
-        entity.hasComponent(TransformComponent.componentName)
-      ) {
+    const seen = new Set<string>();
+    for (const entity of world.getEntitiesInViewport(worldRect)) {
+      if (this.isDrawable(entity)) {
         out.push(entity);
+        seen.add(entity.id);
+      }
+    }
+    // Interacting entities (hover/select/drag) can be moving and are therefore
+    // stale in the spatial grid index (the bench doesn't re-index per frame), so
+    // the grid query above may miss a dragged entity at its new position. Include
+    // the active bucket explicitly; draws are clipped to the rect, so any that
+    // don't overlap are a no-op. (Mirror of IdleFrameSkipSystem's DYNAMIC_BUCKETS.)
+    for (const entity of world.getEntitiesWithComponents([InteractActiveComponent])) {
+      if (!seen.has(entity.id) && this.isDrawable(entity)) {
+        out.push(entity);
+        seen.add(entity.id);
       }
     }
     return out;
+  }
+
+  private isDrawable(entity: IEntity): boolean {
+    return (
+      ENTITY_LAYER_TYPES.includes(entity.type) &&
+      entity.hasComponent(ShapeComponent.componentName) &&
+      entity.hasComponent(RenderComponent.componentName) &&
+      entity.hasComponent(TransformComponent.componentName)
+    );
   }
 
   protected getRelevantEntityTypes(): EntityType[] {
