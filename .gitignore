@@ -9,3 +9,5 @@ temp
 dist 
 .DS_Store
 .tsbuildinfo
+
+repomix-output.json
