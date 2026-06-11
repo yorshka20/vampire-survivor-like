@@ -489,17 +489,40 @@ export class World implements IWorld {
     await this.updateRender(deltaTime);
   }
 
-  // Add direct event methods
-  on(event: string, handler: (...args: any[]) => void): void {
+  /**
+   * Subscribe to an outbound data channel (ECS → outside world, e.g. a DOM HUD).
+   * The handler receives the emitted payload directly and is invoked
+   * asynchronously by {@link emit} (never synchronously). Returns an unsubscribe
+   * function.
+   */
+  observe<T>(event: string, handler: (data: T) => void): () => void {
     this.eventEmitter.on(event, handler);
+    return () => this.eventEmitter.off(event, handler);
   }
 
-  off(event: string, handler: (...args: any[]) => void): void {
-    this.eventEmitter.off(event, handler);
-  }
-
-  emit(event: string, ...args: any): void {
-    this.eventEmitter.emit(event, args);
+  /**
+   * Emit data on an outbound channel — decoupled in both space and time:
+   *
+   * - **Space:** the emitter knows nothing about who (if anyone) listens.
+   * - **Time / lazy:** if the channel has no subscribers, `makePayload` is never
+   *   called and nothing is dispatched, so emitting from a hot path costs one map
+   *   lookup when nobody is listening.
+   * - **Time / async:** subscribers are *never* invoked synchronously. The payload
+   *   is built now (so it snapshots current state) but delivery is deferred to a
+   *   later macrotask via `setTimeout(0)`, so emit returns immediately and a
+   *   listener's work (DOM reads/writes, framework reactivity) runs off the
+   *   current call stack — and, unlike a microtask, after the browser has had a
+   *   chance to paint, so it can't stall the frame that emitted it.
+   *
+   * Pass a factory rather than a pre-built object so the no-subscriber case
+   * allocates nothing.
+   */
+  emit<T>(event: string, makePayload: () => T): void {
+    if (!this.eventEmitter.hasListeners(event)) {
+      return;
+    }
+    const payload = makePayload();
+    setTimeout(() => this.eventEmitter.emit(event, payload), 0);
   }
 
   /**

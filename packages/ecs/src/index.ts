@@ -12,5 +12,6 @@ export { GameStore } from './core/store/GameStore';
 
 export * from './components';
 export * from './entities';
+export * from './events';
 export * from './systems';
 export * from './utils';

@@ -4,6 +4,7 @@ import { TransformComponent } from '@ecs/components/physics/TransformComponent';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
+import { ENTITY_INSPECT_EVENT, buildEntityInspectData } from '@ecs/events/EntityInspect';
 import { Point } from '@ecs/types/types';
 import { isMobileDevice } from '@ecs/utils/platform';
 import { SpatialGridSystem } from '../physics/SpatialGridSystem';
@@ -143,6 +144,9 @@ export class MouseInteractSystem extends System {
   setEnable(enable: boolean) {
     this.enabled = enable;
     if (!enable) {
+      // Drop hover first so the inspect channel emits null and any DOM HUD clears,
+      // then tear down the listeners.
+      this.clearHover();
       this.destroy();
     } else {
       this.init();
@@ -358,6 +362,7 @@ export class MouseInteractSystem extends System {
       this.getInteract(hit).setState({ isHovered: true });
       this.syncActiveTag(hit);
     }
+    this.emitHovered();
   }
 
   private clearHover(): void {
@@ -366,7 +371,22 @@ export class MouseInteractSystem extends System {
       this.hovered = null;
       this.getInteract(prev).setState({ isHovered: false });
       this.syncActiveTag(prev);
+      this.emitHovered();
     }
+  }
+
+  /**
+   * Publish the currently hovered entity (or `null` when hover cleared) on the
+   * outbound inspect channel for any DOM listener. Lazy + async: if nothing is
+   * subscribed, this costs a single map lookup and builds no payload; when it is,
+   * the snapshot is delivered on a microtask so the listener's work never runs
+   * inside this DOM event handler. Call only on a genuine hover *change*.
+   */
+  private emitHovered(): void {
+    const hovered = this.hovered;
+    this.world.emit(ENTITY_INSPECT_EVENT, () =>
+      hovered ? buildEntityInspectData(hovered) : null,
+    );
   }
 
   private deselectAll(): void {

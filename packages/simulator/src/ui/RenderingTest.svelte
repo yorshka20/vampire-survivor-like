@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ENTITY_INSPECT_EVENT, type EntityInspectData } from '@ecs';
   import { RenderUtils } from '@render/canvas2d/utils/RenderUtils';
   import { getMaxDpr } from '@render/utils/dpr';
   import { onMount, tick } from 'svelte';
@@ -21,6 +22,11 @@
   let canvasWrapper: HTMLDivElement;
   let controller: RenderingTestController | null = null;
   let isStarted = false;
+
+  // Entity the pointer is hovering, pushed from the ECS over the inspect channel
+  // (null = nothing hovered / interaction off). Updated off the game loop.
+  let hoveredEntity: EntityInspectData | null = null;
+  let unsubscribeInspect: (() => void) | null = null;
 
   let viewportMode: ViewportMode = 'large';
   let requestedCount = 50000;
@@ -186,6 +192,16 @@
     gameState.start();
     pollStats();
 
+    // Receive hovered-entity snapshots from the ECS and render them in the DOM
+    // panel below. Delivery is async (off the game loop), so we just store the
+    // latest payload and let Svelte reactivity update the view.
+    unsubscribeInspect = controller.world.observe<EntityInspectData | null>(
+      ENTITY_INSPECT_EVENT,
+      (data) => {
+        hoveredEntity = data;
+      },
+    );
+
     (window as any).renderingTest = controller;
   }
 
@@ -303,6 +319,7 @@
       if (pollId) {
         cancelAnimationFrame(pollId);
       }
+      unsubscribeInspect?.();
       controller?.dispose();
       gameState.destroy();
     };
@@ -373,6 +390,49 @@
     <div class="row">DPR: <b>{maxDpr}x</b></div>
     <div class="row">Viewport: {VIEWPORT_SIZES[viewportMode].label}</div>
   </div>
+
+  <!-- Hovered-entity inspector: pure DOM, fed by the ECS inspect channel.
+       Shows whatever the pointer is over (interaction must be On). -->
+  {#if interactive}
+    <div class="inspect">
+      <div class="inspect-title">Hovered Entity</div>
+      {#if hoveredEntity}
+        <div class="inspect-row"><span>id</span><b>{hoveredEntity.id}</b></div>
+        <div class="inspect-row"><span>type</span><b>{hoveredEntity.type}</b></div>
+        <div class="inspect-row"><span>shape</span><b>{hoveredEntity.shape}</b></div>
+        <div class="inspect-row">
+          <span>pos</span>
+          <b>{hoveredEntity.position[0].toFixed(0)}, {hoveredEntity.position[1].toFixed(0)}</b>
+        </div>
+        <div class="inspect-row">
+          <span>size</span>
+          <b>{hoveredEntity.size[0].toFixed(0)} × {hoveredEntity.size[1].toFixed(0)}</b>
+        </div>
+        <div class="inspect-row"><span>scale</span><b>{hoveredEntity.scale.toFixed(2)}</b></div>
+        {#if hoveredEntity.color}
+          <div class="inspect-row">
+            <span>color</span>
+            <b class="swatch-row">
+              <span class="swatch" style="background:{hoveredEntity.color}"></span>
+              {hoveredEntity.color}
+            </b>
+          </div>
+        {/if}
+        <div class="inspect-row">
+          <span>state</span>
+          <b>
+            {hoveredEntity.isDragging
+              ? 'dragging'
+              : hoveredEntity.isSelected
+                ? 'selected'
+                : 'hovered'}
+          </b>
+        </div>
+      {:else}
+        <div class="inspect-empty">Move the pointer over a shape…</div>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Controls (collapse to the right; body scrolls when it grows) -->
   <div class="controls" class:collapsed={controlsCollapsed}>
@@ -573,6 +633,59 @@
   }
   .row.critical {
     color: #ff0000;
+  }
+
+  .inspect {
+    position: fixed;
+    left: 10px;
+    bottom: 10px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 200px;
+    max-width: 260px;
+    z-index: 1000;
+  }
+  .inspect-title {
+    font-weight: bold;
+    color: #ffd93d;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .inspect-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    line-height: 1.6;
+  }
+  .inspect-row span {
+    color: #aaa;
+  }
+  .inspect-row b {
+    color: #fff;
+    text-align: right;
+    word-break: break-all;
+  }
+  .swatch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    flex: none;
+  }
+  .inspect-empty {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
   }
 
   .controls {

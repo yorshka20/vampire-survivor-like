@@ -20,6 +20,15 @@ export class EventEmitter {
     }
   }
 
+  /**
+   * Whether `event` has at least one subscriber. Lets callers skip building an
+   * event payload when nobody is listening (lazy emit).
+   */
+  hasListeners(event: string): boolean {
+    const handlers = this.events.get(event);
+    return handlers !== undefined && handlers.size > 0;
+  }
+
   emit<T>(event: string, data: T): void {
     const handlers = this.events.get(event);
     if (handlers) {
