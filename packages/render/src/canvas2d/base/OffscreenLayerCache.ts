@@ -175,12 +175,21 @@ export class OffscreenLayerCache {
     if (this.width === 0 || this.height === 0) return;
     const synthetic: [number, number] = [-this.origin[0], -this.origin[1]];
     for (const rect of worldRects) {
-      // Device-pixel rect = zoom*(world - origin). Clip/clear in device space,
-      // then draw at `zoom` like rebuild does.
-      const dx = (rect[0] - this.origin[0]) * zoom;
-      const dy = (rect[1] - this.origin[1]) * zoom;
-      const dw = rect[2] * zoom;
-      const dh = rect[3] * zoom;
+      // Device-pixel rect = zoom*(world - origin). Snap to whole device pixels —
+      // floor the top-left, ceil the bottom-right — so clip/clearRect fall exactly
+      // on pixel boundaries. With fractional bounds the clip anti-aliases the edge
+      // pixels (partial coverage) while clearRect wipes them to transparent, so a
+      // clipped redraw can only partly repaint them and the layer below bleeds
+      // through as a 1px seam wherever a shape straddles a rect edge. Rounding
+      // outward also makes neighboring rects overlap rather than leave a gap.
+      const x0 = Math.floor((rect[0] - this.origin[0]) * zoom);
+      const y0 = Math.floor((rect[1] - this.origin[1]) * zoom);
+      const x1 = Math.ceil((rect[0] + rect[2] - this.origin[0]) * zoom);
+      const y1 = Math.ceil((rect[1] + rect[3] - this.origin[1]) * zoom);
+      const dx = x0;
+      const dy = y0;
+      const dw = x1 - x0;
+      const dh = y1 - y0;
       this.ctx.save();
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.beginPath();
