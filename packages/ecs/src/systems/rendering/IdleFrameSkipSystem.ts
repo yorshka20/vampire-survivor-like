@@ -9,8 +9,8 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { System } from '@ecs/core/ecs/System';
 import { IComponent, SystemType } from '@ecs/core/ecs/types';
+import { RenderContext, RenderMode } from '@ecs/core/ecs/RenderContext';
 import { RectArea } from '@ecs/types/types';
-import { RenderMode, RenderSystem } from './RenderSystem';
 
 /**
  * Buckets whose entities can change every frame (interaction: hover / select /
@@ -48,10 +48,6 @@ const DIRTY_PAD = 4;
  * - Intended for near-static, grid-backed scenes (e.g. the render bench).
  */
 export class IdleFrameSkipSystem extends System {
-  /** When false, content changes always force a full 'rebuild' instead of 'partial'. */
-  partialEnabled = true;
-
-  private renderSystem: RenderSystem | null = null;
   private hasLast = false;
   private lastContent = 0;
   private lastStruct = 0;
@@ -86,13 +82,6 @@ export class IdleFrameSkipSystem extends System {
     super('IdleFrameSkipSystem', SystemPriorities.RENDER_SKIP, 'render');
   }
 
-  private getRenderSystem() {
-    if (!this.renderSystem) {
-      this.renderSystem = RenderSystem.getInstance();
-    }
-    return this.renderSystem;
-  }
-
   init(): void {
     super.init();
     this.world.onEntityAdded.subscribe(this.onContentChanged);
@@ -105,18 +94,21 @@ export class IdleFrameSkipSystem extends System {
   }
 
   update(_deltaTime: number, _systemType: SystemType): void {
-    const renderSystem = this.getRenderSystem();
+    // Read view state (written last frame by RenderSystem) and config off the shared
+    // context; write this frame's decision back to it. No reach into RenderSystem.
+    const ctx = this.world.renderContext;
 
     const content = this.contentSig();
-    const struct = this.structSig(renderSystem);
-    const offset = renderSystem.getCameraOffset();
+    const struct = this.structSig(ctx);
+    const offset = ctx.cameraOffset;
 
     // Build this frame's dirty rects (add/remove + dynamic-entity moves) and keep
     // lastDynAabb current. Done every frame so a later 'partial' has correct deltas.
     const dirty = this.collectDirtyRects();
 
-    const { mode, dirtyRects } = this.classifyMode(content, struct, offset, dirty);
-    renderSystem.setRenderMode(mode, dirtyRects);
+    const { mode, dirtyRects } = this.classifyMode(content, struct, offset, dirty, ctx);
+    ctx.mode = mode;
+    ctx.dirtyRects = dirtyRects;
 
     this.pendingDirty = [];
     this.dirtyOverflow = false;
@@ -137,6 +129,7 @@ export class IdleFrameSkipSystem extends System {
     struct: number,
     offset: [number, number],
     dirty: RectArea[],
+    ctx: RenderContext,
   ): { mode: RenderMode; dirtyRects: RectArea[] | null } {
     if (!this.hasLast || struct !== this.lastStruct) {
       // First frame, or zoom/viewport/dpr changed (cache invalid at new scale).
@@ -145,7 +138,7 @@ export class IdleFrameSkipSystem extends System {
     if (content !== this.lastContent) {
       // Content changed. Patch just the dirty rects when enabled and localized;
       // otherwise (disabled, overflow, or too many rects) a full rebuild is cheaper.
-      if (this.partialEnabled && !this.dirtyOverflow && dirty.length <= MAX_DIRTY_RECTS) {
+      if (ctx.partialEnabled && !this.dirtyOverflow && dirty.length <= MAX_DIRTY_RECTS) {
         return { mode: 'partial', dirtyRects: dirty };
       }
       return { mode: 'rebuild', dirtyRects: null };
@@ -181,14 +174,14 @@ export class IdleFrameSkipSystem extends System {
    * rebuild because the pan cache is only valid at a fixed zoom/size. Camera
    * *offset* (pan) is compared separately so it can yield 'transform' instead.
    */
-  private structSig(rs: RenderSystem): number {
-    const vp = rs.getViewport();
-    let h = mixNumber(0, rs.getZoom());
+  private structSig(ctx: RenderContext): number {
+    const vp = ctx.viewport;
+    let h = mixNumber(0, ctx.zoom);
     h = mixNumber(h, vp[0]);
     h = mixNumber(h, vp[1]);
     h = mixNumber(h, vp[2]);
     h = mixNumber(h, vp[3]);
-    h = mixNumber(h, rs.getDevicePixelRatio());
+    h = mixNumber(h, ctx.dpr);
     return h;
   }
 

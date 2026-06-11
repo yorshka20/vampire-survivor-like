@@ -10,7 +10,7 @@ import {
 import { Entity } from '@ecs/core/ecs/Entity';
 import { EntityType, IEntity } from '@ecs/core/ecs/types';
 import { RectArea } from '@ecs/types/types';
-import type { RenderMode, RenderSystem } from '@ecs';
+import type { RenderContext, RenderMode } from '@ecs';
 import { RenderLayerIdentifier, RenderLayerPriority } from '../../constant';
 import { CanvasRenderLayer, OffscreenLayerCache } from '../base';
 import { PatternState } from '../resource/PatternAssetManager';
@@ -31,35 +31,36 @@ export class EntityRenderLayer extends CanvasRenderLayer {
     super(RenderLayerIdentifier.ENTITY, RenderLayerPriority.ENTITY, canvas, context);
   }
 
-  update(deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
-    const rs = this.renderSystem;
-    if (rs && this.canUseCache(rs)) {
-      this.renderCached(rs, viewport, cameraOffset);
+  update(_deltaTime: number, viewport: RectArea, cameraOffset: [number, number]): void {
+    // Read all render-decision/view state off the shared RenderContext rather than
+    // reaching into RenderSystem. getWorld() requires a render system, so guard on it.
+    const ctx = this.renderSystem ? this.getWorld().renderContext : null;
+    if (ctx && ctx.panCacheEnabled) {
+      this.renderCached(ctx, viewport, cameraOffset);
     } else {
-      // No cache (other zoom, disabled, or no render system) → draw live.
+      // No cache (disabled, or no render system) → draw live.
       this.renderLive(viewport, cameraOffset);
     }
   }
 
-  /** Pan cache applies whenever enabled; it rebuilds at whatever zoom is current. */
-  private canUseCache(rs: RenderSystem): boolean {
-    return rs.isPanCacheEnabled();
-  }
-
   /** Cached render: pick blit / patch / rebuild by mode, then blit the cache. */
-  private renderCached(rs: RenderSystem, viewport: RectArea, cameraOffset: [number, number]): void {
+  private renderCached(
+    ctx: RenderContext,
+    viewport: RectArea,
+    cameraOffset: [number, number],
+  ): void {
     // The cache is rasterized at this zoom; a zoom change shows up as a 'rebuild'
     // (structSig includes zoom), so the cache stays crisp at any zoom.
-    const zoom = rs.getZoom();
+    const zoom = ctx.zoom;
     // RenderSystem already handled 'skip'; here mode is 'transform' | 'partial' | 'rebuild'.
-    const mode = rs.getRenderMode();
+    const mode = ctx.mode;
     const resized = this.cache.ensureSize(viewport);
     const anchor = this.cache.computeAnchor(viewport, cameraOffset, zoom);
 
     if (this.needsRebuild(mode, resized, anchor, zoom)) {
       this.rebuildCache(anchor, zoom);
     } else if (mode === 'partial') {
-      this.patchCache(rs.getDirtyRects(), zoom);
+      this.patchCache(ctx.dirtyRects, zoom);
     }
     // mode === 'transform' (in band): cache is still valid, just blit it.
 

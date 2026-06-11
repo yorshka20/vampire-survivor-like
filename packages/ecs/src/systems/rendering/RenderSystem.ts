@@ -6,17 +6,9 @@ import { RenderLayerIdentifier } from '@render/constant';
 import { IRenderer, IRenderLayer } from '@render/types';
 import { getCappedDevicePixelRatio } from '@render/utils/dpr';
 
-/**
- * Per-frame render decision, produced by an optional IdleFrameSkipSystem:
- * - `'skip'`: nothing changed → keep the last frame (no clear, no draw).
- * - `'transform'`: only the camera panned → pan-cache layers may blit their
- *   cached bitmap instead of re-rasterizing.
- * - `'partial'`: content changed in a few localized regions → pan-cache layers
- *   patch just the dirty rects (see {@link RenderSystem.getDirtyRects}) into the
- *   cache instead of re-rasterizing the whole thing.
- * - `'rebuild'`: content (or zoom/viewport) changed broadly → full draw. Default.
- */
-export type RenderMode = 'skip' | 'transform' | 'partial' | 'rebuild';
+// RenderMode now lives on the shared RenderContext (the leaf type), exported from
+// the @ecs index there. The per-frame mode/dirtyRects and the panCache flag also
+// moved onto RenderContext, so this system no longer owns that decision state.
 
 export class RenderSystem extends System {
   static getInstance(): RenderSystem {
@@ -36,17 +28,6 @@ export class RenderSystem extends System {
   private cameraFollow: boolean = false;
 
   private coarseMode: boolean = false;
-
-  // Render mode for the upcoming frame, set by an optional IdleFrameSkipSystem
-  // running just before this system. Default 'rebuild' = full draw, so when no
-  // skip system is present behaviour is unchanged.
-  private renderMode: RenderMode = 'rebuild';
-  // Whether pan-cache-capable layers (EntityRenderLayer) may reuse their cache on
-  // 'transform' frames. Off = they re-raster live (baseline for A/B).
-  private panCacheEnabled: boolean = true;
-  // World-space dirty rects for a 'partial' frame; null otherwise. Set together
-  // with renderMode by the skip system, consumed by pan-cache layers this frame.
-  private dirtyRects: RectArea[] | null = null;
 
   private cameraOffset: [number, number] = [0, 0];
   private playerPosition: [number, number] = [0, 0];
@@ -159,30 +140,6 @@ export class RenderSystem extends System {
     this.cameraFollow = true;
   }
 
-  /**
-   * Set this frame's render mode (called by IdleFrameSkipSystem just before this
-   * system runs). For 'partial', pass the world-space dirty rects to patch.
-   */
-  setRenderMode(mode: RenderMode, dirtyRects: RectArea[] | null = null): void {
-    this.renderMode = mode;
-    this.dirtyRects = dirtyRects;
-  }
-  /** This frame's render mode; layers read it to decide pan-cache reuse vs re-raster. */
-  getRenderMode(): RenderMode {
-    return this.renderMode;
-  }
-  /** World-space dirty rects for the current 'partial' frame (null otherwise). */
-  getDirtyRects(): RectArea[] | null {
-    return this.dirtyRects;
-  }
-  /** Toggle whether pan-cache layers may reuse their cache on 'transform' frames. */
-  setPanCacheEnabled(enabled: boolean): void {
-    this.panCacheEnabled = enabled;
-  }
-  isPanCacheEnabled(): boolean {
-    return this.panCacheEnabled;
-  }
-
   update(deltaTime: number): void {
     // Update player position every frame. Used in isInViewport check.
     this.updatePlayerPosition();
@@ -190,22 +147,29 @@ export class RenderSystem extends System {
     // Calculate camera offset
     this.updateCameraOffset();
 
-    const mode = this.renderMode;
+    const ctx = this.world.renderContext;
+    // Mirror the current view state onto the shared context so the (earlier-running)
+    // IdleFrameSkipSystem and the layers can read it without reaching into this system.
+    ctx.setView(this.cameraOffset, this.zoom, this.viewport, this.getDPR());
+
+    const mode = ctx.mode;
     // 'skip': nothing changed → keep the last frame on the (persistent) canvas by
     // skipping both clear and draw. Camera/player bookkeeping above still runs.
     if (mode === 'skip') {
-      this.renderMode = 'rebuild';
+      ctx.mode = 'rebuild';
+      ctx.dirtyRects = null;
       return;
     }
 
-    // 'transform' / 'partial' / 'rebuild': clear + draw. Layers read getRenderMode()
-    // (+ getDirtyRects() for 'partial') to choose blit / patch / full re-raster.
+    // 'transform' / 'partial' / 'rebuild': clear + draw. Layers read ctx.mode
+    // (+ ctx.dirtyRects for 'partial') to choose blit / patch / full re-raster.
     this.clear();
     this.renderer.update(deltaTime, this.viewport, this.cameraOffset, this.zoom);
 
-    // Default back to full draw; the skip system re-sets the mode each frame.
-    this.renderMode = 'rebuild';
-    this.dirtyRects = null;
+    // Default back to full draw (after the layers have read it); the skip system
+    // re-sets the mode each frame.
+    ctx.mode = 'rebuild';
+    ctx.dirtyRects = null;
   }
 
   getPlayerPosition(): [number, number] | undefined {

@@ -145,13 +145,14 @@ export async function createRenderingTest(
   const idleSkipSystem = new IdleFrameSkipSystem();
   idleSkipSystem.enabled = options.idleSkip ?? true;
   // Partial redraw: localized content changes patch just their dirty rects into
-  // the cache. Off = content changes force a full rebuild instead.
-  idleSkipSystem.partialEnabled = options.partial ?? true;
+  // the cache. Off = content changes force a full rebuild instead. This and the
+  // pan-cache flag are config on the shared RenderContext (not system fields).
+  world.renderContext.partialEnabled = options.partial ?? true;
   world.addSystem(idleSkipSystem);
 
   // Pan cache: on 'transform' frames (pan, content stable) the entity layer blits
   // a cached bitmap instead of re-rasterizing. Off = re-raster every pan (baseline).
-  renderSystem.setPanCacheEnabled(options.panCache ?? true);
+  world.renderContext.panCacheEnabled = options.panCache ?? true;
 
   // World coords live in device pixels (the main canvas ctx is not dpr-scaled), so
   // the region is the requested CSS footprint times the dpr. It is fixed for the
@@ -355,10 +356,10 @@ export async function createRenderingTest(
       idleSkipSystem.enabled = enabled;
     },
     setPanCache: (enabled: boolean) => {
-      renderSystem.setPanCacheEnabled(enabled);
+      world.renderContext.panCacheEnabled = enabled;
     },
     setPartial: (enabled: boolean) => {
-      idleSkipSystem.partialEnabled = enabled;
+      world.renderContext.partialEnabled = enabled;
     },
     setInteractive(enable) {
       mouseInteractSystem.setEnable(enable);

@@ -7,6 +7,7 @@ import { ComponentPoolList, EntityPoolList } from '../pool/constants';
 import { PoolManager } from '../pool/PoolManager';
 import { Entity } from './Entity';
 import { EventEmitter } from './EventEmitter';
+import { RenderContext } from './RenderContext';
 import { System } from './System';
 import {
   ComponentConstructor,
@@ -32,6 +33,13 @@ export class World implements IWorld {
   systems: Map<string, ISystem> = new Map();
   renderSystems: ISystem[] = [];
   logicSystems: ISystem[] = [];
+
+  /**
+   * Shared render-side blackboard. Render systems/layers read & write this instead
+   * of reaching into each other (e.g. IdleFrameSkipSystem writes the per-frame
+   * mode/dirtyRects here; RenderSystem + layers read it). One per world.
+   */
+  readonly renderContext: RenderContext = new RenderContext();
 
   private eventEmitter: EventEmitter = new EventEmitter();
 
