@@ -3,7 +3,11 @@
   import { SystemPriorities } from '@ecs/constants/systemPriorities';
   import { Canvas2dRenderer } from '@render/canvas2d/Canvas2dRenderer';
   import { onMount } from 'svelte';
-  import { createSimulator } from '../createSimulator';
+  import {
+    areTestObstaclesEnabled,
+    createSimulator,
+    setTestObstaclesEnabled,
+  } from '../createSimulator';
   import type { GeneratorType, SpawnerEntityType } from '../entities/generator';
   import { Game } from '../game/Game';
   import { gameState } from '../game/gameState';
@@ -44,6 +48,7 @@
   let generatorStopped = false;
   let collisionEnabled = true; // when false, all load shifts onto the renderer
   let workerEnabled = false; // whether ParallelCollisionSystem offloads to the worker pool
+  let obstaclesEnabled = true; // whether the extra collision obstacles are loaded
 
   function togglePause() {
     isPaused = !isPaused;
@@ -106,7 +111,18 @@
       if (collisionSystem) {
         workerEnabled = collisionSystem.getUseWorkers();
       }
+
+      obstaclesEnabled = areTestObstaclesEnabled();
     }
+  }
+
+  /** Add or remove the extra collision obstacles to A/B object-obstacle load. */
+  function toggleObstacles() {
+    if (!globalGame) {
+      return;
+    }
+    obstaclesEnabled = !obstaclesEnabled;
+    setTestObstaclesEnabled(globalGame.getWorld(), obstaclesEnabled);
   }
 
   /**
@@ -396,6 +412,16 @@
         </ControlButton>
       </ControlGroup>
     {/if}
+
+    <ControlGroup label="Obstacles">
+      <ControlButton
+        active={obstaclesEnabled}
+        on:click={toggleObstacles}
+        title="Load the extra (non-wall) obstacles for object-obstacle collision"
+      >
+        {obstaclesEnabled ? 'On' : 'Off'}
+      </ControlButton>
+    </ControlGroup>
   </ControlsPanel>
 {/if}
 

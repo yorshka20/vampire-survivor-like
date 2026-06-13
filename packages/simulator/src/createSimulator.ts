@@ -16,6 +16,7 @@ import {
   World,
 } from '@ecs';
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
+import { Entity } from '@ecs/core/ecs/Entity';
 import { Point, Viewport } from '@ecs/types/types';
 import { randomRgb, RgbaColor } from '@ecs/utils/color';
 import { createCanvas2dRenderer } from '@render/canvas2d';
@@ -158,10 +159,8 @@ function initializeEntities(world: World, viewport: Viewport) {
   });
   world.addEntity(ball);
 
-  createObstacleBlock(world, [200, 700], [100, 100]);
-  // createObstacleBlock(world, [400, 400], [100, 100]);
-
-  createObstacleCircle(world, [200, 1200], 100);
+  // Extra obstacles for object-obstacle collision; toggleable from the UI.
+  testObstacles = createTestObstacles(world);
 
   // createObstacleCircle(world, [1200, 1100], 200);
 
@@ -222,7 +221,11 @@ function createLightSource(world: World, position: Point, color: RgbaColor, radi
   world.addEntity(light);
 }
 
-function createObstacleBlock(world: World, position: Point, size: [number, number] = [100, 100]) {
+function createObstacleBlock(
+  world: World,
+  position: Point,
+  size: [number, number] = [100, 100],
+): Entity {
   const obstacle = createObstacle(world, {
     position,
     shape: world.createComponent(ShapeComponent, {
@@ -234,9 +237,10 @@ function createObstacleBlock(world: World, position: Point, size: [number, numbe
     color: { r: 255, g: 255, b: 255, a: 1 },
   });
   world.addEntity(obstacle);
+  return obstacle;
 }
 
-function createObstacleCircle(world: World, position: Point, radius: number) {
+function createObstacleCircle(world: World, position: Point, radius: number): Entity {
   const obstacle = createObstacle(world, {
     position,
     shape: world.createComponent(ShapeComponent, {
@@ -245,6 +249,42 @@ function createObstacleCircle(world: World, position: Point, radius: number) {
     color: { r: 255, g: 255, b: 255, a: 1 },
   });
   world.addEntity(obstacle);
+  return obstacle;
+}
+
+// The extra (non-wall) obstacles used to exercise object-obstacle collision.
+// Tracked so the UI can add/remove them at runtime to A/B that workload. Module
+// scope is fine: the app runs a single game instance per page load (see main.ts).
+let testObstacles: Entity[] = [];
+
+/** Spawn the extra collision obstacles (a block + a circle) and track them. */
+function createTestObstacles(world: World): Entity[] {
+  return [
+    createObstacleBlock(world, [200, 700], [100, 100]),
+    createObstacleCircle(world, [200, 1200], 100),
+  ];
+}
+
+/**
+ * Add or remove the extra collision obstacles at runtime. Removal recycles the
+ * entities, so re-enabling spawns fresh ones.
+ */
+export function setTestObstaclesEnabled(world: World, enabled: boolean): void {
+  if (enabled) {
+    if (testObstacles.length === 0) {
+      testObstacles = createTestObstacles(world);
+    }
+    return;
+  }
+  for (const obstacle of testObstacles) {
+    world.removeEntity(obstacle);
+  }
+  testObstacles = [];
+}
+
+/** Whether the extra collision obstacles are currently loaded. */
+export function areTestObstaclesEnabled(): boolean {
+  return testObstacles.length > 0;
 }
 
 function createRayTracingEntity(world: World, viewport: Viewport) {
