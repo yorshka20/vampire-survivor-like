@@ -4,29 +4,46 @@
   import { Canvas2dRenderer } from '@render/canvas2d/Canvas2dRenderer';
   import { onMount } from 'svelte';
   import { createSimulator } from '../createSimulator';
-  import type { SpawnerEntityType } from '../entities/generator';
+  import type { GeneratorType, SpawnerEntityType } from '../entities/generator';
   import { Game } from '../game/Game';
   import { gameState } from '../game/gameState';
+  import ControlButton from './controls/ControlButton.svelte';
+  import ControlGroup from './controls/ControlGroup.svelte';
+  import ControlsPanel from './controls/ControlsPanel.svelte';
+  import SliderControl from './controls/SliderControl.svelte';
   import { draggable } from './draggable';
 
-  const repoUrl = import.meta.env.VITE_REPO_URL;
   let globalGame: Game;
   let isGameStarted = false;
   let isPaused = false;
   let showDetailedPools = false;
   const showPerformancePanel = true;
   const showPauseButton = true;
-  let showForceFieldPanel = true; // Whether the force field panel is expanded
+
+  // Right-side controls panel: collapsible (so it stays out of the way) and
+  // internally scrollable (so more control groups can be added without
+  // overflowing the screen). Mirrors the RenderingTest layout.
+  let controlsCollapsed = false;
 
   // DOM element reference for canvas wrapper
   let canvasWrapper: HTMLDivElement;
   let forceFieldSystem: any = null; // ForceFieldSystem实例
+  let collisionSystem: ParallelCollisionSystem | null = null;
   let forceStrength = 200;
   let forceDirection = [0, 1];
-  let ballSize = 2; // size of balls the spawner emits (applies to newly spawned only)
+  let ballSize = 2; // size of entities the spawner emits (applies to newly spawned only)
+  // Shape the spawner emits. Maps to the generator type: circle=ball, rect=square.
+  const SPAWN_SHAPES: { value: GeneratorType; label: string }[] = [
+    { value: 'random', label: 'Random' },
+    { value: 'ball', label: 'circle' },
+    { value: 'square', label: 'rect' },
+  ];
+  let spawnShape: GeneratorType = 'ball';
+  let spawnGap = 5; // ms between spawns; lower = faster
   let skip = false;
   let generatorStopped = false;
   let collisionEnabled = true; // when false, all load shifts onto the renderer
+  let workerEnabled = false; // whether ParallelCollisionSystem offloads to the worker pool
 
   function togglePause() {
     isPaused = !isPaused;
@@ -72,12 +89,37 @@
           : [0, 1];
       }
 
-      // Seed the ball-size control from the spawner's current value.
+      // Seed the size + shape controls from the spawner's current values.
       const spawners = world.getEntitiesByType('spawner');
       if (spawners && spawners.length > 0) {
         ballSize = (spawners[0] as SpawnerEntityType).getBallSize();
+        spawnShape = (spawners[0] as SpawnerEntityType).getGeneratorType();
+        spawnGap = (spawners[0] as SpawnerEntityType).getSpawnGap();
+      }
+
+      // Seed the worker toggle from the collision system's current path.
+      collisionSystem =
+        world.getSystem<ParallelCollisionSystem>(
+          'ParallelCollisionSystem',
+          SystemPriorities.COLLISION,
+        ) ?? null;
+      if (collisionSystem) {
+        workerEnabled = collisionSystem.getUseWorkers();
       }
     }
+  }
+
+  /**
+   * Toggle whether ParallelCollisionSystem offloads its broad + narrow phase to
+   * the worker pool. Lets us A/B the worker path against the single-thread path
+   * live, without restarting the game.
+   */
+  function toggleWorker() {
+    if (!collisionSystem) {
+      return;
+    }
+    workerEnabled = !workerEnabled;
+    collisionSystem.setUseWorkers(workerEnabled);
   }
 
   /**
@@ -90,6 +132,32 @@
     const spawners = world.getEntitiesByType('spawner');
     for (const spawner of spawners) {
       (spawner as SpawnerEntityType).setBallSize(Number(ballSize));
+    }
+  }
+
+  /** Update the spawn rate (ms between spawns; lower = faster). */
+  function updateSpawnGap() {
+    if (!globalGame) {
+      return;
+    }
+    const world = globalGame.getWorld();
+    for (const spawner of world.getEntitiesByType('spawner')) {
+      (spawner as SpawnerEntityType).setSpawnGap(Number(spawnGap));
+    }
+  }
+
+  /**
+   * Switch the shape the spawner emits from now on. Existing entities keep their
+   * shape.
+   */
+  function setSpawnShape(value: GeneratorType) {
+    spawnShape = value;
+    if (!globalGame) {
+      return;
+    }
+    const world = globalGame.getWorld();
+    for (const spawner of world.getEntitiesByType('spawner')) {
+      (spawner as SpawnerEntityType).setGeneratorType(value);
     }
   }
 
@@ -250,101 +318,90 @@
   </div>
 {/if}
 
-<!-- Standalone, collapsible force field controller panel -->
-{#if forceFieldSystem}
-  <div
-    class="forcefield-panel"
-    use:draggable={{ handle: '.forcefield-drag' }}
-    style="top: 300px;right: 10px;"
-    class:collapsed={!showForceFieldPanel}
-  >
-    <div
-      class="forcefield-header"
-      style="display: flex; align-items: center; justify-content: space-between;"
-    >
-      <div class="forcefield-drag" style="flex:1; cursor: move; user-select: none;">
-        Force Field
-      </div>
-      <button
-        class="forcefield-toggle"
-        style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0 8px; min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center;"
-        on:click={() => (showForceFieldPanel = !showForceFieldPanel)}
-        tabindex="0"
-        aria-label="Toggle force field panel"
-      >
-        {showForceFieldPanel ? '▼' : '▶'}
-      </button>
-    </div>
-    {#if showForceFieldPanel}
-      <div class="forcefield-controls">
-        <label class="forcefield-label">
-          Str:
-          <input
-            type="range"
-            min="0"
-            max="1000"
-            step="1"
-            bind:value={forceStrength}
-            on:input={updateForceField}
-          />
-          <span class="forcefield-value">{forceStrength}</span>
-        </label>
-        <label class="forcefield-label">
-          Dir X:
-          <input
-            type="range"
-            min="-1"
-            max="1"
-            step="0.01"
-            bind:value={forceDirection[0]}
-            on:input={updateForceField}
-          />
-          <span class="forcefield-value">{forceDirection[0]}</span>
-        </label>
-        <label class="forcefield-label">
-          Dir Y:
-          <input
-            type="range"
-            min="-1"
-            max="1"
-            step="0.01"
-            bind:value={forceDirection[1]}
-            on:input={updateForceField}
-          />
-          <span class="forcefield-value">{forceDirection[1]}</span>
-        </label>
-        <label class="forcefield-label">
-          Ball:
-          <input
-            type="range"
-            min="1"
-            max="50"
-            step="1"
-            bind:value={ballSize}
-            on:input={updateBallSize}
-          />
-          <span class="forcefield-value">{ballSize}</span>
-        </label>
-      </div>
+<!-- Controls panel, shared with the rendering test. Sits below the performance
+     panel. -->
+{#if isGameStarted}
+  <ControlsPanel bind:collapsed={controlsCollapsed} top="300px">
+    {#if forceFieldSystem}
+      <ControlGroup label="Force Field">
+        <SliderControl
+          name="Str"
+          min={0}
+          max={1000}
+          step={1}
+          bind:value={forceStrength}
+          on:input={updateForceField}
+        />
+        <SliderControl
+          name="Dir X"
+          min={-1}
+          max={1}
+          step={0.01}
+          bind:value={forceDirection[0]}
+          on:input={updateForceField}
+        />
+        <SliderControl
+          name="Dir Y"
+          min={-1}
+          max={1}
+          step={0.01}
+          bind:value={forceDirection[1]}
+          on:input={updateForceField}
+        />
+      </ControlGroup>
     {/if}
-  </div>
+
+    <ControlGroup label="Spawner">
+      <SliderControl
+        name="Size"
+        min={1}
+        max={50}
+        step={1}
+        bind:value={ballSize}
+        on:input={updateBallSize}
+      />
+      <SliderControl
+        name="Gap"
+        min={0}
+        max={100}
+        step={1}
+        bind:value={spawnGap}
+        on:input={updateSpawnGap}
+      />
+      {#each SPAWN_SHAPES as shape}
+        <ControlButton
+          active={spawnShape === shape.value}
+          on:click={() => setSpawnShape(shape.value)}
+        >
+          {shape.label}
+        </ControlButton>
+      {/each}
+    </ControlGroup>
+
+    {#if collisionSystem}
+      <ControlGroup label="Collision">
+        <ControlButton
+          active={collisionEnabled}
+          on:click={toggleCollision}
+          title="Object-object + object-obstacle collision (off shifts all load onto the renderer)"
+        >
+          {collisionEnabled ? 'On' : 'Off'}
+        </ControlButton>
+        <ControlButton
+          active={workerEnabled}
+          on:click={toggleWorker}
+          title="Offload the broad + narrow phase to the worker pool (vs single-thread)"
+        >
+          {workerEnabled ? 'Worker' : 'Single'}
+        </ControlButton>
+      </ControlGroup>
+    {/if}
+  </ControlsPanel>
 {/if}
 
-<div class="buttons">
-  <button class="stop util-button" on:click={stopGenerator}
-    >{generatorStopped ? 'Start' : 'Stop'} Generator</button
-  >
-
-  <button class="skip util-button" on:click={skipRayTracing}
-    >{!skip ? 'Show Ray Tracing' : 'Hide Ray Tracing'}</button
-  >
-
-  <button class="collision util-button" on:click={toggleCollision}>
-    {collisionEnabled ? 'Disable Collision' : 'Enable Collision'}
-  </button>
-
+<div class="buttons" class:hidden={!isGameStarted}>
   {#if showPauseButton}
-    <button class="pause util-button" class:hidden={!isGameStarted} on:click={togglePause}>
+    <button class="util-button" on:click={togglePause}>
       <svg class="pause-icon" viewBox="0 0 24 24">
         {#if isPaused}
           <path d="M8 5v14l11-7z" />
@@ -355,6 +412,14 @@
       {isPaused ? 'Resume' : 'Pause'}
     </button>
   {/if}
+
+  <button class="util-button" on:click={stopGenerator}>
+    {generatorStopped ? 'Start' : 'Stop'} Generator
+  </button>
+
+  <button class="util-button" on:click={skipRayTracing}>
+    {!skip ? 'Show Ray Tracing' : 'Hide Ray Tracing'}
+  </button>
 </div>
 
 <style>
@@ -513,35 +578,6 @@
     background: rgba(0, 0, 0, 0.85);
     border-color: rgba(255, 255, 255, 0.6);
   }
-  .github-button {
-    position: fixed;
-    right: 10px;
-    bottom: 10px;
-    color: white;
-    font-family: monospace;
-    font-size: 14px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-    background: rgba(0, 0, 0, 0.5);
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    z-index: 1000;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    transition: all 0.2s ease;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .github-button:hover {
-    background: rgba(0, 0, 0, 0.7);
-    border-color: rgba(255, 255, 255, 0.5);
-  }
-  .github-icon {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-  }
   .start-overlay {
     position: fixed;
     top: 0;
@@ -582,27 +618,20 @@
     }
   }
 
-  .pause {
-    bottom: 20px;
-    left: 20px;
-  }
-  .stop {
-    bottom: 50px;
-    left: 20px;
-  }
-  .skip {
-    bottom: 80px;
-    left: 20px;
-  }
-
   .buttons {
     position: fixed;
-    left: 0;
-    bottom: 0;
+    left: 16px;
+    bottom: 16px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-end;
+    align-items: stretch;
+    gap: 6px;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+  }
+  .buttons.hidden {
+    opacity: 0;
+    pointer-events: none;
   }
   .util-button {
     color: white;
@@ -613,71 +642,21 @@
     padding: 8px 15px;
     border-radius: 5px;
     cursor: pointer;
-    z-index: 1000;
     border: 1px solid rgba(255, 255, 255, 0.3);
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
-    margin: 2px;
+  }
+  .util-button:hover {
+    background: rgba(0, 0, 0, 0.75);
+    border-color: rgba(255, 255, 255, 0.5);
   }
 
   .pause-icon {
     width: 16px;
     height: 16px;
     fill: currentColor;
-  }
-
-  /* Add styles for the standalone forcefield-panel */
-  .forcefield-panel {
-    position: fixed;
-    top: 300px;
-    right: 10px;
-    width: 200px;
-    background: rgba(0, 0, 0, 0.85);
-    color: white;
-    font-family: monospace;
-    font-size: 12px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    z-index: 1100;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    transition:
-      width 0.2s,
-      opacity 0.2s;
-    padding: 0 0 10px 0;
-  }
-  .forcefield-panel.collapsed {
-    position: fixed;
-    right: 0;
-    width: 100px;
-    opacity: 0.7;
-    overflow: hidden;
-    padding-bottom: 0;
-  }
-  .forcefield-header {
-    font-weight: bold;
-    background: rgba(255, 255, 255, 0.08);
-    padding: 8px 12px;
-    border-radius: 4px 4px 0 0;
-    cursor: pointer;
-    user-select: none;
-    outline: none;
-  }
-  .forcefield-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px 16px 0 16px;
-  }
-  .forcefield-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .forcefield-value {
-    width: 30px;
-    display: inline-block;
-    text-align: right;
   }
 </style>

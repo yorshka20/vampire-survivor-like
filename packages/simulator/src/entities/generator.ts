@@ -5,7 +5,7 @@ import { createBall } from './ball';
 import { createGeneralShape } from './generalShape';
 import { createSquare } from './square';
 
-type GeneratorType = 'ball' | 'square' | 'random';
+export type GeneratorType = 'ball' | 'square' | 'random';
 
 type GeneratorProps = {
   position: Point;
@@ -104,6 +104,24 @@ class SpawnerEntity extends Entity implements ISpawnerEntity {
 
   getBallSize(): number {
     return this.ballSize;
+  }
+
+  /** Shape emitted from now on (ball = circle, square = rect, random = mixed). */
+  setGeneratorType(type: GeneratorType): void {
+    this.generatorType = type;
+  }
+
+  getGeneratorType(): GeneratorType {
+    return this.generatorType;
+  }
+
+  /** Minimum delay (ms) between spawns. Lower = faster spawning. */
+  setSpawnGap(gap: number): void {
+    this.spawnGap = gap;
+  }
+
+  getSpawnGap(): number {
+    return this.spawnGap;
   }
 }
 

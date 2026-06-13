@@ -154,6 +154,20 @@ export class ParallelCollisionSystem extends System {
     this.ensureResultCapacity(4096);
   }
 
+  /**
+   * Toggle the worker path on/off at runtime so the worker vs single-thread paths
+   * can be A/B'd live from the UI. Safe to call any frame: the next `update` reads
+   * the flag, and the in-flight guard prevents tearing the shared buffers.
+   */
+  setUseWorkers(useWorkers: boolean): void {
+    this.useWorkers = useWorkers;
+  }
+
+  /** Whether the broad + narrow phase currently runs across the worker pool. */
+  getUseWorkers(): boolean {
+    return this.useWorkers;
+  }
+
   /** Grow the entity column buffer to hold at least `count` entities (never shrinks). */
   private ensureEntityCapacity(count: number): void {
     if (count <= this.entityCapacity) return;

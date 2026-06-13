@@ -10,6 +10,10 @@
     type StandardShapeKind,
   } from '../createRenderingTest';
   import { gameState } from '../game/gameState';
+  import ControlButton from './controls/ControlButton.svelte';
+  import ControlGroup from './controls/ControlGroup.svelte';
+  import ControlsPanel from './controls/ControlsPanel.svelte';
+  import SliderControl from './controls/SliderControl.svelte';
 
   type ViewportMode = 'small' | 'large' | 'fullscreen';
 
@@ -434,123 +438,82 @@
     </div>
   {/if}
 
-  <!-- Controls (collapse to the right; body scrolls when it grows) -->
-  <div class="controls" class:collapsed={controlsCollapsed}>
-    <button
-      class="collapse-handle"
-      on:click={() => (controlsCollapsed = !controlsCollapsed)}
-      title={controlsCollapsed ? 'Expand controls' : 'Collapse controls'}
-      aria-label={controlsCollapsed ? 'Expand controls' : 'Collapse controls'}
-    >
-      {controlsCollapsed ? '◀' : '▶'}
-    </button>
-    {#if !controlsCollapsed}
-      <div class="controls-body">
-        <div class="control-group">
-          <span class="group-label">Viewport</span>
-          {#each Object.entries(VIEWPORT_SIZES) as [mode, cfg]}
-            <button
-              class="btn"
-              class:active={viewportMode === mode}
-              on:click={() => setViewportMode(mode as ViewportMode)}
-            >
-              {cfg.label}
-            </button>
-          {/each}
-        </div>
+  <!-- Controls panel, shared with the simulator. -->
+  <ControlsPanel bind:collapsed={controlsCollapsed}>
+    <ControlGroup label="Viewport">
+      {#each Object.entries(VIEWPORT_SIZES) as [mode, cfg]}
+        <ControlButton
+          active={viewportMode === mode}
+          on:click={() => setViewportMode(mode as ViewportMode)}
+        >
+          {cfg.label}
+        </ControlButton>
+      {/each}
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Entities</span>
-          <input
-            class="count-input"
-            type="number"
-            min="0"
-            step="5000"
-            bind:value={requestedCount}
-          />
-          <button class="btn" on:click={regenerate}>Regenerate</button>
-        </div>
+    <ControlGroup label="Entities">
+      <input class="count-input" type="number" min="0" step="5000" bind:value={requestedCount} />
+      <ControlButton on:click={regenerate}>Regenerate</ControlButton>
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Size: {entitySize} (±20%)</span>
-          <input
-            class="size-slider"
-            type="range"
-            min="1"
-            max="40"
-            step="1"
-            bind:value={entitySize}
-            on:change={onSizeChange}
-          />
-        </div>
+    <ControlGroup label="Size (±20%)">
+      <SliderControl min={1} max={40} step={1} bind:value={entitySize} on:change={onSizeChange} />
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">DPR (GPU fill-rate)</span>
-          {#each dprOptions as v}
-            <button class="btn" class:active={maxDpr === v} on:click={() => setDpr(v)}>
-              {v}x
-            </button>
-          {/each}
-        </div>
+    <ControlGroup label="DPR (GPU fill-rate)">
+      {#each dprOptions as v}
+        <ControlButton active={maxDpr === v} on:click={() => setDpr(v)}>{v}x</ControlButton>
+      {/each}
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Stroke (outline)</span>
-          <button class="btn" class:active={strokeEnabled} on:click={toggleStroke}>
-            {strokeEnabled ? 'On' : 'Off'}
-          </button>
-        </div>
+    <ControlGroup label="Stroke (outline)">
+      <ControlButton active={strokeEnabled} on:click={toggleStroke}>
+        {strokeEnabled ? 'On' : 'Off'}
+      </ControlButton>
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Interactive</span>
-          <button class="btn" class:active={interactive} on:click={toggleInteractive}>
-            {interactive ? 'On' : 'Off'}
-          </button>
-        </div>
+    <ControlGroup label="Interactive">
+      <ControlButton active={interactive} on:click={toggleInteractive}>
+        {interactive ? 'On' : 'Off'}
+      </ControlButton>
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Idle frame skip</span>
-          <button class="btn" class:active={idleSkip} on:click={toggleIdleSkip}>
-            {idleSkip ? 'On' : 'Off'}
-          </button>
-          <button
-            class="btn"
-            class:active={panCache}
-            on:click={togglePanCache}
-            title="Blit a cached bitmap on pan instead of re-rasterizing (zoom 1 only)"
-          >
-            {panCache ? 'Pan cache' : 'No cache'}
-          </button>
-          <button
-            class="btn"
-            class:active={partial}
-            on:click={togglePartial}
-            title="Patch only dirty rects on localized content change vs full rebuild"
-          >
-            {partial ? 'Partial' : 'No partial'}
-          </button>
-        </div>
+    <ControlGroup label="Idle frame skip">
+      <ControlButton active={idleSkip} on:click={toggleIdleSkip}>
+        {idleSkip ? 'On' : 'Off'}
+      </ControlButton>
+      <ControlButton
+        active={panCache}
+        on:click={togglePanCache}
+        title="Blit a cached bitmap on pan instead of re-rasterizing (zoom 1 only)"
+      >
+        {panCache ? 'Pan cache' : 'No cache'}
+      </ControlButton>
+      <ControlButton
+        active={partial}
+        on:click={togglePartial}
+        title="Patch only dirty rects on localized content change vs full rebuild"
+      >
+        {partial ? 'Partial' : 'No partial'}
+      </ControlButton>
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Geometry</span>
-          <button class="btn" class:active={useRandom} on:click={selectRandom}>Random</button>
-          {#each STANDARD_KINDS as kind}
-            <button
-              class="btn"
-              class:active={!useRandom && standardKinds[kind]}
-              on:click={() => toggleStandard(kind)}
-            >
-              {kind}
-            </button>
-          {/each}
-        </div>
+    <ControlGroup label="Geometry">
+      <ControlButton active={useRandom} on:click={selectRandom}>Random</ControlButton>
+      {#each STANDARD_KINDS as kind}
+        <ControlButton
+          active={!useRandom && standardKinds[kind]}
+          on:click={() => toggleStandard(kind)}
+        >
+          {kind}
+        </ControlButton>
+      {/each}
+    </ControlGroup>
 
-        <div class="control-group">
-          <span class="group-label">Camera</span>
-          <button class="btn" on:click={resetView}>Reset View</button>
-        </div>
-      </div>
-    {/if}
-  </div>
+    <ControlGroup label="Camera">
+      <ControlButton on:click={resetView}>Reset View</ControlButton>
+    </ControlGroup>
+  </ControlsPanel>
 
   <div class="hint">
     Wheel = zoom · Right-drag / Ctrl+drag = pan · Left-click = select · Left-drag = move entity
@@ -688,81 +651,6 @@
     font-style: italic;
   }
 
-  .controls {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 6px;
-    z-index: 1000;
-    max-height: calc(100vh - 20px);
-  }
-  .controls-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    /* Scroll internally instead of overflowing the viewport as groups are added. */
-    max-height: calc(100vh - 20px);
-    overflow-y: auto;
-    /* keep group borders clear of the scrollbar */
-    padding-right: 2px;
-  }
-  .collapse-handle {
-    flex: none;
-    color: #fff;
-    font-family: monospace;
-    font-size: 12px;
-    background: rgba(0, 0, 0, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    padding: 10px 5px;
-    cursor: pointer;
-  }
-  .collapse-handle:hover {
-    background: rgba(255, 255, 255, 0.18);
-  }
-  .control-group {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    background: rgba(0, 0, 0, 0.8);
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-  .group-label {
-    color: #aaa;
-    font-family: monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    width: 100%;
-  }
-  .btn {
-    color: #fff;
-    font-family: monospace;
-    font-size: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-  }
-  .btn:hover {
-    background: rgba(255, 255, 255, 0.18);
-  }
-  .btn.active {
-    background: #45b7d1;
-    border-color: #45b7d1;
-    color: #04222b;
-    font-weight: bold;
-  }
-  .size-slider {
-    width: 100%;
-    cursor: pointer;
-  }
   .count-input {
     width: 90px;
     color: #fff;
