@@ -88,7 +88,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
   // is latency-bound, not compute-bound: the per-pair narrow phase is microseconds,
   // so the postMessage round-trip + per-frame serialization cost more than the work
   // saved. Pass `true` below to A/B the worker path against this one.
-  world.addSystem(new ParallelCollisionSystem(6, false));
+  world.addSystem(new ParallelCollisionSystem(6, true));
   // world.addSystem(new RecycleSystem((entity, position, viewport) => !isInRect(position, viewport)));
   world.addSystem(new SpawnSystem());
   world.addSystem(new BorderSystem(1));
@@ -144,7 +144,7 @@ function initializeEntities(world: World, viewport: Viewport) {
     ballSize: 10,
     velocity: [initialV * 110, initialV],
     spawnGap: 5,
-    generatorType: 'random',
+    generatorType: 'ball',
   });
   world.addEntity(generator);
 
