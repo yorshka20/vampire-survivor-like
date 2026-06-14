@@ -10,7 +10,7 @@ import {
 import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { EntityType } from '@ecs/core/ecs/types';
 import { randomRgb } from '@ecs/utils/color';
-import { createCanvas2dRenderer } from '@render/canvas2d';
+import { createCanvas2dRenderer, InteractionLayer } from '@render/canvas2d';
 import { setMaxDpr as persistMaxDpr } from '@render/utils/dpr';
 import { createGeneralShape, type GeometryMode } from './entities/generalShape';
 import { Game } from './game/Game';
@@ -133,6 +133,8 @@ export async function createRenderingTest(
   // rayTracing = false: a 2D shape throughput test, the ray tracer would dominate.
   const renderSystem = new RenderSystem(rootElement);
   const renderer = createCanvas2dRenderer(rootElement, 'rendering-test', false);
+  renderer.addRenderLayer(InteractionLayer);
+
   renderSystem.setRenderer(renderer);
   renderSystem.init();
   world.addSystem(renderSystem);

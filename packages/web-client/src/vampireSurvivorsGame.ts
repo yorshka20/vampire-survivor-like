@@ -20,9 +20,7 @@ import {
 import { Viewport } from '@ecs/utils';
 import { createCanvas2dRenderer } from '@render/canvas2d/create';
 import {
-  BackgroundRenderLayer,
   DamageTextCanvasLayer,
-  EntityRenderLayer,
   ItemRenderLayer,
   ProjectileRenderLayer,
 } from '@render/canvas2d/layers';
@@ -57,8 +55,7 @@ export async function createVampireSurvivorsGame(rootElement: HTMLElement) {
   // Create render system (should be last)
   const renderSystem = new RenderSystem(rootElement);
   const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'vampire-survivors');
-  canvas2dRenderer.addRenderLayer(EntityRenderLayer);
-  canvas2dRenderer.addRenderLayer(BackgroundRenderLayer);
+  // add additional layers for game.
   canvas2dRenderer.addRenderLayer(ItemRenderLayer);
   canvas2dRenderer.addRenderLayer(ProjectileRenderLayer);
   canvas2dRenderer.addRenderLayer(DamageTextCanvasLayer);

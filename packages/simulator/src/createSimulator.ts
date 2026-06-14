@@ -19,7 +19,7 @@ import { SystemPriorities } from '@ecs/constants/systemPriorities';
 import { Entity } from '@ecs/core/ecs/Entity';
 import { Point, Viewport } from '@ecs/types/types';
 import { randomRgb, RgbaColor } from '@ecs/utils/color';
-import { createCanvas2dRenderer } from '@render/canvas2d';
+import { createCanvas2dRenderer, InteractionLayer } from '@render/canvas2d';
 import { createBall } from './entities/ball';
 import { createGenerator } from './entities/generator';
 import { createObstacle } from './entities/obstacle';
@@ -121,6 +121,7 @@ function initializeSystems(world: World, rootElement: HTMLElement) {
 
   const renderSystem = new RenderSystem(rootElement);
   const canvas2dRenderer = createCanvas2dRenderer(rootElement, 'simulator', rayTracing);
+  canvas2dRenderer.addRenderLayer(InteractionLayer);
 
   // inject renderer
   renderSystem.setRenderer(canvas2dRenderer);
