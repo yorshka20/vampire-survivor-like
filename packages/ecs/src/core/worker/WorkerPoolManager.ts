@@ -17,6 +17,18 @@ import {
   WorkerTaskType,
 } from './types';
 
+/**
+ * Rejection reason used when a task is dropped via {@link WorkerPoolManager.cancelTasksByType}.
+ * Callers can `instanceof`-check this to tell an intentional discard apart from a real failure
+ * (e.g. when a render layer is hidden, its in-flight work is cancelled, not errored).
+ */
+export class WorkerTaskCancelledError extends Error {
+  constructor(message = 'Worker task cancelled') {
+    super(message);
+    this.name = 'WorkerTaskCancelledError';
+  }
+}
+
 export class WorkerPoolManager {
   private static instance: WorkerPoolManager;
   private workers: Worker[] = [];
@@ -94,6 +106,55 @@ export class WorkerPoolManager {
   }
 
   /**
+   * Discards every pending task of the given type.
+   *
+   * Why this exists: the pool is shared across systems (collision, ray tracing, …).
+   * A producer that out-runs the workers — progressive ray tracing submits a fresh
+   * batch every frame — can pile up an unbounded backlog. Once that producer is no
+   * longer needed (e.g. its render layer is hidden), the backlog keeps the workers
+   * busy and starves latency-critical tasks like collision, freezing the game.
+   *
+   * Queued tasks have not touched a worker yet, so they are removed outright and
+   * their promises rejected. In-flight tasks (already `postMessage`d) cannot be
+   * aborted mid-computation, so we only flag their result to be ignored and reject
+   * the promise now — there are at most `workerCount` of them and each frees its
+   * worker the instant it reports back. We deliberately keep them in `activeTasks`
+   * so {@link handleWorkerMessage} still returns the worker to the pool.
+   *
+   * @returns The number of tasks that were cancelled.
+   */
+  public cancelTasksByType(taskType: WorkerTaskType, reason?: string): number {
+    let cancelled = 0;
+    const error = new WorkerTaskCancelledError(reason);
+
+    // 1. Drop not-yet-dispatched tasks entirely (no worker assigned → no leak).
+    const remaining: GeneralWorkerTask<WorkerTaskType>[] = [];
+    for (const queued of this.taskQueue) {
+      if (queued.taskType === taskType) {
+        this.activeTasks.delete(queued.task.taskId);
+        queued.task.cancelled = true;
+        queued.task.reject(error);
+        cancelled++;
+      } else {
+        remaining.push(queued);
+      }
+    }
+    this.taskQueue = remaining;
+
+    // 2. Abandon in-flight tasks: flag + reject now, but leave them in activeTasks
+    //    so the worker is still recycled when the (now ignored) result arrives.
+    for (const task of this.activeTasks.values()) {
+      if (task.taskType === taskType && task.task.worker && !task.task.cancelled) {
+        task.task.cancelled = true;
+        task.task.reject(error);
+        cancelled++;
+      }
+    }
+
+    return cancelled;
+  }
+
+  /**
    * Assigns a task to an available worker or queues it if no workers are available.
    * @param task - The WorkerTask to be assigned.
    */
@@ -126,7 +187,11 @@ export class WorkerPoolManager {
       return;
     }
 
-    task.task.resolve(event.data.result);
+    // A cancelled in-flight task has already had its promise rejected; just drop
+    // the result. We still recycle the worker so the pool doesn't leak it.
+    if (!task.task.cancelled) {
+      task.task.resolve(event.data.result);
+    }
     this.activeTasks.delete(taskId);
     this.availableWorkers.push(task.task.worker);
     this.processQueue();

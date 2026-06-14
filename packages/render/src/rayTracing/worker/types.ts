@@ -9,6 +9,8 @@ export interface RayTracingWorkerTask {
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
   priority: number;
+  /** Set when the task is discarded via cancelTasksByType; result is then ignored. */
+  cancelled?: boolean;
   data: RayTracingWorkerData;
 }
 

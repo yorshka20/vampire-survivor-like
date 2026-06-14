@@ -39,6 +39,17 @@ interface ProgressiveRenderState {
  * This approach allows for complex lighting and shadow effects to be rendered in parallel,
  * leveraging multiple CPU cores for better performance.
  */
+/**
+ * Worker-pool scheduling priority for ray-tracing tasks.
+ *
+ * The pool sorts ascending (lower runs first) and is shared with collision, whose
+ * tasks submit at `SystemPriorities.COLLISION` (900). Ray tracing is purely cosmetic
+ * and must never delay the simulation, so it sits well below every gameplay system —
+ * collision, physics, etc. always drain first. (Note this is the *pool* priority, not
+ * the layer's `RenderLayerPriority`, which only governs draw order.)
+ */
+const RAY_TRACING_WORKER_PRIORITY = 1_000_000;
+
 export class RayTracingLayer extends CanvasRenderLayer {
   // default invisible
   visible = false;
@@ -46,6 +57,11 @@ export class RayTracingLayer extends CanvasRenderLayer {
   private workerPoolManager: WorkerPoolManager;
   private tileSize = 100; // The width and height of the tiles rendered by each worker. Smaller tiles give better load balancing but more overhead.
   private imageData: ImageData | null = null; // Stores the pixel data for the entire canvas.
+
+  // Backpressure guard: true while a pass's worker batch is still running. We refuse
+  // to submit the next pass until the current one settles, so the shared worker pool
+  // never accumulates an unbounded ray-tracing backlog (which would starve collision).
+  private passInFlight = false;
 
   private cameraEntities: IEntity[] = [];
   private serializedCamera: SerializedCamera | null = null;
@@ -110,12 +126,27 @@ export class RayTracingLayer extends CanvasRenderLayer {
       this.mainCtx.drawImage(this.offscreenCanvas, 0, 0);
     }
 
+    // Backpressure: never queue a new pass while the previous one is still running.
+    // Ray tracing is slower than the frame loop, so submitting every frame would pile
+    // an unbounded backlog onto the shared worker pool and starve collision. We keep
+    // showing the last accumulated frame until the current pass completes.
+    if (this.passInFlight) {
+      this.frameCount++;
+      return;
+    }
+
     // Start the ray tracing process and get promises for the results from each worker.
     const activePromises = this.startRayTracing(this.lastViewport, cameraOffset);
 
-    // If there are active rendering tasks, wait for them to complete and process the results.
+    // If there are active rendering tasks, gate the next pass on their completion and
+    // refresh the display once the whole batch settles.
     if (activePromises.length > 0) {
-      this.handleWorkerResults(activePromises);
+      this.passInFlight = true;
+      Promise.allSettled(activePromises).then(() => {
+        this.passInFlight = false;
+        // Cancelled (hidden) or completed — either way reflect the latest accumulation.
+        this.updateDisplayFromAccumBuffer();
+      });
     }
 
     this.frameCount++;
@@ -296,8 +327,12 @@ export class RayTracingLayer extends CanvasRenderLayer {
         canvasWidth: Math.ceil(this.offscreenCanvas.width),
       };
 
-      // Submit the task to the worker pool and store the promise.
-      activePromises.push(this.workerPoolManager.submitTask('rayTracing', taskData, this.priority));
+      // Submit the task to the worker pool and store the promise. Use the dedicated
+      // low worker priority (NOT this.priority, which is render draw-order) so these
+      // cosmetic tasks never queue ahead of gameplay-critical work like collision.
+      activePromises.push(
+        this.workerPoolManager.submitTask('rayTracing', taskData, RAY_TRACING_WORKER_PRIORITY),
+      );
     }
 
     // Advance to next sampling pass
@@ -332,13 +367,29 @@ export class RayTracingLayer extends CanvasRenderLayer {
   }
 
   /**
-   * Collects results from all workers and accumulates them into the progressive buffer.
+   * Called by the renderer when this layer is shown or hidden. A hidden layer no
+   * longer receives `update`, so any worker tasks it already scheduled would keep
+   * draining and starve the shared pool. Discard them the moment we go invisible.
    */
-  private async handleWorkerResults(
-    activePromises: Promise<ProgressiveTileResult[]>[],
-  ): Promise<void> {
-    // this will update the display immediately
-    this.updateDisplayFromAccumBuffer();
+  onVisibilityChange(visible: boolean): void {
+    if (!visible) {
+      this.discardPendingWork();
+    }
+  }
+
+  /**
+   * Drops all pending ray-tracing tasks from the shared worker pool and clears the
+   * in-flight guard so a later re-show starts a fresh pass.
+   */
+  private discardPendingWork(): void {
+    const cancelled = this.workerPoolManager.cancelTasksByType(
+      'rayTracing',
+      'RayTracingLayer hidden',
+    );
+    this.passInFlight = false;
+    if (cancelled > 0) {
+      console.log(`RayTracingLayer: discarded ${cancelled} pending ray-tracing task(s)`);
+    }
   }
 
   /**

@@ -94,7 +94,13 @@ export class Canvas2dRenderer implements IRenderer {
   skipRayTracing(skip: boolean): void {
     this.layers.forEach((layer) => {
       if (layer.identifier === RenderLayerIdentifier.RAY_TRACING) {
-        layer.visible = !skip;
+        const visible = !skip;
+        if (layer.visible !== visible) {
+          layer.visible = visible;
+          // Let the layer release work it scheduled off-loop (worker tasks) when
+          // it goes invisible — otherwise the backlog keeps starving the pool.
+          layer.onVisibilityChange(visible);
+        }
       }
     });
   }

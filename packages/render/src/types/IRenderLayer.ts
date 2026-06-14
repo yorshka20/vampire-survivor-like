@@ -31,6 +31,15 @@ export abstract class IRenderLayer {
 
   abstract filterEntity(entity: IEntity, viewport: RectArea): boolean;
 
+  /**
+   * Called when the layer's visibility is toggled. Hidden layers stop receiving
+   * `update`, so this is a layer's only chance to release work it has already
+   * scheduled elsewhere (e.g. discard pending worker tasks). Default is a no-op.
+   */
+  onVisibilityChange(_visible: boolean): void {
+    // no-op by default
+  }
+
   onResize(): void {
     // TODO: handle window resize
   }
