@@ -21,22 +21,23 @@
 | 等级数据 | 自定义 `FruitComponent { level }`,在 PoolManager 注册池 | 未注册池的组件在 removeEntity 时会 warn |
 | 投放预览 / 警戒线 / 容器边框 | 自定义 overlay render layer | `drawShape` 不支持文字等,overlay 不应是物理实体 |
 | ECS → UI | `world.emit`(lazy + async),Svelte 侧 `world.observe` | 遵循既有约定,不做同步回调 |
-| 移动端 | `TransformSystem.mobileScale = 1` | 否则移动端渲染尺寸(0.6)与碰撞尺寸不一致 |
+| 移动端 | 不注册 `TransformSystem` | 它会把移动端所有实体的渲染 scale 设成 0.6,而碰撞仍按原尺寸;本游戏也不需要它的键盘移动 / 拖拽 |
 | 单例 | 重开 = 同一 world 内清实体 + 重置状态,不重建 World | `World` / `RenderSystem` / `GameStore` / `PoolManager` 都是单例 |
 
-## 3. 系统一览(规划)
+## 3. 系统一览
 
-| System | 优先级 | 职责 |
-| --- | --- | --- |
-| SpatialGridSystem | 0 | (lib) 宽相位网格 |
-| DropperSystem | INPUT 附近 | 指针 → 世界 x,点击投放,冷却,current/next 管理 |
-| ForceFieldSystem | 601 | (lib) 重力 |
-| PhysicsSystem | 700 | (lib) 积分 |
-| BorderSystem | 801 | (lib) 容器 clamp |
-| ParallelCollisionSystem | 900 | (lib) 球-球碰撞 |
-| MergeSystem | COLLISION 之后 | 同级接触合成、计分 |
-| GameOverSystem | MergeSystem 之后 | 警戒线 + 停留计时 |
-| RenderSystem | 9999 | (lib) + MergeOverlayLayer |
+| System | 优先级 | 职责 | 状态 |
+| --- | --- | --- | --- |
+| SpatialGridSystem | 0 | (lib) 宽相位网格 | ✅ |
+| PerformanceSystem | 101 | (lib) 由 `Game.initialize` 注册,供 GameLoop 取时间步 | ✅ |
+| DropperSystem | 200 (`INPUT`) | 指针 → 世界 x,点击投放,冷却,held/next 管理 | ✅ |
+| ForceFieldSystem | 601 | (lib) 重力 | ✅ |
+| PhysicsSystem | 700 | (lib) 积分 | ✅ |
+| BorderSystem | 801 | (lib) 容器 clamp | ✅ |
+| ParallelCollisionSystem | 900 | (lib) 球-球碰撞,单线程 | ✅ |
+| MergeSystem | 950 (`COLLISION + 50`) | 同级接触合成、计分 | ✅ |
+| GameOverSystem | MergeSystem 之后 | 警戒线 + 停留计时 | Phase 4 |
+| RenderSystem | 9999 | (lib) Entity / Background 层 + `MergeOverlayLayer` | ✅ |
 
 ## 4. 分阶段实现
 
@@ -52,13 +53,52 @@
   - 容器 clamp 与碰撞求解的顺序:clamp 目前在碰撞之前(BORDER 801 < COLLISION 900),碰撞把球推进墙后要下一帧才拉回 → 调整为求解后再 clamp(或在迭代中约束)。
   - 线速度阻尼 / 切向摩擦(`PhysicsComponent.friction` 目前未生效),改善堆叠抖动与"冰面滑动"。
 
-## 5. 实现记录
+## 5. 实现情况
 
-- render lib 新增通用 layer 槽位 `RenderLayerIdentifier.OVERLAY` / `RenderLayerPriority.OVERLAY`(追加在枚举末尾,不影响已有排序)。
-- `BorderSystem.setBounds` 必须在 `world.addSystem` 之后调用(它读取 world 的 spatial cell size)。
-- 未注册 `TransformSystem`:本游戏不需要键盘移动 / 拖拽,也顺带规避了移动端 0.6 渲染缩放问题。
-- 游戏侧共享状态用 `MergeState` 黑板(仿 RenderContext):system 写,overlay layer 读,UI 通过 `world.emit('merge:state')` 拿快照。
-- 待调:等级配色有几级过于接近(cherry / apple 都是红色),Phase 5 一并处理。
+### 5.1 当前状态(Phase 1–3 完成,commit `9f29378`)
+
+已可玩:指针瞄准 → 点击投放 → 同级接触合成 → 计分。尚无失败判定、重开与 HUD(分数只经 `merge:state` 推送,界面未显示)。
+
+运行:`pnpm dev:merge`(端口 5175)。
+
+### 5.2 文件结构
+
+| 文件 | 内容 |
+| --- | --- |
+| `src/createMergeGame.ts` | 启动入口:注册组件池、创建 RenderSystem + overlay、按 layout 设置 zoom、注册各 logic system |
+| `src/config.ts` | 调参常量:容器 600×900、投放区高度、重力 1500、网格 80、碰撞迭代 8、投放冷却 0.5s、合成接触容差 2 |
+| `src/layout.ts` | `computeLayout(viewport)`:算 zoom 与容器的世界坐标(cameraOffset 恒为 0,靠容器原点居中) |
+| `src/fruits.ts` | 11 级等级表(半径 18 → 156、颜色、分数);投放只随机前 5 级 |
+| `src/state.ts` | `MergeState` 黑板 + `MERGE_EVENTS` 通道名 + `snapshotOf` |
+| `src/components/FruitComponent.ts` | `{ level }` |
+| `src/entities/ball.ts` / `fruit.ts` | 通用物理圆 / 按等级创建水果(颜色拷贝一份,避免 RenderComponent 持有等级表引用) |
+| `src/systems/DropperSystem.ts` | pointer 事件只记录位置 / 点击,update 里换算世界 x(读 `world.renderContext` 的 zoom/dpr/offset)、夹在容器内、冷却中的点击直接丢弃 |
+| `src/systems/MergeSystem.ts` | O(n²) 找同级接触对 → 扫描结束后统一删旧建新;每个水果每帧最多合一次,连锁合成跨帧完成 |
+| `src/render/MergeOverlayLayer.ts` | 容器壁(开口向上)、投放引导虚线、手持水果预览 |
+| `src/game/Game.ts` / `GameLoop.ts` | 从 simulator 原样复制 |
+| `src/ui/GameUI.svelte` | 挂载后启动游戏;wrapper 设 `touch-action: none` |
+
+### 5.3 对 lib 的改动
+
+- render:新增通用 layer 槽位 `RenderLayerIdentifier.OVERLAY` / `RenderLayerPriority.OVERLAY`(追加在枚举末尾,不影响已有排序)。
+- ecs:无改动。
+
+### 5.4 验证
+
+- `tsc --noEmit`、`pnpm build` 通过。
+- 无头 Chrome(CDP)模拟 25 次投放:合成出 6 级水果,`merge:state` 事件正常推送分数;截图确认容器、预览、引导线位置正确。
+
+### 5.5 踩到的坑
+
+- `BorderSystem.setBounds` 必须在 `world.addSystem` 之后调用(它读 `this.world.spatialCellSize`,否则直接报错)。
+- `ParallelCollisionSystem` 构造时就分配 `SharedArrayBuffer`(即使单线程模式),所以 dev server / 部署仍需 COOP/COEP 头(`vite.config.ts` / `vercel.json` 已保留)。
+- 游戏自定义组件需手动在 `PoolManager` 注册池,否则 `removeEntity` 归还时会 warn。
+
+### 5.6 待处理
+
+- 等级配色有几级过于接近(cherry / apple 都是红色)→ Phase 5。
+- 手持预览没有实体的白色描边,与落下后的水果略不一致 → Phase 5。
+- 新合成的大水果瞬间出现在原位,可能与周围重叠较多被弹开 → Phase 6 观察。
 
 ## 6. 暂不做 / 已知限制
 
