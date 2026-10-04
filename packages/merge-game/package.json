@@ -1,0 +1,23 @@
+{
+  "name": "@brotov2/merge-game",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@brotov2/ecs": "workspace:*",
+    "@brotov2/render": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.1.0",
+    "@types/fs-extra": "^11.0.4",
+    "fs-extra": "^11.3.0",
+    "svelte": "^5.33.14",
+    "vite": "^6.3.5"
+  }
+}

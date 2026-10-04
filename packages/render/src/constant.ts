@@ -15,6 +15,9 @@ export enum RenderLayerPriority {
   INTERACTION,
 
   RAY_TRACING,
+
+  /** game-specific HUD / guides drawn on top of everything */
+  OVERLAY,
 }
 
 export enum RenderLayerIdentifier {
@@ -26,4 +29,5 @@ export enum RenderLayerIdentifier {
   GRID_DEBUG = 'grid-debug',
   INTERACTION = 'interaction',
   RAY_TRACING = 'ray-tracing',
+  OVERLAY = 'overlay',
 }
